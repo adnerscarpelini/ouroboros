@@ -1,5 +1,9 @@
 # Ouroboros
 
+<p align="center">
+  <img src="project-logo.png" alt="Logo do projeto Ouroboros" width="200">
+</p>
+
 Projeto pessoal de estudos em C#/.NET, sem fim por design — assim como o ouroboros, a cobra que come o próprio rabo em loop infinito, este projeto nunca é considerado "terminado", apenas continuamente revisitado e evoluído.
 
 ## Objetivo

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ouroboros.Api/Ouroboros.Api.csproj" />
+    <Project Path="src/Ouroboros.Application/Ouroboros.Application.csproj" />
+    <Project Path="src/Ouroboros.Domain/Ouroboros.Domain.csproj" />
+    <Project Path="src/Ouroboros.Infrastructure/Ouroboros.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ouroboros.Application.Tests/Ouroboros.Application.Tests.csproj" />
+    <Project Path="tests/Ouroboros.Domain.Tests/Ouroboros.Domain.Tests.csproj" />
+    <Project Path="tests/Ouroboros.Infrastructure.Tests/Ouroboros.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

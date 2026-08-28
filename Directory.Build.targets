@@ -1,0 +1,15 @@
+<Project>
+
+  <!--
+    Roda os testes automaticamente após o build bem-sucedido da Api (projeto de entrada da aplicação).
+    A variável OUROBOROS_SKIP_AUTOTEST evita recursão: o "dotnet test" disparado aqui builda a solution
+    novamente (incluindo a própria Api), o que sem essa guarda acionaria este target de novo.
+  -->
+  <Target Name="RunTestsAfterBuild"
+          AfterTargets="Build"
+          Condition="'$(MSBuildProjectName)' == 'Ouroboros.Api' and '$(OUROBOROS_SKIP_AUTOTEST)' != 'true'">
+    <Exec Command="dotnet test &quot;$(MSBuildThisFileDirectory)Ouroboros.slnx&quot; --nologo"
+          EnvironmentVariables="OUROBOROS_SKIP_AUTOTEST=true" />
+  </Target>
+
+</Project>

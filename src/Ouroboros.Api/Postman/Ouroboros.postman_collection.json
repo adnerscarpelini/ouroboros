@@ -1,0 +1,16 @@
+{
+	"info": {
+		"_postman_id": "afb1e15e-e3a7-4cfe-9dd2-b366766dd60c",
+		"name": "Ouroboros API",
+		"description": "Collection de requisições da API do projeto Ouroboros.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://localhost:5001",
+			"type": "string"
+		}
+	]
+}

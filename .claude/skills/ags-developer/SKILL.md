@@ -12,6 +12,7 @@ Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regra
 - A branch de trabalho padrão é `development`. Todo desenvolvimento novo acontece nela, nunca diretamente na `main`.
 - Antes de começar a trabalhar, confirme que está na `development` (ou numa branch derivada dela). Se estiver na `main`, troque antes de editar código.
 - **Nunca faça commit ou push automaticamente.** Edite/crie os arquivos normalmente, mas deixe o commit e o push sempre a cargo do usuário — apenas avise que as mudanças estão prontas para revisão.
+- Sempre que uma tarefa for validada e finalizada (build ok, testes ok), sugerir uma mensagem de commit pronta pra o usuário rodar, seguindo o padrão [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, etc.).
 
 ## Idioma
 
@@ -24,6 +25,13 @@ Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regra
 - Priorizar Clean Architecture e Clean Code: separação clara de camadas (Domain, Application, Infrastructure, API/Presentation), regras de negócio isoladas do framework.
 - Escrever só o necessário para o problema atual — evitar abstrações prematuras, generalizações especulativas, código morto ou duplicação desnecessária (KISS/YAGNI).
 - Preferir nomes descritivos que dispensem comentário explicativo.
+
+## Novo módulo vs. módulo existente
+
+- Antes de implementar uma funcionalidade nova, analisar se ela pertence a um módulo já existente em `src/Modules/` (mesmo contexto de negócio) ou se representa um contexto novo, que pede um módulo novo.
+- Apresentar essa análise ao usuário antes de criar um módulo novo: qual módulo existente poderia acomodar a funcionalidade (se algum) e por quê, ou a sugestão de nome/escopo para o módulo novo. Só criar o módulo novo depois da confirmação do usuário — não decidir isso sozinho.
+- Se a funcionalidade claramente pertence a um módulo já existente, pode seguir direto nele, sem precisar dessa confirmação.
+- Ver [src/Modules/README.md](../../../src/Modules/README.md) para a convenção de estrutura e a regra de isolamento entre módulos.
 
 ## Nomenclatura (casing)
 

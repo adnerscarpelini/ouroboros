@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Ouroboros.Application\Ouroboros.Application.csproj" />
-    <ProjectReference Include="..\Ouroboros.Infrastructure\Ouroboros.Infrastructure.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\Ouroboros.BuildingBlocks.Application\Ouroboros.BuildingBlocks.Application.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\Ouroboros.BuildingBlocks.Infrastructure\Ouroboros.BuildingBlocks.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

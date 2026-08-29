@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ouroboros é um projeto pessoal de estudos contínuo (sem "fim" planejado) usando o backend de um e-commerce como produto de exemplo, para praticar Clean Architecture, DDD, Docker e segurança de aplicações ao longo do tempo.
 
-Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-developer](.claude/skills/ags-developer/SKILL.md) — ela define as regras de branch/commit, idioma, nomenclatura (casing) e formatação de assinaturas de métodos usadas neste repositório. Para criar, revisar ou ajustar testes automatizados, siga também a skill [ags-qa](.claude/skills/ags-qa/SKILL.md).
+Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-developer](.claude/skills/ags-developer/SKILL.md) — ela define as regras de branch/commit, idioma, nomenclatura (casing) e formatação de assinaturas de métodos usadas neste repositório. Para criar, revisar ou ajustar testes automatizados, siga também a skill [ags-qa](.claude/skills/ags-qa/SKILL.md). Para qualquer decisão de banco de dados (schemas, migrations, nomenclatura de tabelas/colunas), siga a skill [ags-dba](.claude/skills/ags-dba/SKILL.md).
 
 ## Comandos
 

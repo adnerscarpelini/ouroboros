@@ -81,6 +81,10 @@ userService.Insert(
 - Todo serviço/caso de uso ou regra de negócio novo deve ser coberto por um teste correspondente — para as regras de cobertura e demais convenções de teste, siga a skill [ags-qa](../ags-qa/SKILL.md).
 - `dotnet build` já executa os testes automaticamente ao final (ver `Directory.Build.targets` na raiz do repositório) — não é preciso rodar `dotnet test` manualmente à parte, embora nada impeça. Essa automação só dispara ao buildar a `Ouroboros.Api` (projeto de entrada); buildar um projeto individual isoladamente não aciona os testes.
 
+## Banco de dados
+
+- Qualquer decisão ou implementação envolvendo banco de dados (schemas, migrations, nomenclatura de tabelas/colunas, etc.) segue a skill [ags-dba](../ags-dba/SKILL.md).
+
 ## Collection do Postman
 
 - Sempre que um método/endpoint novo for criado ou alterado na `Ouroboros.Api`, revisar e ajustar `src/Ouroboros.Api/Postman/Ouroboros.postman_collection.json` para refletir a mudança (nova requisição, parâmetros, exemplos, etc.).

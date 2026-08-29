@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\BuildingBlocks\Ouroboros.BuildingBlocks.Domain\Ouroboros.BuildingBlocks.Domain.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Auth\Ouroboros.Modules.Auth.Application\Ouroboros.Modules.Auth.Application.csproj" />
   </ItemGroup>
 
 </Project>

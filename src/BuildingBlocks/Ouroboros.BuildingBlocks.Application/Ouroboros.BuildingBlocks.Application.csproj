@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Ouroboros.Domain\Ouroboros.Domain.csproj" />
+    <ProjectReference Include="..\Ouroboros.BuildingBlocks.Domain\Ouroboros.BuildingBlocks.Domain.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

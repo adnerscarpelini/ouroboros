@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Ouroboros.Infrastructure\Ouroboros.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\Ouroboros.BuildingBlocks.Infrastructure\Ouroboros.BuildingBlocks.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

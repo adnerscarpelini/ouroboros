@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Ouroboros.BuildingBlocks.Application\Ouroboros.BuildingBlocks.Application.csproj" />
+    <ProjectReference Include="..\Ouroboros.Modules.Auth.Domain\Ouroboros.Modules.Auth.Domain.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

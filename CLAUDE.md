@@ -21,7 +21,7 @@ dotnet run --project src/Ouroboros.Api
 dotnet test
 
 # rodar os testes de um único projeto
-dotnet test tests/Ouroboros.Domain.Tests
+dotnet test tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests
 
 # rodar um único teste (por nome do método/classe, via filtro do xUnit)
 dotnet test --filter "FullyQualifiedName~NomeDoTeste"
@@ -31,18 +31,19 @@ A API sobe em `http://localhost:5082` (perfil `http`) ou `https://localhost:7272
 
 ## Arquitetura
 
-Clean Architecture com cada camada como um projeto `.csproj` separado, para que a regra de dependência seja garantida pelo compilador. Decisão completa e justificativa em [docs/0000 - Arquitetura.md](docs/0000%20-%20Arquitetura.md).
+Clean Architecture dentro de um monolito modular, com cada camada/módulo como um projeto `.csproj` separado, para que a regra de dependência seja garantida pelo compilador. Decisão completa e justificativa em [docs/0000 - Arquitetura.md](docs/0000%20-%20Arquitetura.md).
 
 ```
-src/Ouroboros.Domain          → entidades, value objects, regras de negócio puras. Sem dependências de outras camadas.
-src/Ouroboros.Application     → casos de uso, interfaces (contratos), DTOs. Depende de Domain.
-src/Ouroboros.Infrastructure  → implementação dos contratos de Application (banco de dados, integrações externas). Depende de Application.
-src/Ouroboros.Api             → controllers, injeção de dependência, configuração HTTP. Depende de Application e Infrastructure.
+src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain          → tipos-base de domínio compartilhados entre módulos. Sem dependências de outras camadas.
+src/BuildingBlocks/Ouroboros.BuildingBlocks.Application     → abstrações de aplicação compartilhadas entre módulos. Depende de BuildingBlocks.Domain.
+src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure  → infraestrutura de propósito geral compartilhada entre módulos. Depende de BuildingBlocks.Application.
+src/Modules/<NomeDoModulo>/                                 → módulos de negócio (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure. Ainda vazio — nenhum módulo criado.
+src/Ouroboros.Api                                            → controllers, injeção de dependência, configuração HTTP. Depende dos BuildingBlocks e dos módulos.
 ```
 
-A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`).
+A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`). Um módulo de negócio nunca referencia o `Domain`/`Application` de outro módulo diretamente — só `BuildingBlocks` — ver [src/Modules/README.md](src/Modules/README.md).
 
-Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/` (`Ouroboros.Domain.Tests`, `Ouroboros.Application.Tests`, `Ouroboros.Infrastructure.Tests`), referenciando apenas a camada que testa. Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
+Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...` hoje). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 
 ## Documentação
 

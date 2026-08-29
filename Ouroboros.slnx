@@ -1,13 +1,23 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Ouroboros.Api/Ouroboros.Api.csproj" />
-    <Project Path="src/Ouroboros.Application/Ouroboros.Application.csproj" />
-    <Project Path="src/Ouroboros.Domain/Ouroboros.Domain.csproj" />
-    <Project Path="src/Ouroboros.Infrastructure/Ouroboros.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Ouroboros.Application.Tests/Ouroboros.Application.Tests.csproj" />
-    <Project Path="tests/Ouroboros.Domain.Tests/Ouroboros.Domain.Tests.csproj" />
-    <Project Path="tests/Ouroboros.Infrastructure.Tests/Ouroboros.Infrastructure.Tests.csproj" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Application/Ouroboros.BuildingBlocks.Application.csproj" />
+    <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain/Ouroboros.BuildingBlocks.Domain.csproj" />
+    <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure/Ouroboros.BuildingBlocks.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Auth/">
+    <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Application/Ouroboros.Modules.Auth.Application.csproj" />
+    <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Domain/Ouroboros.Modules.Auth.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/BuildingBlocks/">
+    <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Application.Tests/Ouroboros.BuildingBlocks.Application.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests/Ouroboros.BuildingBlocks.Domain.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure.Tests/Ouroboros.BuildingBlocks.Infrastructure.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Auth/">
+    <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Application.Tests/Ouroboros.Modules.Auth.Application.Tests.csproj" />
   </Folder>
 </Solution>

@@ -33,6 +33,37 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 
 - A connection string com a senha real **nunca** vai pro `appsettings.json` (esse arquivo é versionado). Local, ela fica no **User Secrets** do projeto `Ouroboros.Api` (`dotnet user-secrets`), equivalente ao papel do `.env` no Docker Compose — ver [docs/0002 - Setup do Banco de Dados Local.md](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
 
+## Entidades persistidas (padrão de construtor para o EF Core)
+
+Toda entidade que vai ser persistida (tem um `DbSet<T>` em algum `DbContext`) precisa, além do construtor público "de verdade" (com as regras de negócio), de:
+
+- Um **construtor privado sem parâmetros**, exclusivo para o EF Core materializar a entidade a partir do banco.
+- **`private set`** em toda propriedade (em vez de só `get`), incluindo `Id`.
+
+Sem isso, o EF Core não consegue reconstruir a entidade a partir de uma linha do banco — na prática, ele passa a ignorar silenciosamente as propriedades sem `set`, e elas somem da migration gerada (ou, no caso do `Id`, o erro é explícito: "requires a primary key to be defined"). Isso já aconteceu com `ErrorLog` e `User` na prática — ver os dois como referência.
+
+```csharp
+public sealed class ErrorLog
+{
+	public Guid Id { get; private set; }
+	public string Source { get; private set; } = null!;
+	// ...
+
+	private ErrorLog()
+	{
+	}
+
+	public ErrorLog(string source, /* ... */)
+	{
+		Id = Guid.NewGuid();
+		Source = source;
+		// ...
+	}
+}
+```
+
+Propriedades de referência não-nulas (`string`, não `string?`) precisam do `= null!;` no construtor privado, pra não gerar aviso de nullable reference type — o construtor público sempre sobrescreve esse valor de verdade.
+
 ## Nomenclatura (casing)
 
 - Tabelas e colunas no Postgres: **snake_case** (ex.: tabela `users`, coluna `created_at`), seguindo a convenção idiomática do Postgres.

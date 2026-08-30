@@ -1,4 +1,4 @@
-namespace Ouroboros.BuildingBlocks.Domain;
+namespace Ouroboros.Common.Domain;
 
 public sealed class ErrorLog
 {

@@ -1,13 +1,13 @@
 using Microsoft.EntityFrameworkCore;
-using Ouroboros.BuildingBlocks.Domain;
+using Ouroboros.Common.Domain;
 
-namespace Ouroboros.BuildingBlocks.Infrastructure;
+namespace Ouroboros.Common.Infrastructure;
 
-public sealed class BuildingBlocksDbContext : DbContext
+public sealed class CommonDbContext : DbContext
 {
 	public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
 
-	public BuildingBlocksDbContext(DbContextOptions<BuildingBlocksDbContext> options) : base(options)
+	public CommonDbContext(DbContextOptions<CommonDbContext> options) : base(options)
 	{
 	}
 

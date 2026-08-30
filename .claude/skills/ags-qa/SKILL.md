@@ -9,10 +9,10 @@ Skill base para testes automatizados no projeto Ouroboros. Complementa a [ags-de
 
 ## Cobertura
 
-- Todo serviço/caso de uso novo criado numa camada `Application` ou `Infrastructure` (seja em `BuildingBlocks` ou dentro de um módulo em `src/Modules/`) deve ter um teste correspondente no projeto de testes da mesma camada.
+- Todo serviço/caso de uso novo criado numa camada `Application` ou `Infrastructure` (seja em `Common` ou dentro de um módulo em `src/Modules/`) deve ter um teste correspondente no projeto de testes da mesma camada.
 - Toda regra de negócio nova numa camada `Domain` deve ter um teste correspondente no projeto `.Domain.Tests` equivalente.
-- Cada projeto de teste cobre apenas a camada/módulo equivalente (ex.: `Ouroboros.BuildingBlocks.Domain.Tests` → `Ouroboros.BuildingBlocks.Domain`) — não escrever teste de uma camada ou módulo dentro do projeto de outro.
-- Teste de um módulo nunca depende de outro módulo — só de `BuildingBlocks` e do próprio módulo, seguindo a mesma regra de isolamento entre módulos (ver [src/Modules/README.md](../../../src/Modules/README.md)).
+- Cada projeto de teste cobre apenas a camada/módulo equivalente (ex.: `Ouroboros.Common.Domain.Tests` → `Ouroboros.Common.Domain`) — não escrever teste de uma camada ou módulo dentro do projeto de outro.
+- Teste de um módulo nunca depende de outro módulo — só de `Common` e do próprio módulo, seguindo a mesma regra de isolamento entre módulos (ver [src/Modules/README.md](../../../src/Modules/README.md)).
 
 ## Execução
 

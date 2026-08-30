@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BuildingBlocks\Ouroboros.BuildingBlocks.Application\Ouroboros.BuildingBlocks.Application.csproj" />
-    <ProjectReference Include="..\BuildingBlocks\Ouroboros.BuildingBlocks.Infrastructure\Ouroboros.BuildingBlocks.Infrastructure.csproj" />
+    <ProjectReference Include="..\Common\Ouroboros.Common.Application\Ouroboros.Common.Application.csproj" />
+    <ProjectReference Include="..\Common\Ouroboros.Common.Infrastructure\Ouroboros.Common.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Auth\Ouroboros.Modules.Auth.Infrastructure\Ouroboros.Modules.Auth.Infrastructure.csproj" />
   </ItemGroup>
 

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
-using Ouroboros.BuildingBlocks.Application;
+using Ouroboros.Common.Application;
 
 namespace Ouroboros.Api;
 

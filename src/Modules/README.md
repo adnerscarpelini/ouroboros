@@ -19,6 +19,6 @@ O módulo `Auth` é o primeiro exemplo dessa convenção em prática, agora com 
 
 Um módulo **nunca** referencia o `Domain` ou `Application` de outro módulo diretamente. Se um módulo precisar de algo de outro, isso passa por um contrato explícito (ex.: interface, evento) — nunca por uma `ProjectReference` direta entre módulos.
 
-Todos os módulos podem depender de `src/BuildingBlocks/` (tipos e abstrações compartilhados entre módulos), mas nunca uns dos outros.
+Todos os módulos podem depender de `src/Common/` (tipos e abstrações compartilhados entre módulos), mas nunca uns dos outros.
 
 Essa regra é o que mantém a possibilidade de, no futuro, extrair um módulo inteiro para um serviço/repositório próprio sem precisar desembaraçar acoplamento escondido.

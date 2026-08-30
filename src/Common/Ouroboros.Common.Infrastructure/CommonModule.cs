@@ -1,17 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Ouroboros.BuildingBlocks.Application;
+using Ouroboros.Common.Application;
 
-namespace Ouroboros.BuildingBlocks.Infrastructure;
+namespace Ouroboros.Common.Infrastructure;
 
-public static class BuildingBlocksModule
+public static class CommonModule
 {
-	public static IServiceCollection AddBuildingBlocks(
+	public static IServiceCollection AddCommon(
 		this IServiceCollection services,
 		string connectionString
 	)
 	{
-		services.AddDbContext<BuildingBlocksDbContext>(options => options
+		services.AddDbContext<CommonDbContext>(options => options
 			.UseNpgsql(connectionString)
 			.UseSnakeCaseNamingConvention());
 

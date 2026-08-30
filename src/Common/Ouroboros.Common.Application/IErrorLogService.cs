@@ -1,4 +1,4 @@
-namespace Ouroboros.BuildingBlocks.Application;
+namespace Ouroboros.Common.Application;
 
 public interface IErrorLogService
 {

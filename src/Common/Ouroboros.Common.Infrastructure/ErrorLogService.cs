@@ -1,13 +1,13 @@
-using Ouroboros.BuildingBlocks.Application;
-using Ouroboros.BuildingBlocks.Domain;
+using Ouroboros.Common.Application;
+using Ouroboros.Common.Domain;
 
-namespace Ouroboros.BuildingBlocks.Infrastructure;
+namespace Ouroboros.Common.Infrastructure;
 
 public sealed class ErrorLogService : IErrorLogService
 {
-	private readonly BuildingBlocksDbContext _dbContext;
+	private readonly CommonDbContext _dbContext;
 
-	public ErrorLogService(BuildingBlocksDbContext dbContext)
+	public ErrorLogService(CommonDbContext dbContext)
 	{
 		_dbContext = dbContext;
 	}

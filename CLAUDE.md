@@ -21,7 +21,7 @@ dotnet run --project src/Ouroboros.Api
 dotnet test
 
 # rodar os testes de um único projeto
-dotnet test tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests
+dotnet test tests/Common/Ouroboros.Common.Domain.Tests
 
 # rodar um único teste (por nome do método/classe, via filtro do xUnit)
 dotnet test --filter "FullyQualifiedName~NomeDoTeste"
@@ -34,20 +34,20 @@ A API sobe em `http://localhost:5082` (perfil `http`) ou `https://localhost:7272
 Clean Architecture dentro de um monolito modular, com cada camada/módulo como um projeto `.csproj` separado, para que a regra de dependência seja garantida pelo compilador. Decisão completa e justificativa em [docs/0000 - Arquitetura.md](docs/0000%20-%20Arquitetura.md).
 
 ```
-src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain          → tipos-base de domínio compartilhados entre módulos. Sem dependências de outras camadas.
-src/BuildingBlocks/Ouroboros.BuildingBlocks.Application     → abstrações de aplicação compartilhadas entre módulos. Depende de BuildingBlocks.Domain.
-src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure  → infraestrutura de propósito geral compartilhada entre módulos. Depende de BuildingBlocks.Application.
-src/Modules/<NomeDoModulo>/                                 → módulos de negócio (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure. Primeiro exemplo: Auth (src/Modules/Auth/).
-src/Ouroboros.Api                                            → controllers, injeção de dependência, configuração HTTP. Depende dos BuildingBlocks e dos módulos.
+src/Common/Ouroboros.Common.Domain           → tipos-base de domínio compartilhados entre módulos. Sem dependências de outras camadas.
+src/Common/Ouroboros.Common.Application      → abstrações de aplicação compartilhadas entre módulos. Depende de Common.Domain.
+src/Common/Ouroboros.Common.Infrastructure   → infraestrutura de propósito geral compartilhada entre módulos. Depende de Common.Application.
+src/Modules/<NomeDoModulo>/                  → módulos de negócio (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure. Primeiro exemplo: Auth (src/Modules/Auth/).
+src/Ouroboros.Api                            → controllers, injeção de dependência, configuração HTTP. Depende do Common e dos módulos.
 ```
 
-A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`). Um módulo de negócio nunca referencia o `Domain`/`Application` de outro módulo diretamente — só `BuildingBlocks` — ver [src/Modules/README.md](src/Modules/README.md).
+A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`). Um módulo de negócio nunca referencia o `Domain`/`Application` de outro módulo diretamente — só `Common` — ver [src/Modules/README.md](src/Modules/README.md).
 
-Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...` hoje). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
+Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/Common/...` hoje). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 
 ## Tratamento de erros
 
-Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.BuildingBlocks.Domain.ErrorLog` (schema `shared`) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
+Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.Common.Domain.ErrorLog` (schema `shared`) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
 
 ## Documentação
 

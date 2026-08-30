@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Ouroboros.BuildingBlocks.Application\Ouroboros.BuildingBlocks.Application.csproj" />
+    <ProjectReference Include="..\Ouroboros.Common.Application\Ouroboros.Common.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,11 +17,21 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 - Cada módulo de negócio (`src/Modules/<NomeDoModulo>/`) tem seu próprio **schema** no Postgres, com o nome do módulo em minúsculo (ex.: módulo `Auth` → schema `auth`).
 - Um módulo nunca lê nem escreve em tabela de outro schema/módulo diretamente — mesma regra de isolamento já aplicada ao código (ver [src/Modules/README.md](../../../src/Modules/README.md)), agora estendida aos dados.
 - É essa separação por schema, e não a existência de bancos físicos separados, que hoje garante o isolamento — enquanto o projeto for um monolito modular, um único banco `ouroboros` hospeda todos os schemas.
+- Tabelas do `Common` (não são de um módulo de negócio específico, ex.: `ErrorLog`) ficam no schema `shared`.
 
 ## Migrations
 
 - Ferramenta: **EF Core Migrations**.
-- Cada módulo com persistência tem seu próprio `DbContext` (na camada `Infrastructure` do módulo), configurado para usar apenas o schema daquele módulo, e suas próprias migrations — não existe um `DbContext` único e global para o projeto inteiro.
+- Cada módulo com persistência tem seu próprio `DbContext` (na camada `Infrastructure` do módulo, nomeado `<NomeDoModulo>DbContext`, ex.: `AuthDbContext`), configurado para usar apenas o schema daquele módulo via `modelBuilder.HasDefaultSchema("<schema>")` em `OnModelCreating`, e suas próprias migrations — não existe um `DbContext` único e global para o projeto inteiro.
+- Pacotes usados no `Infrastructure` de cada módulo com persistência: `Npgsql.EntityFrameworkCore.PostgreSQL` e `EFCore.NamingConventions`. O `Microsoft.EntityFrameworkCore.Design` (necessário pra ferramenta `dotnet ef`) fica só no projeto de entrada (`Ouroboros.Api`).
+
+## Registro do módulo (DI)
+
+- Cada módulo com persistência expõe um único método de extensão em `Infrastructure`, no padrão `Add<NomeDoModulo>Module(this IServiceCollection services, string connectionString)`, que registra o `DbContext` do módulo (com `UseNpgsql` + `UseSnakeCaseNamingConvention`) e os serviços de `Application` daquele módulo. A `Ouroboros.Api` só chama esse método — não registra `DbContext`/serviços de módulo diretamente no `Program.cs`.
+
+## Segredos e connection string
+
+- A connection string com a senha real **nunca** vai pro `appsettings.json` (esse arquivo é versionado). Local, ela fica no **User Secrets** do projeto `Ouroboros.Api` (`dotnet user-secrets`), equivalente ao papel do `.env` no Docker Compose — ver [docs/0002 - Setup do Banco de Dados Local.md](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
 
 ## Nomenclatura (casing)
 

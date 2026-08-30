@@ -50,7 +50,30 @@ docker ps --filter "name=ouroboros-postgres"
 
 O `STATUS` deve mostrar `healthy` depois de alguns segundos.
 
-## 5. Instalar o DBeaver e conectar
+## 5. Configurar a connection string do .NET (User Secrets)
+
+A senha também não pode ir pro `appsettings.json` (esse arquivo é versionado). O equivalente ao `.env` do lado do .NET é o **User Secrets** — guarda a connection string com a senha de verdade fora do repositório, associada só à sua máquina.
+
+1. Inicializar (só precisa uma vez, já feito no projeto, mas fica documentado caso o `UserSecretsId` do `.csproj` mude):
+   ```bash
+   dotnet user-secrets init --project src/Ouroboros.Api
+   ```
+2. Definir a connection string, usando o mesmo usuário/senha do `.env`:
+   ```bash
+   dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros;Username=ouroboros;Password=<senha do .env>" --project src/Ouroboros.Api
+   ```
+
+Sem isso, a Api lança erro ao iniciar (`Connection string 'Postgres' não configurada`).
+
+## 6. Instalar a ferramenta `dotnet-ef`
+
+Necessária pra criar/aplicar migrations mais adiante:
+
+```bash
+dotnet tool install --global dotnet-ef
+```
+
+## 7. Instalar o DBeaver e conectar
 
 1. Baixar o **DBeaver Community**: https://dbeaver.io/download/
 2. Criar uma nova conexão PostgreSQL com:

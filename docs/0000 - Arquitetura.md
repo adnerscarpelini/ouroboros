@@ -35,9 +35,11 @@ Isso é diferente de **microsserviço**: microsserviço é quando cada um desses
 
 Um módulo é um pedaço de negócio isolado — ex.: `Auth`, `Catalog`, `ContasAReceber`. Cada módulo tem sua própria trinca `Domain`/`Application`/(`Infrastructure`, quando necessário), e **nunca** referencia o `Domain`/`Application` de outro módulo diretamente. Essa regra de isolamento é o que permite, no futuro, arrancar um módulo inteiro e transformar em um serviço separado sem descobrir que ele estava "grudado" em outro.
 
-### BuildingBlocks
+### Common
 
-É código técnico compartilhado entre módulos — coisas que não são regra de negócio de ninguém específico, mas que vários módulos usariam (ex.: uma classe-base de entidade, uma exceção genérica de domínio). Fica vazio até que dois ou mais módulos realmente precisem da mesma coisa; criar conteúdo ali antes disso seria adivinhar uma necessidade que ainda não existe.
+É código técnico compartilhado entre módulos — coisas que não são regra de negócio de ninguém específico, mas que vários módulos (ou a própria `Api`) usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
+
+O primeiro conteúdo real do `Common` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core, persistidos no schema `shared` do Postgres. Um handler global de exceções (`GlobalExceptionHandler`, na `Ouroboros.Api`) captura qualquer erro não tratado e registra ali — centralizado num único lugar, em vez de espalhado em `try/catch` pela aplicação inteira.
 
 O nome vem de arquiteturas de referência conhecidas (ex.: o eShopOnContainers, da própria Microsoft) — não é uma tecnologia nova, é só uma pasta com esse nome.
 
@@ -51,22 +53,22 @@ Ainda não existe nenhum módulo de negócio (com uma exceção — `Auth`, cria
 
 | Projeto | Responsabilidade |
 |---|---|
-| `Ouroboros.BuildingBlocks.Domain` | Tipos-base de domínio compartilhados entre módulos. Não depende de nenhuma outra camada nem de frameworks externos. |
-| `Ouroboros.BuildingBlocks.Application` | Abstrações de aplicação compartilhadas entre módulos. Depende apenas de `BuildingBlocks.Domain`. |
-| `Ouroboros.BuildingBlocks.Infrastructure` | Infraestrutura de propósito geral compartilhada entre módulos. Depende de `BuildingBlocks.Application`. |
-| `Ouroboros.Api` | Ponto de entrada HTTP: controllers, injeção de dependência, configuração. Depende dos `BuildingBlocks` e, futuramente, dos módulos de negócio. |
+| `Ouroboros.Common.Domain` | Tipos-base de domínio compartilhados entre módulos. Não depende de nenhuma outra camada nem de frameworks externos. |
+| `Ouroboros.Common.Application` | Abstrações de aplicação compartilhadas entre módulos. Depende apenas de `Common.Domain`. |
+| `Ouroboros.Common.Infrastructure` | Infraestrutura de propósito geral compartilhada entre módulos. Depende de `Common.Application`. |
+| `Ouroboros.Api` | Ponto de entrada HTTP: controllers, injeção de dependência, configuração. Depende do `Common` e, futuramente, dos módulos de negócio. |
 
 A regra de dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`.
 
 ### Testes
 
-Cada camada de `src/` tem um projeto de testes correspondente em `tests/`, no mesmo agrupamento (`BuildingBlocks/`, e um por módulo dentro de `Modules/`), usando xUnit.
+Cada camada de `src/` tem um projeto de testes correspondente em `tests/`, no mesmo agrupamento (`Common/`, e um por módulo dentro de `Modules/`), usando xUnit.
 
 ## Módulos e preparo para microsserviços
 
 Módulos de negócio ficam em `src/Modules/<NomeDoModulo>/`, cada um com sua própria trinca `Domain`/`Application`/`Infrastructure`, isolado dos demais módulos — ver [src/Modules/README.md](../src/Modules/README.md) para a convenção e a regra de isolamento entre módulos.
 
-Um módulo pode depender de `BuildingBlocks`, mas nunca do `Domain`/`Application` de outro módulo diretamente. É essa regra — não a estrutura de pastas em si — que mantém a possibilidade real de, mais adiante, extrair um módulo para um serviço/repositório próprio.
+Um módulo pode depender de `Common`, mas nunca do `Domain`/`Application` de outro módulo diretamente. É essa regra — não a estrutura de pastas em si — que mantém a possibilidade real de, mais adiante, extrair um módulo para um serviço/repositório próprio.
 
 Por enquanto a `Ouroboros.Api` continua sendo um único host para todos os módulos (monolito modular). Dividir a API em serviços separados por módulo é uma decisão que pode ser tomada depois, e não muda a organização interna dos módulos quando isso acontecer.
 
@@ -75,18 +77,18 @@ Por enquanto a `Ouroboros.Api` continua sendo um único host para todos os módu
 ```
 ouroboros/
 ├── src/
-│   ├── BuildingBlocks/
-│   │   ├── Ouroboros.BuildingBlocks.Domain/
-│   │   ├── Ouroboros.BuildingBlocks.Application/
-│   │   └── Ouroboros.BuildingBlocks.Infrastructure/
+│   ├── Common/
+│   │   ├── Ouroboros.Common.Domain/
+│   │   ├── Ouroboros.Common.Application/
+│   │   └── Ouroboros.Common.Infrastructure/
 │   ├── Modules/
 │   │   └── Auth/          → exemplo de módulo (Domain + Application, sem Infrastructure ainda)
 │   └── Ouroboros.Api/
 ├── tests/
-│   ├── BuildingBlocks/
-│   │   ├── Ouroboros.BuildingBlocks.Domain.Tests/
-│   │   ├── Ouroboros.BuildingBlocks.Application.Tests/
-│   │   └── Ouroboros.BuildingBlocks.Infrastructure.Tests/
+│   ├── Common/
+│   │   ├── Ouroboros.Common.Domain.Tests/
+│   │   ├── Ouroboros.Common.Application.Tests/
+│   │   └── Ouroboros.Common.Infrastructure.Tests/
 │   └── Modules/
 │       └── Auth/
 ├── docs/

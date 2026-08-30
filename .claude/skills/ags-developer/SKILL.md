@@ -38,6 +38,11 @@ Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regra
 - **camelCase**: variáveis locais e campos privados (ex.: `_orderStatus`, `totalAmount`).
 - **PascalCase**: classes, métodos, propriedades públicas e demais membros públicos — padrão idiomático do C#/.NET (ex.: `OrderStatus`, `CalculateTotal()`). Não usar camelCase em propriedades públicas.
 
+## Nomenclatura de métodos (verbo explícito)
+
+- Todo método que executa uma ação deve ter um verbo explícito indicando o que ele faz (ex.: `Add`, `Get`, `Update`, `Delete`, `Create`, `Remove`), antes ou depois do nome do recurso — nunca um nome vago que exija ler o corpo do método pra saber o que ele faz.
+- Exemplo aplicado: `IErrorLogService.AddAsync(...)` (adiciona um registro de erro), não `LogAsync(...)` (não deixa claro se loga, cria, envia, etc.).
+
 ## Formatação de assinaturas de métodos
 
 - Método/construtor com **0 ou 1 parâmetro**: assinatura em uma única linha.
@@ -84,6 +89,12 @@ userService.Insert(
 ## Banco de dados
 
 - Qualquer decisão ou implementação envolvendo banco de dados (schemas, migrations, nomenclatura de tabelas/colunas, etc.) segue a skill [ags-dba](../ags-dba/SKILL.md).
+
+## Tratamento de erros
+
+- Não usar `try/catch` só pra logar e relançar (ou engolir) uma exceção — deixe subir. Qualquer erro não tratado que chegue até a Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`) e registrado via `IErrorLogService`, sem precisar de código extra em cada método.
+- Só usar `try/catch` quando houver algo real a fazer com a exceção naquele ponto (recuperar, traduzir para um erro de domínio específico, tentar de novo, etc.) — nunca apenas para logar.
+- Mecanismo completo documentado em [docs/0000 - Arquitetura.md](../../../docs/0000%20-%20Arquitetura.md).
 
 ## Collection do Postman
 

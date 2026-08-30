@@ -17,6 +17,7 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 - Cada módulo de negócio (`src/Modules/<NomeDoModulo>/`) tem seu próprio **schema** no Postgres, com o nome do módulo em minúsculo (ex.: módulo `Auth` → schema `auth`).
 - Um módulo nunca lê nem escreve em tabela de outro schema/módulo diretamente — mesma regra de isolamento já aplicada ao código (ver [src/Modules/README.md](../../../src/Modules/README.md)), agora estendida aos dados.
 - É essa separação por schema, e não a existência de bancos físicos separados, que hoje garante o isolamento — enquanto o projeto for um monolito modular, um único banco `ouroboros` hospeda todos os schemas.
+- Tabelas do `BuildingBlocks` (não são de um módulo de negócio específico, ex.: `ErrorLog`) ficam no schema `shared`.
 
 ## Migrations
 

@@ -37,7 +37,9 @@ Um módulo é um pedaço de negócio isolado — ex.: `Auth`, `Catalog`, `Contas
 
 ### BuildingBlocks
 
-É código técnico compartilhado entre módulos — coisas que não são regra de negócio de ninguém específico, mas que vários módulos usariam (ex.: uma classe-base de entidade, uma exceção genérica de domínio). Fica vazio até que dois ou mais módulos realmente precisem da mesma coisa; criar conteúdo ali antes disso seria adivinhar uma necessidade que ainda não existe.
+É código técnico compartilhado entre módulos — coisas que não são regra de negócio de ninguém específico, mas que vários módulos (ou a própria `Api`) usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
+
+O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core, persistidos no schema `shared` do Postgres. Um handler global de exceções (`GlobalExceptionHandler`, na `Ouroboros.Api`) captura qualquer erro não tratado e registra ali — centralizado num único lugar, em vez de espalhado em `try/catch` pela aplicação inteira.
 
 O nome vem de arquiteturas de referência conhecidas (ex.: o eShopOnContainers, da própria Microsoft) — não é uma tecnologia nova, é só uma pasta com esse nome.
 

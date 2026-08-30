@@ -37,13 +37,17 @@ Clean Architecture dentro de um monolito modular, com cada camada/módulo como u
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain          → tipos-base de domínio compartilhados entre módulos. Sem dependências de outras camadas.
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Application     → abstrações de aplicação compartilhadas entre módulos. Depende de BuildingBlocks.Domain.
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure  → infraestrutura de propósito geral compartilhada entre módulos. Depende de BuildingBlocks.Application.
-src/Modules/<NomeDoModulo>/                                 → módulos de negócio (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure. Ainda vazio — nenhum módulo criado.
+src/Modules/<NomeDoModulo>/                                 → módulos de negócio (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure. Primeiro exemplo: Auth (src/Modules/Auth/).
 src/Ouroboros.Api                                            → controllers, injeção de dependência, configuração HTTP. Depende dos BuildingBlocks e dos módulos.
 ```
 
 A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`). Um módulo de negócio nunca referencia o `Domain`/`Application` de outro módulo diretamente — só `BuildingBlocks` — ver [src/Modules/README.md](src/Modules/README.md).
 
 Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...` hoje). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
+
+## Tratamento de erros
+
+Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.BuildingBlocks.Domain.ErrorLog` (schema `shared`) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
 
 ## Documentação
 

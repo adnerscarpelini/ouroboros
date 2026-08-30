@@ -1,3 +1,5 @@
+using Ouroboros.Modules.Auth.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -5,6 +7,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
+	?? throw new InvalidOperationException("Connection string 'Postgres' não configurada. Ver docs/0002 - Setup do Banco de Dados Local.md.");
+
+builder.Services.AddAuthModule(connectionString: postgresConnectionString);
 
 var app = builder.Build();
 

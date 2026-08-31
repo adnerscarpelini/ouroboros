@@ -1,6 +1,6 @@
 # 0003 - Autenticação
 
-Fluxo completo de autenticação do módulo Auth: cadastro, confirmação de e-mail e login. Diagrama correspondente em [docs/excalidraw/0003 - Autenticação.excalidraw](excalidraw/0003%20-%20Autenticação.excalidraw).
+Fluxo completo de autenticação do módulo Auth: cadastro, confirmação de e-mail, login e redefinição de senha. Diagrama correspondente em [docs/excalidraw/0003 - Autenticação.excalidraw](excalidraw/0003%20-%20Autenticação.excalidraw).
 
 ## Visão geral
 
@@ -8,9 +8,10 @@ Fluxo completo de autenticação do módulo Auth: cadastro, confirmação de e-m
 2. A Api enfileira um e-mail de confirmação e gera um token de validação.
 3. Usuário confirma o e-mail (link do e-mail ou `POST /api/auth/confirm-email`) — a conta vira ativa.
 4. Usuário faz login (`POST /api/auth/login`) e recebe um JWT.
-5. Todo endpoint da Api exige esse JWT por padrão, exceto os marcados com `[AllowAnonymous]`.
+5. Se esquecer a senha, usuário solicita redefinição (`POST /api/auth/forgot-password`) e confirma com o token recebido por e-mail (`POST /api/auth/reset-password`).
+6. Todo endpoint da Api exige esse JWT por padrão, exceto os marcados com `[AllowAnonymous]`.
 
-Todos os quatro endpoints abaixo são `[AllowAnonymous]` — é o próprio fluxo de autenticação, não faria sentido exigir token pra eles.
+Todos os seis endpoints abaixo são `[AllowAnonymous]` — é o próprio fluxo de autenticação, não faria sentido exigir token pra eles.
 
 ## 1. Cadastro — `POST /api/auth/register`
 
@@ -84,6 +85,31 @@ Request (`LoginRequest`): `Login`, `Password`.
 - Claims: `sub` (ExternalId do usuário), `unique_name` (Login), `email`.
 - Não há refresh token — expirado, o usuário precisa logar de novo.
 
-## 4. Autorização por padrão
+## 4. Redefinição de senha
 
-Configurado em `Program.cs` via `FallbackPolicy`: todo endpoint da Api exige usuário autenticado (JWT válido) por padrão. Só os endpoints marcados explicitamente com `[AllowAnonymous]` — os quatro deste fluxo — ficam abertos. Ver seção "Autorização de endpoints" da skill [ags-developer](../.claude/skills/ags-developer/SKILL.md).
+Dois endpoints:
+
+- `POST /api/auth/forgot-password` (`ForgotPasswordRequest`: `Email`) — solicita a redefinição. Sempre retorna `204 No Content`, exista ou não o e-mail — não revela se a conta existe (evita enumeração de contas).
+- `POST /api/auth/reset-password` (`ResetPasswordRequest`: `Token`, `NewPassword`) — confirma a redefinição com o token recebido por e-mail. Retorna `204 No Content` em caso de sucesso ou `400 Bad Request`.
+
+### Solicitação — `UserService.RequestPasswordResetAsync`
+
+1. Busca o usuário pelo `Email`. Se não encontrar, não faz mais nada (resposta continua `204`).
+2. Se encontrar, invalida qualquer token de redefinição pendente e ainda não usado desse usuário (`Token.Validate()` reaproveitado como invalidação — impede que um link antigo continue valendo depois de um pedido mais novo).
+3. Gera um token aleatório e guarda só o hash dele, igual ao fluxo de confirmação de e-mail.
+4. Monta a URL de redefinição: `{ApiBaseUrl}/reset-password?token={token}` — hoje aponta pra um caminho sem página própria (não há front-end no projeto ainda); quando o front-end existir, é ele quem coleta a nova senha e chama `POST /api/auth/reset-password`.
+5. Renderiza o template `PasswordResetEmail.html` e enfileira o e-mail (`IEmailQueueService`, mesmo aviso do fluxo de confirmação: só enfileira, não envia de fato ainda).
+6. Cria um `Token` (schema `auth`, tipo `PasswordReset`) associado ao usuário e ao `EmailMessage`, com validade de **1 hora** (mais curta que as 24h da confirmação de e-mail, por ser mais sensível).
+
+### Confirmação — `UserService.ResetPasswordAsync`
+
+1. Faz hash do token recebido e busca o `Token` correspondente pelo hash.
+2. Falha (`"Token inválido."`) se não encontrar, ou se o tipo do token não for `PasswordReset`.
+3. Falha (`"Token já foi utilizado."`) se já validado — token é de uso único.
+4. Falha (`"Token expirado."`) se passou de 1 hora.
+5. Gera o hash da nova senha (Argon2) e chama `User.ResetPassword(newPasswordHash)`: atualiza `PasswordHash` e `PasswordChangedAt`, e zera `FailedLoginAttempts`/`LockedUntil` — a senha nova invalida o motivo de um bloqueio antigo.
+6. Marca o token como validado (`Token.Validate()`).
+
+## 5. Autorização por padrão
+
+Configurado em `Program.cs` via `FallbackPolicy`: todo endpoint da Api exige usuário autenticado (JWT válido) por padrão. Só os endpoints marcados explicitamente com `[AllowAnonymous]` — os seis deste fluxo — ficam abertos. Ver seção "Autorização de endpoints" da skill [ags-developer](../.claude/skills/ags-developer/SKILL.md).

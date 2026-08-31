@@ -8,6 +8,7 @@ namespace Ouroboros.Modules.Auth.Infrastructure;
 public sealed class UserService : IUserService
 {
 	private const int ValidationTokenExpirationHours = 24;
+	private const int PasswordResetTokenExpirationHours = 1;
 
 	private readonly AuthDbContext _dbContext;
 	private readonly IPasswordHasher _passwordHasher;
@@ -154,6 +155,134 @@ public sealed class UserService : IUserService
 		var authenticationResult = _jwtTokenGenerator.GenerateToken(user);
 
 		return Result<AuthenticationResult>.Success(authenticationResult);
+	}
+
+	public async Task RequestPasswordResetAsync(
+		string email,
+		CancellationToken cancellationToken
+	)
+	{
+		var user = await _dbContext.Users.SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
+
+		// Sempre silencioso, mesmo se o e-mail não existir — evita enumeração de contas.
+		if (user is null)
+		{
+			return;
+		}
+
+		await InvalidatePendingPasswordResetTokensAsync(user.Id, cancellationToken);
+		await EnqueuePasswordResetEmailAsync(user, cancellationToken);
+	}
+
+	public async Task<Result> ResetPasswordAsync(
+		string token,
+		string newPassword,
+		CancellationToken cancellationToken
+	)
+	{
+		var tokenHash = _tokenGenerator.Hash(token);
+
+		var storedToken = await _dbContext.Tokens
+			.SingleOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+
+		if (storedToken is null)
+		{
+			return Result.Failure("Token inválido.");
+		}
+
+		if (storedToken.Validated)
+		{
+			return Result.Failure("Token já foi utilizado.");
+		}
+
+		if (storedToken.ExpiresAt < DateTime.UtcNow)
+		{
+			return Result.Failure("Token expirado.");
+		}
+
+		var tokenType = await _dbContext.TokenTypes.SingleAsync(t => t.Id == storedToken.TokenTypeId, cancellationToken);
+
+		if (tokenType.Name != TokenTypeNames.PasswordReset)
+		{
+			return Result.Failure("Token inválido.");
+		}
+
+		var user = await _dbContext.Users.SingleAsync(u => u.Id == storedToken.UserId, cancellationToken);
+
+		var newPasswordHash = _passwordHasher.Hash(newPassword);
+
+		storedToken.Validate();
+		user.ResetPassword(newPasswordHash);
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
+
+		return Result.Success();
+	}
+
+	private async Task InvalidatePendingPasswordResetTokensAsync(
+		long userId,
+		CancellationToken cancellationToken
+	)
+	{
+		var tokenTypeId = await _dbContext.TokenTypes
+			.Where(t => t.Name == TokenTypeNames.PasswordReset)
+			.Select(t => t.Id)
+			.SingleAsync(cancellationToken);
+
+		var pendingTokens = await _dbContext.Tokens
+			.Where(t => t.UserId == userId && t.TokenTypeId == tokenTypeId && !t.Validated)
+			.ToListAsync(cancellationToken);
+
+		foreach (var pendingToken in pendingTokens)
+		{
+			// Reaproveita Validate() pra invalidar: um token de reset não usado
+			// perde a validade assim que um pedido de reset mais novo é feito.
+			pendingToken.Validate();
+		}
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
+	}
+
+	private async Task EnqueuePasswordResetEmailAsync(
+		User user,
+		CancellationToken cancellationToken
+	)
+	{
+		var tokenTypeId = await _dbContext.TokenTypes
+			.Where(t => t.Name == TokenTypeNames.PasswordReset)
+			.Select(t => t.Id)
+			.SingleAsync(cancellationToken);
+
+		var rawToken = _tokenGenerator.GenerateToken();
+		var tokenHash = _tokenGenerator.Hash(rawToken);
+
+		// Sem página própria ainda: aponta pro front-end que vai coletar a nova senha
+		// e chamar POST /api/auth/reset-password com token + senha.
+		var resetUrl = $"{_authOptions.ApiBaseUrl}/reset-password?token={Uri.EscapeDataString(rawToken)}";
+
+		var templatePath = Path.Combine(AppContext.BaseDirectory, "Templates", "PasswordResetEmail.html");
+		var bodyHtml = (await File.ReadAllTextAsync(templatePath, cancellationToken))
+			.Replace("{{FullName}}", user.FullName)
+			.Replace("{{ResetUrl}}", resetUrl);
+
+		var emailMessageId = await _emailQueueService.EnqueueAsync(
+			subject: "Redefinição de senha",
+			bodyHtml: bodyHtml,
+			recipient: user.Email,
+			cancellationToken: cancellationToken
+		);
+
+		var token = new Token(
+			tokenTypeId: tokenTypeId,
+			userId: user.Id,
+			emailMessageId: emailMessageId,
+			tokenHash: tokenHash,
+			expiresAt: DateTime.UtcNow.AddHours(PasswordResetTokenExpirationHours)
+		);
+
+		_dbContext.Tokens.Add(token);
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
 	}
 
 	private async Task EnqueueValidationEmailAsync(

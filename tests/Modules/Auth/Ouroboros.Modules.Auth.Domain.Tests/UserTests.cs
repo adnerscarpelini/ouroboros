@@ -77,4 +77,32 @@ public class UserTests
 		Assert.False(user.IsLockedOut());
 		Assert.NotNull(user.LastLoginAt);
 	}
+
+	[Fact]
+	public void ResetPassword_UpdatesPasswordHashAndPasswordChangedAt()
+	{
+		var user = CreateUser();
+
+		user.ResetPassword("hashed-new-password");
+
+		Assert.Equal("hashed-new-password", user.PasswordHash);
+		Assert.NotEqual(user.CreatedAt, user.PasswordChangedAt);
+	}
+
+	[Fact]
+	public void ResetPassword_ClearsFailedAttemptsAndLockout()
+	{
+		var user = CreateUser();
+		for (var i = 0; i < 5; i++)
+		{
+			user.RegisterFailedLoginAttempt();
+		}
+		Assert.True(user.IsLockedOut());
+
+		user.ResetPassword("hashed-new-password");
+
+		Assert.Equal(0, user.FailedLoginAttempts);
+		Assert.Null(user.LockedUntil);
+		Assert.False(user.IsLockedOut());
+	}
 }

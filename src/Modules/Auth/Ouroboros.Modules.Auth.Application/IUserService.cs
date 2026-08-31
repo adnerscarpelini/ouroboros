@@ -22,4 +22,15 @@ public interface IUserService
 		string password,
 		CancellationToken cancellationToken
 	);
+
+	Task RequestPasswordResetAsync(
+		string email,
+		CancellationToken cancellationToken
+	);
+
+	Task<Result> ResetPasswordAsync(
+		string token,
+		string newPassword,
+		CancellationToken cancellationToken
+	);
 }

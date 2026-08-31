@@ -1,18 +1,41 @@
+using Ouroboros.Common.Domain;
+
 namespace Ouroboros.Modules.Auth.Domain;
 
-public sealed class User
+public sealed class User : Entity
 {
-	public Guid Id { get; private set; }
+	public string Login { get; private set; } = null!;
+	public string FullName { get; private set; } = null!;
 	public string Email { get; private set; } = null!;
+	public bool EmailConfirmed { get; private set; }
+	public string PasswordHash { get; private set; } = null!;
+	public DateTime PasswordChangedAt { get; private set; }
+	public bool IsActive { get; private set; }
+	public int FailedLoginAttempts { get; private set; }
+	public DateTime? LockedUntil { get; private set; }
+	public DateTime? LastLoginAt { get; private set; }
 
 	// Construtor sem parâmetros exclusivo para o EF Core materializar a entidade a partir do banco.
 	private User()
 	{
 	}
 
-	public User(string email)
+	public User(
+		string login,
+		string fullName,
+		string email,
+		string passwordHash
+	)
 	{
-		Id = Guid.NewGuid();
+		Login = login;
+		FullName = fullName;
 		Email = email;
+		EmailConfirmed = false;
+		PasswordHash = passwordHash;
+		PasswordChangedAt = CreatedAt;
+		IsActive = true;
+		FailedLoginAttempts = 0;
+		LockedUntil = null;
+		LastLoginAt = null;
 	}
 }

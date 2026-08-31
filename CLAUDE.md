@@ -47,7 +47,7 @@ Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`
 
 ## Tratamento de erros
 
-Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.Common.Domain.ErrorLog` (schema `shared`) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
+Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.Common.Domain.ErrorLog` (schema `common`) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
 
 ## Documentação
 

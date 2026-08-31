@@ -29,6 +29,27 @@
 							"path": ["api", "auth", "register"]
 						}
 					}
+				},
+				{
+					"name": "Confirm Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"token\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/confirm-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "confirm-email"]
+						}
+					}
 				}
 			]
 		}

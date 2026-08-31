@@ -67,6 +67,48 @@ public sealed class UserService : IUserService
 		return Result<Guid>.Success(user.ExternalId);
 	}
 
+	public async Task<Result> ConfirmEmailAsync(
+		string token,
+		CancellationToken cancellationToken
+	)
+	{
+		var tokenHash = _tokenGenerator.Hash(token);
+
+		var storedToken = await _dbContext.Tokens
+			.SingleOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+
+		if (storedToken is null)
+		{
+			return Result.Failure("Token inválido.");
+		}
+
+		if (storedToken.Validated)
+		{
+			return Result.Failure("Token já foi utilizado.");
+		}
+
+		if (storedToken.ExpiresAt < DateTime.UtcNow)
+		{
+			return Result.Failure("Token expirado.");
+		}
+
+		var tokenType = await _dbContext.TokenTypes.SingleAsync(t => t.Id == storedToken.TokenTypeId, cancellationToken);
+
+		if (tokenType.Name != TokenTypeNames.UserCreationValidation)
+		{
+			return Result.Failure("Token inválido.");
+		}
+
+		var user = await _dbContext.Users.SingleAsync(u => u.Id == storedToken.UserId, cancellationToken);
+
+		storedToken.Validate();
+		user.ConfirmEmail();
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
+
+		return Result.Success();
+	}
+
 	private async Task EnqueueValidationEmailAsync(
 		User user,
 		CancellationToken cancellationToken

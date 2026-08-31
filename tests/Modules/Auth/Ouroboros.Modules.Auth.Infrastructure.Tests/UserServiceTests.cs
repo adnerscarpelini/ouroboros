@@ -1,35 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Ouroboros.Modules.Auth.Domain;
+using static Ouroboros.Modules.Auth.Infrastructure.Tests.UserServiceTestHelpers;
 
 namespace Ouroboros.Modules.Auth.Infrastructure.Tests;
 
 public class UserServiceTests
 {
-	private static AuthDbContext CreateDbContext()
-	{
-		var options = new DbContextOptionsBuilder<AuthDbContext>()
-			.UseInMemoryDatabase(Guid.NewGuid().ToString())
-			.Options;
-
-		var dbContext = new AuthDbContext(options);
-		dbContext.Database.EnsureCreated();
-
-		return dbContext;
-	}
-
-	private static UserService CreateUserService(
-		AuthDbContext dbContext,
-		FakeEmailQueueService? emailQueueService = null
-	)
-	{
-		return new UserService(
-			dbContext,
-			new FakePasswordHasher(),
-			new FakeTokenGenerator(),
-			emailQueueService ?? new FakeEmailQueueService()
-		);
-	}
-
 	[Fact]
 	public async Task CreateUserAsync_WithNewLoginAndEmail_CreatesUserAndReturnsSuccess()
 	{

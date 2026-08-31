@@ -11,4 +11,9 @@ public interface IUserService
 		string password,
 		CancellationToken cancellationToken
 	);
+
+	Task<Result> ConfirmEmailAsync(
+		string token,
+		CancellationToken cancellationToken
+	);
 }

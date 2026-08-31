@@ -39,4 +39,10 @@ public sealed class User : Entity
 		LockedUntil = null;
 		LastLoginAt = null;
 	}
+
+	public void ConfirmEmail()
+	{
+		EmailConfirmed = true;
+		IsActive = true;
+	}
 }

@@ -36,4 +36,20 @@ public sealed class AuthController : ControllerBase
 
 		return StatusCode(StatusCodes.Status201Created, new RegisterUserResponse(result.Value));
 	}
+
+	[HttpPost("confirm-email")]
+	public async Task<IActionResult> ConfirmEmail(
+		[FromBody] ConfirmEmailRequest request,
+		CancellationToken cancellationToken
+	)
+	{
+		var result = await _userService.ConfirmEmailAsync(request.Token, cancellationToken);
+
+		if (!result.IsSuccess)
+		{
+			return BadRequest(new { message = result.Error });
+		}
+
+		return NoContent();
+	}
 }

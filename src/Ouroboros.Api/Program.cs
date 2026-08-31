@@ -1,3 +1,7 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
 using Ouroboros.Api;
 using Ouroboros.Common.Infrastructure;
 using Ouroboros.Modules.Auth.Infrastructure;
@@ -16,8 +20,44 @@ builder.Services.AddProblemDetails();
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
 	?? throw new InvalidOperationException("Connection string 'Postgres' não configurada. Ver docs/0002 - Setup do Banco de Dados Local.md.");
 
+var apiBaseUrl = builder.Configuration["App:BaseUrl"]
+	?? throw new InvalidOperationException("Configuração 'App:BaseUrl' não definida.");
+
+var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
+	?? throw new InvalidOperationException("Configuração 'Jwt:SigningKey' não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+	?? throw new InvalidOperationException("Configuração 'Jwt:Issuer' não definida.");
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+	?? throw new InvalidOperationException("Configuração 'Jwt:Audience' não definida.");
+
 builder.Services.AddCommon(connectionString: postgresConnectionString);
-builder.Services.AddAuthModule(connectionString: postgresConnectionString);
+builder.Services.AddAuthModule(
+	connectionString: postgresConnectionString,
+	apiBaseUrl: apiBaseUrl,
+	jwtSigningKey: jwtSigningKey,
+	jwtIssuer: jwtIssuer,
+	jwtAudience: jwtAudience
+);
+
+builder.Services
+	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+	.AddJwtBearer(options =>
+	{
+		options.TokenValidationParameters = new TokenValidationParameters
+		{
+			ValidIssuer = jwtIssuer,
+			ValidAudience = jwtAudience,
+			IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
+			ClockSkew = TimeSpan.FromMinutes(1)
+		};
+	});
+
+// Todo endpoint exige autenticação por padrão, a menos que marcado explicitamente com [AllowAnonymous]
+// — ver seção "Autorização de endpoints" da skill ags-developer.
+builder.Services.AddAuthorizationBuilder()
+	.SetFallbackPolicy(new AuthorizationPolicyBuilder()
+		.RequireAuthenticatedUser()
+		.Build());
 
 var app = builder.Build();
 
@@ -31,6 +71,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

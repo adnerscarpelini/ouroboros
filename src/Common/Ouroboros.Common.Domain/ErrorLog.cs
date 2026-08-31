@@ -1,9 +1,7 @@
 namespace Ouroboros.Common.Domain;
 
-public sealed class ErrorLog
+public sealed class ErrorLog : Entity
 {
-	public Guid Id { get; private set; }
-	public DateTime OccurredAt { get; private set; }
 	public string Source { get; private set; } = null!;
 	public string ExceptionType { get; private set; } = null!;
 	public string Message { get; private set; } = null!;
@@ -26,8 +24,6 @@ public sealed class ErrorLog
 		string? traceId
 	)
 	{
-		Id = Guid.NewGuid();
-		OccurredAt = DateTime.UtcNow;
 		Source = source;
 		ExceptionType = exceptionType;
 		Message = message;

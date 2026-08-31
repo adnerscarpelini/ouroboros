@@ -65,6 +65,21 @@ A senha também não pode ir pro `appsettings.json` (esse arquivo é versionado)
 
 Sem isso, a Api lança erro ao iniciar (`Connection string 'Postgres' não configurada`).
 
+Também pelo User Secrets (não é banco de dados, mas é outro segredo local que não pode ir pro `appsettings.json`): a chave usada pra assinar os tokens JWT emitidos no login. Qualquer valor aleatório serve — por exemplo, gerado assim no PowerShell:
+
+```powershell
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$bytes = New-Object byte[] 32
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+```
+
+```bash
+dotnet user-secrets set "Jwt:SigningKey" "<valor gerado acima>" --project src/Ouroboros.Api
+```
+
+Sem isso, a Api lança erro ao iniciar (`Configuração 'Jwt:SigningKey' não definida`).
+
 ## 6. Instalar a ferramenta `dotnet-ef`
 
 Necessária pra criar/aplicar migrations mais adiante:

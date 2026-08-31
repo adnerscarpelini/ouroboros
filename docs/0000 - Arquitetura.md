@@ -39,7 +39,9 @@ Um módulo é um pedaço de negócio isolado — ex.: `Auth`, `Catalog`, `Contas
 
 É código técnico compartilhado entre módulos — coisas que não são regra de negócio de ninguém específico, mas que vários módulos (ou a própria `Api`) usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
 
-O primeiro conteúdo real do `Common` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core, persistidos no schema `shared` do Postgres. Um handler global de exceções (`GlobalExceptionHandler`, na `Ouroboros.Api`) captura qualquer erro não tratado e registra ali — centralizado num único lugar, em vez de espalhado em `try/catch` pela aplicação inteira.
+O primeiro conteúdo real do `Common` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core, persistidos no schema `common` do Postgres. Um handler global de exceções (`GlobalExceptionHandler`, na `Ouroboros.Api`) captura qualquer erro não tratado e registra ali — centralizado num único lugar, em vez de espalhado em `try/catch` pela aplicação inteira.
+
+O segundo é a entidade `EmailMessage` (também no schema `common`): uma fila de e-mails a enviar (assunto, corpo HTML, destinatário, se já foi enviado e quando). Por enquanto é só a estrutura da fila — nenhum módulo ainda sabe entregar e-mail de verdade (SMTP); isso fica pra quando existir um serviço de envio consumindo essa fila. Fica no `Common`, e não no `Auth`, porque enviar e-mail não é uma regra de negócio de nenhum módulo específico — vários vão precisar (confirmação de cadastro, redefinição de senha, notificação de pedido, etc.).
 
 O nome vem de arquiteturas de referência conhecidas (ex.: o eShopOnContainers, da própria Microsoft) — não é uma tecnologia nova, é só uma pasta com esse nome.
 
@@ -49,7 +51,7 @@ Adotar **Clean Architecture** dentro de um **monolito modular**, com cada camada
 
 ### Camadas hoje
 
-Ainda não existe nenhum módulo de negócio (com uma exceção — `Auth`, criado como exemplo de estudo, com um método que só simula "criar usuário" sem validar ou persistir nada de verdade). O que existe de fato é a base compartilhada:
+O primeiro módulo de negócio é o `Auth`, com as três camadas (`Domain`/`Application`/`Infrastructure`) e o primeiro caso de uso real: registro de usuário (`POST /api/auth/register`), com validação de senha forte, hash Argon2id e persistência no Postgres. O que existe além dele é a base compartilhada:
 
 | Projeto | Responsabilidade |
 |---|---|
@@ -82,15 +84,16 @@ ouroboros/
 │   │   ├── Ouroboros.Common.Application/
 │   │   └── Ouroboros.Common.Infrastructure/
 │   ├── Modules/
-│   │   └── Auth/          → exemplo de módulo (Domain + Application, sem Infrastructure ainda)
+│   │   └── Auth/          → Domain + Application + Infrastructure
 │   └── Ouroboros.Api/
 ├── tests/
 │   ├── Common/
 │   │   ├── Ouroboros.Common.Domain.Tests/
 │   │   ├── Ouroboros.Common.Application.Tests/
 │   │   └── Ouroboros.Common.Infrastructure.Tests/
-│   └── Modules/
-│       └── Auth/
+│   ├── Modules/
+│   │   └── Auth/
+│   └── Ouroboros.Api.Tests/
 ├── docs/
 └── Ouroboros.slnx
 ```

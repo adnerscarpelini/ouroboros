@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -12,15 +13,18 @@ namespace Ouroboros.Common.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.EnsureSchema(
-                name: "shared");
+                name: "common");
 
             migrationBuilder.CreateTable(
                 name: "error_logs",
-                schema: "shared",
+                schema: "common",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    occurred_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    external_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     source = table.Column<string>(type: "text", nullable: false),
                     exception_type = table.Column<string>(type: "text", nullable: false),
                     message = table.Column<string>(type: "text", nullable: false),
@@ -32,6 +36,13 @@ namespace Ouroboros.Common.Infrastructure.Migrations
                 {
                     table.PrimaryKey("pk_error_logs", x => x.id);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_error_logs_external_id",
+                schema: "common",
+                table: "error_logs",
+                column: "external_id",
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -39,7 +50,7 @@ namespace Ouroboros.Common.Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "error_logs",
-                schema: "shared");
+                schema: "common");
         }
     }
 }

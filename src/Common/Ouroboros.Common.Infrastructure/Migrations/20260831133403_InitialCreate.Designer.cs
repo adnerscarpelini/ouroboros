@@ -12,7 +12,7 @@ using Ouroboros.Common.Infrastructure;
 namespace Ouroboros.Common.Infrastructure.Migrations
 {
     [DbContext(typeof(CommonDbContext))]
-    [Migration("20260830211533_InitialCreate")]
+    [Migration("20260831133403_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -20,7 +20,7 @@ namespace Ouroboros.Common.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("shared")
+                .HasDefaultSchema("common")
                 .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -28,24 +28,33 @@ namespace Ouroboros.Common.Infrastructure.Migrations
 
             modelBuilder.Entity("Ouroboros.Common.Domain.ErrorLog", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("bigint")
+                        .HasColumnName("id")
+                        .HasColumnOrder(0);
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasColumnOrder(2);
 
                     b.Property<string>("ExceptionType")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("exception_type");
 
+                    b.Property<Guid>("ExternalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("external_id")
+                        .HasColumnOrder(1);
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("message");
-
-                    b.Property<DateTime>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("occurred_at");
 
                     b.Property<string>("RequestPath")
                         .HasColumnType("text")
@@ -64,10 +73,19 @@ namespace Ouroboros.Common.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("trace_id");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasColumnOrder(3);
+
                     b.HasKey("Id")
                         .HasName("pk_error_logs");
 
-                    b.ToTable("error_logs", "shared");
+                    b.HasIndex("ExternalId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_error_logs_external_id");
+
+                    b.ToTable("error_logs", "common");
                 });
 #pragma warning restore 612, 618
         }

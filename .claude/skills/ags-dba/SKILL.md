@@ -17,13 +17,18 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 - Cada módulo de negócio (`src/Modules/<NomeDoModulo>/`) tem seu próprio **schema** no Postgres, com o nome do módulo em minúsculo (ex.: módulo `Auth` → schema `auth`).
 - Um módulo nunca lê nem escreve em tabela de outro schema/módulo diretamente — mesma regra de isolamento já aplicada ao código (ver [src/Modules/README.md](../../../src/Modules/README.md)), agora estendida aos dados.
 - É essa separação por schema, e não a existência de bancos físicos separados, que hoje garante o isolamento — enquanto o projeto for um monolito modular, um único banco `ouroboros` hospeda todos os schemas.
-- Tabelas do `Common` (não são de um módulo de negócio específico, ex.: `ErrorLog`) ficam no schema `shared`.
+- Tabelas do `Common` (não são de um módulo de negócio específico, ex.: `ErrorLog`) ficam no schema `common`, mesmo padrão de nome-do-módulo-em-minúsculo usado pelos demais.
 
 ## Migrations
 
 - Ferramenta: **EF Core Migrations**.
-- Cada módulo com persistência tem seu próprio `DbContext` (na camada `Infrastructure` do módulo, nomeado `<NomeDoModulo>DbContext`, ex.: `AuthDbContext`), configurado para usar apenas o schema daquele módulo via `modelBuilder.HasDefaultSchema("<schema>")` em `OnModelCreating`, e suas próprias migrations — não existe um `DbContext` único e global para o projeto inteiro.
+- Cada módulo com persistência tem seu próprio `DbContext` (na camada `Infrastructure` do módulo, nomeado `<NomeDoModulo>DbContext`, ex.: `AuthDbContext`), configurado para usar apenas o schema daquele módulo via `modelBuilder.HasDefaultSchema("<schema>")` em `OnModelCreating`, e suas próprias migrations — não existe um `DbContext` único e global para o projeto inteiro. Todo `DbContext` de módulo herda de `AppDbContext` (`Ouroboros.Common.Infrastructure`) em vez de `DbContext` diretamente — ver seção "Entidade base" abaixo.
 - Pacotes usados no `Infrastructure` de cada módulo com persistência: `Npgsql.EntityFrameworkCore.PostgreSQL` e `EFCore.NamingConventions`. O `Microsoft.EntityFrameworkCore.Design` (necessário pra ferramenta `dotnet ef`) fica só no projeto de entrada (`Ouroboros.Api`).
+- Comando pra criar uma migration de um módulo (rodar dentro da pasta `Infrastructure` do módulo):
+  ```bash
+  dotnet ef migrations add NomeDaMigration --startup-project ../../../Ouroboros.Api --context <NomeDoModulo>DbContext
+  ```
+  (ajustar o `--startup-project` pro `Ouroboros.Api` conforme a profundidade da pasta atual; para `Common`, é `../../Ouroboros.Api`.)
 
 ## Registro do módulo (DI)
 
@@ -33,19 +38,50 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 
 - A connection string com a senha real **nunca** vai pro `appsettings.json` (esse arquivo é versionado). Local, ela fica no **User Secrets** do projeto `Ouroboros.Api` (`dotnet user-secrets`), equivalente ao papel do `.env` no Docker Compose — ver [docs/0002 - Setup do Banco de Dados Local.md](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
 
+## Entidade base
+
+Toda entidade persistida herda de `Entity` (`Ouroboros.Common.Domain`), que carrega quatro colunas presentes em **todas** as tabelas do sistema, sempre nessa ordem física (garantida por `HasColumnOrder` em `AppDbContext`):
+
+1. `id` (`long` / `bigint`, identity) — chave primária interna, usada em joins e FKs. Nunca exposta pela Api.
+2. `external_id` (`Guid` / `uuid`, único, gerado em `Guid.NewGuid()` na criação) — identificador público, usado em rotas/DTOs da Api. Enumeration-safe: não revela volume nem ordem de criação como um `id` sequencial exposto revelaria.
+3. `created_at` (`timestamptz`, UTC) — carimbado automaticamente na criação, dentro do construtor de `Entity`.
+4. `updated_at` (`timestamptz`, UTC, nullable) — `null` até a primeira alteração; carimbado **automaticamente** pelo `AppDbContext.SaveChanges`/`SaveChangesAsync` (via `ChangeTracker`, chamando `Entity.MarkAsUpdated()` em toda entidade rastreada como `Modified`). Nenhum código de domínio precisa lembrar de tocar nesse campo.
+
+```csharp
+public abstract class Entity
+{
+	public long Id { get; private set; }
+	public Guid ExternalId { get; private set; }
+	public DateTime CreatedAt { get; private set; }
+	public DateTime? UpdatedAt { get; private set; }
+
+	protected Entity()
+	{
+		ExternalId = Guid.NewGuid();
+		CreatedAt = DateTime.UtcNow;
+	}
+
+	public void MarkAsUpdated()
+	{
+		UpdatedAt = DateTime.UtcNow;
+	}
+}
+```
+
+`AppDbContext` (também em `Ouroboros.Common.Infrastructure`) é a base de todo `<NomeDoModulo>DbContext`: aplica o índice único em `external_id` e o `HasColumnOrder` pra qualquer entidade que herde de `Entity`, e faz o auto-stamp de `updated_at` no `SaveChanges`. Um `DbContext` de módulo só precisa herdar dele (em vez de `DbContext` puro) — o resto (schema do módulo, índices específicos como `login`/`email` do `User`) continua configurado no próprio `OnModelCreating` do módulo, chamando `base.OnModelCreating(modelBuilder)` no final.
+
 ## Entidades persistidas (padrão de construtor para o EF Core)
 
-Toda entidade que vai ser persistida (tem um `DbSet<T>` em algum `DbContext`) precisa, além do construtor público "de verdade" (com as regras de negócio), de:
+Toda entidade que vai ser persistida (tem um `DbSet<T>` em algum `DbContext`) precisa, além do construtor público "de verdade" (com as regras de negócio) e de herdar de `Entity`, de:
 
-- Um **construtor privado sem parâmetros**, exclusivo para o EF Core materializar a entidade a partir do banco.
-- **`private set`** em toda propriedade (em vez de só `get`), incluindo `Id`.
+- Um **construtor privado sem parâmetros**, exclusivo para o EF Core materializar a entidade a partir do banco. Como `Entity` já inicializa `ExternalId`/`CreatedAt` no seu próprio construtor sem parâmetros, esse construtor privado da entidade concreta não precisa (e não deve) repetir essa inicialização — o EF sobrescreve todas as propriedades com os valores da linha do banco logo em seguida.
+- **`private set`** em toda propriedade (em vez de só `get`).
 
 Sem isso, o EF Core não consegue reconstruir a entidade a partir de uma linha do banco — na prática, ele passa a ignorar silenciosamente as propriedades sem `set`, e elas somem da migration gerada (ou, no caso do `Id`, o erro é explícito: "requires a primary key to be defined"). Isso já aconteceu com `ErrorLog` e `User` na prática — ver os dois como referência.
 
 ```csharp
-public sealed class ErrorLog
+public sealed class ErrorLog : Entity
 {
-	public Guid Id { get; private set; }
 	public string Source { get; private set; } = null!;
 	// ...
 
@@ -55,9 +91,8 @@ public sealed class ErrorLog
 
 	public ErrorLog(string source, /* ... */)
 	{
-		Id = Guid.NewGuid();
 		Source = source;
-		// ...
+		// ... (Id, ExternalId, CreatedAt já vêm do construtor de Entity)
 	}
 }
 ```

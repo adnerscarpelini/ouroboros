@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ouroboros é um projeto pessoal de estudos contínuo (sem "fim" planejado) usando o backend de um e-commerce como produto de exemplo, para praticar Clean Architecture, DDD, Docker e segurança de aplicações ao longo do tempo.
 
-Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-developer](.claude/skills/ags-developer/SKILL.md) — ela define as regras de branch/commit, idioma, nomenclatura (casing) e formatação de assinaturas de métodos usadas neste repositório. Para criar, revisar ou ajustar testes automatizados, siga também a skill [ags-qa](.claude/skills/ags-qa/SKILL.md). Para qualquer decisão de banco de dados (schemas, migrations, nomenclatura de tabelas/colunas), siga a skill [ags-dba](.claude/skills/ags-dba/SKILL.md).
+Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-developer](.claude/skills/ags-developer/SKILL.md) — ela define as regras de branch/commit, idioma, nomenclatura (casing) e formatação de assinaturas de métodos usadas neste repositório. Para criar, revisar ou ajustar testes automatizados, siga também a skill [ags-qa](.claude/skills/ags-qa/SKILL.md). Para qualquer decisão de banco de dados (schemas, migrations, nomenclatura de tabelas/colunas), siga a skill [ags-dba](.claude/skills/ags-dba/SKILL.md). Para criar, revisar ou atualizar qualquer documentação (`docs/`, incluindo fluxos desenhados em Excalidraw), siga a skill [ags-technical-writer](.claude/skills/ags-technical-writer/SKILL.md).
 
 ## Comandos
 
@@ -51,7 +51,7 @@ Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratad
 
 ## Documentação
 
-Documentos ficam em `docs/`, numerados sequencialmente em Markdown (`0000 - Arquitetura.md`, `0001 - ...`, etc.). Sempre que algo for implementado ou alterado, revise os documentos existentes e edite os que forem afetados; crie um documento novo na sequência só se nenhum existente cobrir a mudança.
+Ver skill [ags-technical-writer](.claude/skills/ags-technical-writer/SKILL.md).
 
 ## Postman
 

@@ -102,5 +102,4 @@ userService.Insert(
 
 ## Documentação
 
-- Sempre que algo for implementado ou alterado, revisar os documentos existentes em `docs/` e editar o(s) que forem afetados pela mudança.
-- Se nenhum documento existente cobrir o que foi feito, criar um novo seguindo a numeração sequencial (`0001 - ...`, `0002 - ...`), sempre em Markdown.
+Segue a skill [ags-technical-writer](../ags-technical-writer/SKILL.md).

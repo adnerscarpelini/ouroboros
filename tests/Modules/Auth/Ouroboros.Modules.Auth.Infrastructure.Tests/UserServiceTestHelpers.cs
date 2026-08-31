@@ -26,7 +26,13 @@ internal static class UserServiceTestHelpers
 			new FakePasswordHasher(),
 			new FakeTokenGenerator(),
 			emailQueueService ?? new FakeEmailQueueService(),
-			new AuthOptions("http://localhost:5082")
+			new FakeJwtTokenGenerator(),
+			new AuthOptions(
+				ApiBaseUrl: "http://localhost:5082",
+				JwtSigningKey: "test-signing-key",
+				JwtIssuer: "Ouroboros.Tests",
+				JwtAudience: "Ouroboros.Tests"
+			)
 		);
 	}
 }

@@ -4,6 +4,9 @@ namespace Ouroboros.Modules.Auth.Domain;
 
 public sealed class User : Entity
 {
+	private const int MaxFailedLoginAttempts = 5;
+	private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
 	public string Login { get; private set; } = null!;
 	public string FullName { get; private set; } = null!;
 	public string Email { get; private set; } = null!;
@@ -44,5 +47,28 @@ public sealed class User : Entity
 	{
 		EmailConfirmed = true;
 		IsActive = true;
+	}
+
+	public bool IsLockedOut()
+	{
+		return LockedUntil.HasValue && LockedUntil.Value > DateTime.UtcNow;
+	}
+
+	public void RegisterFailedLoginAttempt()
+	{
+		FailedLoginAttempts++;
+
+		if (FailedLoginAttempts >= MaxFailedLoginAttempts)
+		{
+			LockedUntil = DateTime.UtcNow.Add(LockoutDuration);
+			FailedLoginAttempts = 0;
+		}
+	}
+
+	public void RegisterSuccessfulLogin()
+	{
+		FailedLoginAttempts = 0;
+		LockedUntil = null;
+		LastLoginAt = DateTime.UtcNow;
 	}
 }

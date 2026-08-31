@@ -53,6 +53,22 @@ public sealed class AuthController : ControllerBase
 		return NoContent();
 	}
 
+	[HttpPost("login")]
+	public async Task<IActionResult> Login(
+		[FromBody] LoginRequest request,
+		CancellationToken cancellationToken
+	)
+	{
+		var result = await _userService.LoginAsync(request.Login, request.Password, cancellationToken);
+
+		if (!result.IsSuccess)
+		{
+			return Unauthorized(new { message = result.Error });
+		}
+
+		return Ok(new LoginResponse(result.Value!.AccessToken, result.Value.ExpiresAt));
+	}
+
 	[HttpGet("confirm-email")]
 	public async Task<ContentResult> ConfirmEmailPage(
 		[FromQuery] string token,

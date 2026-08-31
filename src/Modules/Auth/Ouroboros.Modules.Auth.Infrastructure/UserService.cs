@@ -13,6 +13,7 @@ public sealed class UserService : IUserService
 	private readonly IPasswordHasher _passwordHasher;
 	private readonly ITokenGenerator _tokenGenerator;
 	private readonly IEmailQueueService _emailQueueService;
+	private readonly IJwtTokenGenerator _jwtTokenGenerator;
 	private readonly AuthOptions _authOptions;
 
 	public UserService(
@@ -20,6 +21,7 @@ public sealed class UserService : IUserService
 		IPasswordHasher passwordHasher,
 		ITokenGenerator tokenGenerator,
 		IEmailQueueService emailQueueService,
+		IJwtTokenGenerator jwtTokenGenerator,
 		AuthOptions authOptions
 	)
 	{
@@ -27,6 +29,7 @@ public sealed class UserService : IUserService
 		_passwordHasher = passwordHasher;
 		_tokenGenerator = tokenGenerator;
 		_emailQueueService = emailQueueService;
+		_jwtTokenGenerator = jwtTokenGenerator;
 		_authOptions = authOptions;
 	}
 
@@ -110,6 +113,47 @@ public sealed class UserService : IUserService
 		await _dbContext.SaveChangesAsync(cancellationToken);
 
 		return Result.Success();
+	}
+
+	public async Task<Result<AuthenticationResult>> LoginAsync(
+		string login,
+		string password,
+		CancellationToken cancellationToken
+	)
+	{
+		var user = await _dbContext.Users.SingleOrDefaultAsync(u => u.Login == login, cancellationToken);
+
+		if (user is null)
+		{
+			return Result<AuthenticationResult>.Failure("Login ou senha inválidos.");
+		}
+
+		if (user.IsLockedOut())
+		{
+			return Result<AuthenticationResult>.Failure("Conta temporariamente bloqueada por excesso de tentativas. Tente novamente mais tarde.");
+		}
+
+		if (!_passwordHasher.Verify(user.PasswordHash, password))
+		{
+			user.RegisterFailedLoginAttempt();
+
+			await _dbContext.SaveChangesAsync(cancellationToken);
+
+			return Result<AuthenticationResult>.Failure("Login ou senha inválidos.");
+		}
+
+		if (!user.IsActive)
+		{
+			return Result<AuthenticationResult>.Failure("Confirme seu e-mail antes de fazer login.");
+		}
+
+		user.RegisterSuccessfulLogin();
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
+
+		var authenticationResult = _jwtTokenGenerator.GenerateToken(user);
+
+		return Result<AuthenticationResult>.Success(authenticationResult);
 	}
 
 	private async Task EnqueueValidationEmailAsync(

@@ -31,6 +31,27 @@
 					}
 				},
 				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"login\": \"jsilva\",\n\t\"password\": \"S3nhaF0rte#2026\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "login"]
+						}
+					}
+				},
+				{
 					"name": "Confirm Email (API)",
 					"request": {
 						"method": "POST",

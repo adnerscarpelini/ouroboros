@@ -16,4 +16,10 @@ public interface IUserService
 		string token,
 		CancellationToken cancellationToken
 	);
+
+	Task<Result<AuthenticationResult>> LoginAsync(
+		string login,
+		string password,
+		CancellationToken cancellationToken
+	);
 }

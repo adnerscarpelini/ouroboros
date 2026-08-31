@@ -16,6 +16,7 @@ public static class CommonModule
 			.UseSnakeCaseNamingConvention());
 
 		services.AddScoped<IErrorLogService, ErrorLogService>();
+		services.AddScoped<IEmailQueueService, EmailQueueService>();
 
 		return services;
 	}

@@ -7,16 +7,24 @@ namespace Ouroboros.Modules.Auth.Infrastructure;
 
 public sealed class UserService : IUserService
 {
+	private const int ValidationTokenExpirationHours = 24;
+
 	private readonly AuthDbContext _dbContext;
 	private readonly IPasswordHasher _passwordHasher;
+	private readonly ITokenGenerator _tokenGenerator;
+	private readonly IEmailQueueService _emailQueueService;
 
 	public UserService(
 		AuthDbContext dbContext,
-		IPasswordHasher passwordHasher
+		IPasswordHasher passwordHasher,
+		ITokenGenerator tokenGenerator,
+		IEmailQueueService emailQueueService
 	)
 	{
 		_dbContext = dbContext;
 		_passwordHasher = passwordHasher;
+		_tokenGenerator = tokenGenerator;
+		_emailQueueService = emailQueueService;
 	}
 
 	public async Task<Result<Guid>> CreateUserAsync(
@@ -54,6 +62,43 @@ public sealed class UserService : IUserService
 
 		await _dbContext.SaveChangesAsync(cancellationToken);
 
+		await EnqueueValidationEmailAsync(user, cancellationToken);
+
 		return Result<Guid>.Success(user.ExternalId);
+	}
+
+	private async Task EnqueueValidationEmailAsync(
+		User user,
+		CancellationToken cancellationToken
+	)
+	{
+		var tokenTypeId = await _dbContext.TokenTypes
+			.Where(t => t.Name == TokenTypeNames.UserCreationValidation)
+			.Select(t => t.Id)
+			.SingleAsync(cancellationToken);
+
+		var rawToken = _tokenGenerator.GenerateToken();
+		var tokenHash = _tokenGenerator.Hash(rawToken);
+
+		var bodyHtml = $"<p>Olá, {user.FullName}!</p><p>Use o token abaixo para confirmar seu cadastro:</p><p><code>{rawToken}</code></p>";
+
+		var emailMessageId = await _emailQueueService.EnqueueAsync(
+			subject: "Confirme seu cadastro",
+			bodyHtml: bodyHtml,
+			recipient: user.Email,
+			cancellationToken: cancellationToken
+		);
+
+		var token = new Token(
+			tokenTypeId: tokenTypeId,
+			userId: user.Id,
+			emailMessageId: emailMessageId,
+			tokenHash: tokenHash,
+			expiresAt: DateTime.UtcNow.AddHours(ValidationTokenExpirationHours)
+		);
+
+		_dbContext.Tokens.Add(token);
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
 	}
 }

@@ -17,6 +17,7 @@ public static class AuthModule
 
 		services.AddScoped<IUserService, UserService>();
 		services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
+		services.AddScoped<ITokenGenerator, TokenGenerator>();
 
 		return services;
 	}

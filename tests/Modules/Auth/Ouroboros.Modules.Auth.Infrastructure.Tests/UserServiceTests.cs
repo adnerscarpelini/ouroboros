@@ -11,14 +11,31 @@ public class UserServiceTests
 			.UseInMemoryDatabase(Guid.NewGuid().ToString())
 			.Options;
 
-		return new AuthDbContext(options);
+		var dbContext = new AuthDbContext(options);
+		dbContext.Database.EnsureCreated();
+
+		return dbContext;
+	}
+
+	private static UserService CreateUserService(
+		AuthDbContext dbContext,
+		FakeEmailQueueService? emailQueueService = null
+	)
+	{
+		return new UserService(
+			dbContext,
+			new FakePasswordHasher(),
+			new FakeTokenGenerator(),
+			emailQueueService ?? new FakeEmailQueueService()
+		);
 	}
 
 	[Fact]
 	public async Task CreateUserAsync_WithNewLoginAndEmail_CreatesUserAndReturnsSuccess()
 	{
 		await using var dbContext = CreateDbContext();
-		var userService = new UserService(dbContext, new FakePasswordHasher());
+		var emailQueueService = new FakeEmailQueueService();
+		var userService = CreateUserService(dbContext, emailQueueService);
 
 		var result = await userService.CreateUserAsync(
 			login: "jsilva",
@@ -36,6 +53,15 @@ public class UserServiceTests
 		Assert.Equal("hashed:any-password", createdUser.PasswordHash);
 		Assert.Equal(result.Value, createdUser.ExternalId);
 		Assert.False(createdUser.IsActive);
+
+		var createdToken = await dbContext.Tokens.SingleAsync();
+		Assert.Equal(createdUser.Id, createdToken.UserId);
+		Assert.Equal("hashed:raw-token", createdToken.TokenHash);
+		Assert.False(createdToken.Validated);
+		Assert.True(createdToken.ExpiresAt > DateTime.UtcNow);
+
+		Assert.Equal("joao.silva@example.com", emailQueueService.LastRecipient);
+		Assert.Contains("raw-token", emailQueueService.LastBodyHtml);
 	}
 
 	[Fact]
@@ -50,7 +76,7 @@ public class UserServiceTests
 		));
 		await dbContext.SaveChangesAsync();
 
-		var userService = new UserService(dbContext, new FakePasswordHasher());
+		var userService = CreateUserService(dbContext);
 
 		var result = await userService.CreateUserAsync(
 			login: "jsilva",
@@ -76,7 +102,7 @@ public class UserServiceTests
 		));
 		await dbContext.SaveChangesAsync();
 
-		var userService = new UserService(dbContext, new FakePasswordHasher());
+		var userService = CreateUserService(dbContext);
 
 		var result = await userService.CreateUserAsync(
 			login: "outrologin",

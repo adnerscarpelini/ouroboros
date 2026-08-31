@@ -36,6 +36,15 @@ public sealed class AuthDbContext : AppDbContext
 				UpdatedAt = (DateTime?)null,
 				Name = TokenTypeNames.UserCreationValidation
 			});
+
+			builder.HasData(new
+			{
+				Id = 2L,
+				ExternalId = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+				CreatedAt = new DateTime(2026, 8, 31, 0, 0, 0, DateTimeKind.Utc),
+				UpdatedAt = (DateTime?)null,
+				Name = TokenTypeNames.PasswordReset
+			});
 		});
 
 		modelBuilder.Entity<Token>(builder =>

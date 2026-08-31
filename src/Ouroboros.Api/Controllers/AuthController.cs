@@ -74,6 +74,36 @@ public sealed class AuthController : ControllerBase
 	}
 
 	[AllowAnonymous]
+	[HttpPost("forgot-password")]
+	public async Task<IActionResult> ForgotPassword(
+		[FromBody] ForgotPasswordRequest request,
+		CancellationToken cancellationToken
+	)
+	{
+		await _userService.RequestPasswordResetAsync(request.Email, cancellationToken);
+
+		// Resposta sempre igual, exista ou não o e-mail — evita enumeração de contas.
+		return NoContent();
+	}
+
+	[AllowAnonymous]
+	[HttpPost("reset-password")]
+	public async Task<IActionResult> ResetPassword(
+		[FromBody] ResetPasswordRequest request,
+		CancellationToken cancellationToken
+	)
+	{
+		var result = await _userService.ResetPasswordAsync(request.Token, request.NewPassword, cancellationToken);
+
+		if (!result.IsSuccess)
+		{
+			return BadRequest(new { message = result.Error });
+		}
+
+		return NoContent();
+	}
+
+	[AllowAnonymous]
 	[HttpGet("confirm-email")]
 	public async Task<ContentResult> ConfirmEmailPage(
 		[FromQuery] string token,

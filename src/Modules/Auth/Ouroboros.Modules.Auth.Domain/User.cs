@@ -71,4 +71,13 @@ public sealed class User : Entity
 		LockedUntil = null;
 		LastLoginAt = DateTime.UtcNow;
 	}
+
+	public void ResetPassword(string newPasswordHash)
+	{
+		PasswordHash = newPasswordHash;
+		PasswordChangedAt = DateTime.UtcNow;
+		// Uma senha nova invalida o motivo do bloqueio por tentativas antigas.
+		FailedLoginAttempts = 0;
+		LockedUntil = null;
+	}
 }

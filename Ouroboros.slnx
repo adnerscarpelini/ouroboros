@@ -12,7 +12,9 @@
     <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Domain/Ouroboros.Modules.Auth.Domain.csproj" />
     <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Infrastructure/Ouroboros.Modules.Auth.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/Ouroboros.Api.Tests/Ouroboros.Api.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/Common/">
     <Project Path="tests/Common/Ouroboros.Common.Application.Tests/Ouroboros.Common.Application.Tests.csproj" />
     <Project Path="tests/Common/Ouroboros.Common.Domain.Tests/Ouroboros.Common.Domain.Tests.csproj" />

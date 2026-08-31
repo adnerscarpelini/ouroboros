@@ -33,7 +33,8 @@ public sealed class User : Entity
 		EmailConfirmed = false;
 		PasswordHash = passwordHash;
 		PasswordChangedAt = CreatedAt;
-		IsActive = true;
+		// Ativado só depois da confirmação de e-mail (fluxo ainda não implementado).
+		IsActive = false;
 		FailedLoginAttempts = 0;
 		LockedUntil = null;
 		LastLoginAt = null;

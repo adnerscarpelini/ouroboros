@@ -35,6 +35,7 @@ public class UserServiceTests
 		Assert.Equal("jsilva", createdUser.Login);
 		Assert.Equal("hashed:any-password", createdUser.PasswordHash);
 		Assert.Equal(result.Value, createdUser.ExternalId);
+		Assert.False(createdUser.IsActive);
 	}
 
 	[Fact]

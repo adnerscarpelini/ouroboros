@@ -21,7 +21,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n\t\"login\": \"jsilva\",\n\t\"fullName\": \"Joao Silva\",\n\t\"email\": \"joao.silva@example.com\",\n\t\"password\": \"S3nhaF0rte!\"\n}"
+							"raw": "{\n\t\"login\": \"jsilva\",\n\t\"fullName\": \"Joao Silva\",\n\t\"email\": \"joao.silva@example.com\",\n\t\"password\": \"S3nhaF0rte#2026\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/register",

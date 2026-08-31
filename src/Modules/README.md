@@ -13,7 +13,7 @@ src/Modules/<NomeDoModulo>/
 
 Cada camada segue as mesmas regras já definidas para o projeto (ver [docs/0000 - Arquitetura.md](../../docs/0000%20-%20Arquitetura.md) e a skill `ags-developer`). O projeto `Infrastructure` só é criado quando o módulo realmente tiver algo pra colocar lá (ex.: persistência) — não é criado vazio por antecipação.
 
-O módulo `Auth` é o primeiro exemplo dessa convenção em prática, agora com as três camadas: `Domain` (entidade `User`), `Application` (`UserService.CreateUser` ainda é um stub que só retorna `true`) e `Infrastructure` (`AuthDbContext` + `AuthModule.AddAuthModule`, configurados mas sem nenhuma migration criada ainda — ver [ags-dba](../../.claude/skills/ags-dba/SKILL.md)).
+O módulo `Auth` é o primeiro exemplo dessa convenção em prática, com as três camadas: `Domain` (entidade `User`), `Application` (contratos `IUserService`/`IPasswordHasher`, sem dependência de infraestrutura) e `Infrastructure` (`UserService` e `Argon2PasswordHasher` — implementações reais, com `AuthDbContext` + `AuthModule.AddAuthModule` — ver [ags-dba](../../.claude/skills/ags-dba/SKILL.md)).
 
 ## Regra de isolamento entre módulos
 

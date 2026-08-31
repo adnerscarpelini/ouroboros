@@ -16,6 +16,7 @@ public static class AuthModule
 			.UseSnakeCaseNamingConvention());
 
 		services.AddScoped<IUserService, UserService>();
+		services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
 
 		return services;
 	}

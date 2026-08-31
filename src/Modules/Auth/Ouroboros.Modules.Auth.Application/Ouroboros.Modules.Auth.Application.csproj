@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ouroboros.Modules.Auth.Domain\Ouroboros.Modules.Auth.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Common\Ouroboros.Common.Application\Ouroboros.Common.Application.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

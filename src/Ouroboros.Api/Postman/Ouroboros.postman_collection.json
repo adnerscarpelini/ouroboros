@@ -5,11 +5,38 @@
 		"description": "Collection de requisições da API do projeto Ouroboros.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
-	"item": [],
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"login\": \"jsilva\",\n\t\"fullName\": \"Joao Silva\",\n\t\"email\": \"joao.silva@example.com\",\n\t\"password\": \"S3nhaF0rte!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "register"]
+						}
+					}
+				}
+			]
+		}
+	],
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "https://localhost:5001",
+			"value": "http://localhost:5082",
 			"type": "string"
 		}
 	]

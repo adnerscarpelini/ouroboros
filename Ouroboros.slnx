@@ -12,6 +12,7 @@
     <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Domain/Ouroboros.Modules.Auth.Domain.csproj" />
     <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Infrastructure/Ouroboros.Modules.Auth.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/" />
   <Folder Name="/tests/Common/">
     <Project Path="tests/Common/Ouroboros.Common.Application.Tests/Ouroboros.Common.Application.Tests.csproj" />
     <Project Path="tests/Common/Ouroboros.Common.Domain.Tests/Ouroboros.Common.Domain.Tests.csproj" />
@@ -19,5 +20,6 @@
   </Folder>
   <Folder Name="/tests/Modules/Auth/">
     <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Application.Tests/Ouroboros.Modules.Auth.Application.Tests.csproj" />
+    <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Infrastructure.Tests/Ouroboros.Modules.Auth.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

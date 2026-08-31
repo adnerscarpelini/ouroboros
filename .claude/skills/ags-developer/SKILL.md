@@ -96,6 +96,12 @@ userService.Insert(
 - Só usar `try/catch` quando houver algo real a fazer com a exceção naquele ponto (recuperar, traduzir para um erro de domínio específico, tentar de novo, etc.) — nunca apenas para logar.
 - Mecanismo completo documentado em [docs/0000 - Arquitetura.md](../../../docs/0000%20-%20Arquitetura.md).
 
+## Autorização de endpoints
+
+- Todo endpoint da `Ouroboros.Api` exige autenticação (JWT Bearer) por padrão — não por convenção lembrada a cada vez, mas por uma `FallbackPolicy` configurada em `Program.cs` (`RequireAuthenticatedUser()`), que se aplica a qualquer endpoint sem anotação explícita. Endpoints públicos precisam ser marcados com `[AllowAnonymous]`, não o contrário.
+- Exceções conhecidas hoje (ficam `[AllowAnonymous]`): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/confirm-email` e `GET /api/auth/confirm-email` — são os endpoints que o usuário usa antes de ter um token. O mesmo vale, no futuro, pro fluxo de recuperação de senha.
+- Ao criar um endpoint novo, se não estiver claro se ele deve ser público ou exigir autenticação, **pergunte ao usuário antes de decidir** — não presuma nem `[Authorize]` nem `[AllowAnonymous]` por conta própria fora da lista de exceções conhecidas acima.
+
 ## Collection do Postman
 
 - Sempre que um método/endpoint novo for criado ou alterado na `Ouroboros.Api`, revisar e ajustar `src/Ouroboros.Api/Postman/Ouroboros.postman_collection.json` para refletir a mudança (nova requisição, parâmetros, exemplos, etc.).

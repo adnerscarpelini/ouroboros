@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Ouroboros.Api;
 using Ouroboros.Common.Infrastructure;
@@ -50,6 +51,13 @@ builder.Services
 			ClockSkew = TimeSpan.FromMinutes(1)
 		};
 	});
+
+// Todo endpoint exige autenticação por padrão, a menos que marcado explicitamente com [AllowAnonymous]
+// — ver seção "Autorização de endpoints" da skill ags-developer.
+builder.Services.AddAuthorizationBuilder()
+	.SetFallbackPolicy(new AuthorizationPolicyBuilder()
+		.RequireAuthenticatedUser()
+		.Build());
 
 var app = builder.Build();
 

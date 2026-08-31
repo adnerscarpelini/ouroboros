@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ouroboros.Api.Contracts.Auth;
 using Ouroboros.Modules.Auth.Application;
@@ -15,6 +16,7 @@ public sealed class AuthController : ControllerBase
 		_userService = userService;
 	}
 
+	[AllowAnonymous]
 	[HttpPost("register")]
 	public async Task<IActionResult> Register(
 		[FromBody] RegisterUserRequest request,
@@ -37,6 +39,7 @@ public sealed class AuthController : ControllerBase
 		return StatusCode(StatusCodes.Status201Created, new RegisterUserResponse(result.Value));
 	}
 
+	[AllowAnonymous]
 	[HttpPost("confirm-email")]
 	public async Task<IActionResult> ConfirmEmail(
 		[FromBody] ConfirmEmailRequest request,
@@ -53,6 +56,7 @@ public sealed class AuthController : ControllerBase
 		return NoContent();
 	}
 
+	[AllowAnonymous]
 	[HttpPost("login")]
 	public async Task<IActionResult> Login(
 		[FromBody] LoginRequest request,
@@ -69,6 +73,7 @@ public sealed class AuthController : ControllerBase
 		return Ok(new LoginResponse(result.Value!.AccessToken, result.Value.ExpiresAt));
 	}
 
+	[AllowAnonymous]
 	[HttpGet("confirm-email")]
 	public async Task<ContentResult> ConfirmEmailPage(
 		[FromQuery] string token,

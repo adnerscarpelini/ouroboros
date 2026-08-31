@@ -22,6 +22,7 @@
   </Folder>
   <Folder Name="/tests/Modules/Auth/">
     <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Application.Tests/Ouroboros.Modules.Auth.Application.Tests.csproj" />
+    <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Domain.Tests/Ouroboros.Modules.Auth.Domain.Tests.csproj" />
     <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Infrastructure.Tests/Ouroboros.Modules.Auth.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

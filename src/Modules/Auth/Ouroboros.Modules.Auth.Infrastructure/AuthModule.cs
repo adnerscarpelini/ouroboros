@@ -8,12 +8,15 @@ public static class AuthModule
 {
 	public static IServiceCollection AddAuthModule(
 		this IServiceCollection services,
-		string connectionString
+		string connectionString,
+		string apiBaseUrl
 	)
 	{
 		services.AddDbContext<AuthDbContext>(options => options
 			.UseNpgsql(connectionString)
 			.UseSnakeCaseNamingConvention());
+
+		services.AddSingleton(new AuthOptions(apiBaseUrl));
 
 		services.AddScoped<IUserService, UserService>();
 		services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();

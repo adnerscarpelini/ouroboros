@@ -25,7 +25,8 @@ internal static class UserServiceTestHelpers
 			dbContext,
 			new FakePasswordHasher(),
 			new FakeTokenGenerator(),
-			emailQueueService ?? new FakeEmailQueueService()
+			emailQueueService ?? new FakeEmailQueueService(),
+			new AuthOptions("http://localhost:5082")
 		);
 	}
 }

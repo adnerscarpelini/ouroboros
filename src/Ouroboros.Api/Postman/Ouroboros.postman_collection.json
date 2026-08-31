@@ -31,7 +31,7 @@
 					}
 				},
 				{
-					"name": "Confirm Email",
+					"name": "Confirm Email (API)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -48,6 +48,23 @@
 							"raw": "{{baseUrl}}/api/auth/confirm-email",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "confirm-email"]
+						}
+					}
+				},
+				{
+					"name": "Confirm Email (link do e-mail)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/confirm-email?token=",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "confirm-email"],
+							"query": [
+								{
+									"key": "token",
+									"value": ""
+								}
+							]
 						}
 					}
 				}

@@ -16,8 +16,11 @@ builder.Services.AddProblemDetails();
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
 	?? throw new InvalidOperationException("Connection string 'Postgres' não configurada. Ver docs/0002 - Setup do Banco de Dados Local.md.");
 
+var apiBaseUrl = builder.Configuration["App:BaseUrl"]
+	?? throw new InvalidOperationException("Configuração 'App:BaseUrl' não definida.");
+
 builder.Services.AddCommon(connectionString: postgresConnectionString);
-builder.Services.AddAuthModule(connectionString: postgresConnectionString);
+builder.Services.AddAuthModule(connectionString: postgresConnectionString, apiBaseUrl: apiBaseUrl);
 
 var app = builder.Build();
 

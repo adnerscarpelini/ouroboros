@@ -52,4 +52,24 @@ public sealed class AuthController : ControllerBase
 
 		return NoContent();
 	}
+
+	[HttpGet("confirm-email")]
+	public async Task<ContentResult> ConfirmEmailPage(
+		[FromQuery] string token,
+		CancellationToken cancellationToken
+	)
+	{
+		var result = await _userService.ConfirmEmailAsync(token, cancellationToken);
+
+		var templateName = result.IsSuccess ? "ConfirmationSuccess.html" : "ConfirmationFailure.html";
+		var templatePath = Path.Combine(AppContext.BaseDirectory, "Templates", templateName);
+		var html = await System.IO.File.ReadAllTextAsync(templatePath, cancellationToken);
+
+		if (!result.IsSuccess)
+		{
+			html = html.Replace("{{Message}}", result.Error);
+		}
+
+		return Content(html, "text/html");
+	}
 }

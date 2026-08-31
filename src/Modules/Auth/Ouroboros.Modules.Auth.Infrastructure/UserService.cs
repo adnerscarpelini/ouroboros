@@ -13,18 +13,21 @@ public sealed class UserService : IUserService
 	private readonly IPasswordHasher _passwordHasher;
 	private readonly ITokenGenerator _tokenGenerator;
 	private readonly IEmailQueueService _emailQueueService;
+	private readonly AuthOptions _authOptions;
 
 	public UserService(
 		AuthDbContext dbContext,
 		IPasswordHasher passwordHasher,
 		ITokenGenerator tokenGenerator,
-		IEmailQueueService emailQueueService
+		IEmailQueueService emailQueueService,
+		AuthOptions authOptions
 	)
 	{
 		_dbContext = dbContext;
 		_passwordHasher = passwordHasher;
 		_tokenGenerator = tokenGenerator;
 		_emailQueueService = emailQueueService;
+		_authOptions = authOptions;
 	}
 
 	public async Task<Result<Guid>> CreateUserAsync(
@@ -122,7 +125,12 @@ public sealed class UserService : IUserService
 		var rawToken = _tokenGenerator.GenerateToken();
 		var tokenHash = _tokenGenerator.Hash(rawToken);
 
-		var bodyHtml = $"<p>Olá, {user.FullName}!</p><p>Use o token abaixo para confirmar seu cadastro:</p><p><code>{rawToken}</code></p>";
+		var confirmationUrl = $"{_authOptions.ApiBaseUrl}/api/auth/confirm-email?token={Uri.EscapeDataString(rawToken)}";
+
+		var templatePath = Path.Combine(AppContext.BaseDirectory, "Templates", "UserCreationValidationEmail.html");
+		var bodyHtml = (await File.ReadAllTextAsync(templatePath, cancellationToken))
+			.Replace("{{FullName}}", user.FullName)
+			.Replace("{{ConfirmationUrl}}", confirmationUrl);
 
 		var emailMessageId = await _emailQueueService.EnqueueAsync(
 			subject: "Confirme seu cadastro",

@@ -7,6 +7,7 @@ public interface IErrorLogService
 		string source,
 		string? requestPath,
 		string? traceId,
+		// Cancela a operação em andamento se o request HTTP for encerrado antes de terminar (ex.: cliente desconectou).
 		CancellationToken cancellationToken
 	);
 }

@@ -70,7 +70,50 @@ public sealed class AuthController : ControllerBase
 			return Unauthorized(new { message = result.Error });
 		}
 
-		return Ok(new LoginResponse(result.Value!.AccessToken, result.Value.ExpiresAt));
+		return Ok(new LoginResponse(
+			result.Value!.AccessToken,
+			result.Value.ExpiresAt,
+			result.Value.RefreshToken,
+			result.Value.RefreshTokenExpiresAt
+		));
+	}
+
+	[AllowAnonymous]
+	[HttpPost("refresh-token")]
+	public async Task<IActionResult> RefreshToken(
+		[FromBody] RefreshTokenRequest request,
+		CancellationToken cancellationToken
+	)
+	{
+		var result = await _userService.RefreshTokenAsync(request.RefreshToken, cancellationToken);
+
+		if (!result.IsSuccess)
+		{
+			return Unauthorized(new { message = result.Error });
+		}
+
+		return Ok(new LoginResponse(
+			result.Value!.AccessToken,
+			result.Value.ExpiresAt,
+			result.Value.RefreshToken,
+			result.Value.RefreshTokenExpiresAt
+		));
+	}
+
+	[HttpPost("logout")]
+	public async Task<IActionResult> Logout(
+		[FromBody] LogoutRequest request,
+		CancellationToken cancellationToken
+	)
+	{
+		var result = await _userService.LogoutAsync(request.RefreshToken, cancellationToken);
+
+		if (!result.IsSuccess)
+		{
+			return BadRequest(new { message = result.Error });
+		}
+
+		return NoContent();
 	}
 
 	[AllowAnonymous]

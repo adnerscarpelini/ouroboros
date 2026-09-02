@@ -1,17 +1,19 @@
 # 0003 - Autenticação
 
-Fluxo completo de autenticação do módulo Auth: cadastro, confirmação de e-mail, login e redefinição de senha. Diagrama correspondente em [docs/excalidraw/0003 - Autenticação.excalidraw](excalidraw/0003%20-%20Autenticação.excalidraw).
+Fluxo completo de autenticação do módulo Auth: cadastro, confirmação de e-mail, login, refresh token, logout e redefinição de senha. Diagrama correspondente em [docs/excalidraw/0003 - Autenticação.excalidraw](excalidraw/0003%20-%20Autenticação.excalidraw) (ainda não reflete refresh token/logout).
 
 ## Visão geral
 
 1. Usuário se cadastra (`POST /api/auth/register`) — a conta nasce inativa.
 2. A Api enfileira um e-mail de confirmação e gera um token de validação.
 3. Usuário confirma o e-mail (link do e-mail ou `POST /api/auth/confirm-email`) — a conta vira ativa.
-4. Usuário faz login (`POST /api/auth/login`) e recebe um JWT.
-5. Se esquecer a senha, usuário solicita redefinição (`POST /api/auth/forgot-password`) e confirma com o token recebido por e-mail (`POST /api/auth/reset-password`).
-6. Todo endpoint da Api exige esse JWT por padrão, exceto os marcados com `[AllowAnonymous]`.
+4. Usuário faz login (`POST /api/auth/login`) e recebe um par de tokens: um JWT (`AccessToken`) e um refresh token.
+5. Quando o `AccessToken` expira, o cliente troca o refresh token por um par novo (`POST /api/auth/refresh-token`), sem precisar logar de novo.
+6. Ao encerrar a sessão, o cliente revoga o refresh token corrente (`POST /api/auth/logout`).
+7. Se esquecer a senha, usuário solicita redefinição (`POST /api/auth/forgot-password`) e confirma com o token recebido por e-mail (`POST /api/auth/reset-password`).
+8. Todo endpoint da Api exige o `AccessToken` por padrão, exceto os marcados com `[AllowAnonymous]`.
 
-Todos os seis endpoints abaixo são `[AllowAnonymous]` — é o próprio fluxo de autenticação, não faria sentido exigir token pra eles.
+Endpoints `[AllowAnonymous]`: `register`, `confirm-email` (`GET`/`POST`), `login`, `refresh-token`, `forgot-password` e `reset-password` — é o próprio fluxo de autenticação, não faria sentido exigir token pra eles. `logout` é a exceção: exige `AccessToken` válido, porque só faz sentido chamado por quem já está autenticado.
 
 ## 1. Cadastro — `POST /api/auth/register`
 
@@ -70,7 +72,7 @@ Request (`LoginRequest`): `Login`, `Password`.
    - Falha com a mesma mensagem genérica do passo 1.
 4. Se a senha está correta mas o e-mail não foi confirmado (`IsActive == false`), falha com **"Confirme seu e-mail antes de fazer login."**.
 5. Login bem-sucedido: zera tentativas falhas, remove bloqueio, atualiza `LastLoginAt` (`RegisterSuccessfulLogin()`).
-6. Gera o JWT (`IJwtTokenGenerator.GenerateToken`) e retorna `AccessToken` + `ExpiresAt` (`LoginResponse`, `200 OK`).
+6. Emite o par de tokens (`IssueAuthenticationResult`, ver seção 4) e retorna `AccessToken` + `ExpiresAt` + `RefreshToken` + `RefreshTokenExpiresAt` (`LoginResponse`, `200 OK`).
 
 ### Bloqueio por tentativas (regras de `User`, domínio)
 
@@ -78,14 +80,43 @@ Request (`LoginRequest`): `Login`, `Password`.
 - Bloqueio dura **15 minutos**, contados a partir da tentativa que estourou o limite.
 - Ao bloquear, o contador de tentativas é zerado — o bloqueio em si é que impede novas tentativas até expirar, não o contador.
 
-### Token JWT
+### Token JWT (access token)
 
 - Assinado com HMAC SHA256, chave em `Jwt:SigningKey` (User Secrets — ver [docs/0002 - Setup do Banco de Dados Local.md](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md)).
 - Validade: **1 hora**.
 - Claims: `sub` (ExternalId do usuário), `unique_name` (Login), `email`.
-- Não há refresh token — expirado, o usuário precisa logar de novo.
+- Expirado, o cliente troca o refresh token por um par novo (seção 4) em vez de logar de novo.
 
-## 4. Redefinição de senha
+## 4. Refresh token e logout
+
+Sessão representada por uma `RefreshToken` (schema `auth`, entidade própria — não reaproveita `Token`/`TokenType`, que são acoplados ao fluxo de e-mail via `EmailMessageId`). Guarda só o hash do token (`ITokenGenerator.Hash`), igual aos demais tokens do módulo — o valor bruto nunca é persistido.
+
+### Emissão — `UserService.IssueAuthenticationResult`
+
+Chamado tanto pelo login quanto pelo refresh:
+
+1. Gera o `AccessToken` (JWT, `IJwtTokenGenerator.GenerateToken`).
+2. Gera um refresh token aleatório e persiste um `RefreshToken` com o hash dele, validade de **30 dias** (`RevokedAt = null`).
+3. Retorna os dois pares (`AccessToken`/`ExpiresAt` e `RefreshToken`/`RefreshTokenExpiresAt`) num único `AuthenticationResult`.
+
+### Renovação — `POST /api/auth/refresh-token` (`RefreshTokenRequest`: `RefreshToken`)
+
+`UserService.RefreshTokenAsync`, com **rotação**: cada uso do refresh token o revoga e emite um par novo — um token roubado só funciona até a próxima renovação legítima.
+
+1. Faz hash do token recebido e busca o `RefreshToken` correspondente pelo hash.
+2. Falha (`"Token inválido."`) se não encontrar ou se já estiver revogado (`RevokedAt` setado).
+3. Falha (`"Token expirado."`) se passou dos 30 dias.
+4. Revoga o token usado (`RefreshToken.Revoke()`) e emite um par novo (`IssueAuthenticationResult`).
+5. Retorna `200 OK` (`LoginResponse`) ou `401 Unauthorized` em caso de falha.
+
+### Logout — `POST /api/auth/logout` (`LogoutRequest`: `RefreshToken`)
+
+`UserService.LogoutAsync`: revoga o refresh token recebido (`RefreshToken.Revoke()`), impedindo renovações futuras com ele. Não precisa cruzar com o usuário do `AccessToken` — a posse do refresh token bruto já prova o direito de encerrar aquela sessão, mesmo modelo de confiança usado em `ConfirmEmailAsync`/`ResetPasswordAsync`.
+
+1. Falha (`"Token inválido."`) se não encontrar o token pelo hash, ou se já estiver revogado.
+2. Revoga e retorna `204 No Content`, ou `400 Bad Request` em caso de falha.
+
+## 5. Redefinição de senha
 
 Dois endpoints:
 
@@ -110,6 +141,6 @@ Dois endpoints:
 5. Gera o hash da nova senha (Argon2) e chama `User.ResetPassword(newPasswordHash)`: atualiza `PasswordHash` e `PasswordChangedAt`, e zera `FailedLoginAttempts`/`LockedUntil` — a senha nova invalida o motivo de um bloqueio antigo.
 6. Marca o token como validado (`Token.Validate()`).
 
-## 5. Autorização por padrão
+## 6. Autorização por padrão
 
-Configurado em `Program.cs` via `FallbackPolicy`: todo endpoint da Api exige usuário autenticado (JWT válido) por padrão. Só os endpoints marcados explicitamente com `[AllowAnonymous]` — os seis deste fluxo — ficam abertos. Ver seção "Autorização de endpoints" da skill [ags-developer](../.claude/skills/ags-developer/SKILL.md).
+Configurado em `Program.cs` via `FallbackPolicy`: todo endpoint da Api exige usuário autenticado (JWT válido) por padrão. Só os endpoints marcados explicitamente com `[AllowAnonymous]` — listados na seção "Visão geral" — ficam abertos; `logout` continua exigindo autenticação. Ver seção "Autorização de endpoints" da skill [ags-developer](../.claude/skills/ags-developer/SKILL.md).

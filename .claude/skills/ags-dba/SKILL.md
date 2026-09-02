@@ -104,6 +104,35 @@ Propriedades de referência não-nulas (`string`, não `string?`) precisam do `=
 - Tabelas e colunas no Postgres: **snake_case** (ex.: tabela `users`, coluna `created_at`), seguindo a convenção idiomática do Postgres.
 - Entidades e propriedades em C# continuam em PascalCase (ver `ags-developer`); a conversão para snake_case no banco é automática via pacote `EFCore.NamingConventions`, não manual.
 
+## Leitura pesada: Query Objects com Dapper
+
+- Padrão default pra qualquer leitura continua sendo **EF Core** (LINQ contra o `DbContext` do módulo) — o mesmo usado pra escrita.
+- Só se cria um **Query Object** com **Dapper** quando uma leitura específica for pesada de verdade (relatório/dashboard com múltiplos joins e agregações, ou uma consulta que já ficou difícil/ineficiente em LINQ). Não criar por antecipação — decisão completa em [docs/0004 - EF Core e Dapper.md](../../../docs/0004%20-%20EF%20Core%20e%20Dapper.md).
+- Convenção, quando existir a necessidade:
+  - Contrato em `Application/Queries/I<Nome>Query.cs`: interface com um único método `ExecuteAsync(...)`, retornando um DTO (`record`) — nunca uma entidade de `Domain`.
+  - Implementação em `Infrastructure/Queries/<Nome>Query.cs`: usa Dapper, SQL escrito à mão, com o schema do módulo explícito na query (Dapper não conhece o `HasDefaultSchema` do `DbContext`).
+  - Registro no mesmo `Add<NomeDoModulo>Module` onde já entram os serviços: `services.AddScoped<I<Nome>Query, <Nome>Query>();`.
+  - Conexão vem de `IDbConnectionFactory` (contrato em `Ouroboros.Common.Application`, implementação Npgsql em `Ouroboros.Common.Infrastructure`), reaproveitando a mesma connection string do EF Core.
+  - Pacote `Dapper` entra só no `Infrastructure` do módulo que tiver o primeiro Query Object — mesma regra de "`Infrastructure` só nasce quando há algo real pra colocar lá".
+
+```csharp
+// Application/Queries/IUserLoginAttemptsReportQuery.cs
+public interface IUserLoginAttemptsReportQuery
+{
+	Task<IReadOnlyList<UserLoginAttemptsReportItem>> ExecuteAsync(
+		DateTime from,
+		DateTime to,
+		CancellationToken cancellationToken
+	);
+}
+
+public sealed record UserLoginAttemptsReportItem(
+	string Login,
+	int FailedAttempts,
+	DateTime? LastAttemptAt
+);
+```
+
 ## Evolução
 
 Esta skill é o lugar para acumular, com o tempo, convenções mais específicas (padrão de nome de chaves estrangeiras e índices, uso de tipos específicos do Postgres, estratégia de seed de dados, etc.) à medida que forem sendo definidas.

@@ -9,6 +9,7 @@ public sealed class UserService : IUserService
 {
 	private const int ValidationTokenExpirationHours = 24;
 	private const int PasswordResetTokenExpirationHours = 1;
+	private const int RefreshTokenExpirationDays = 30;
 
 	private readonly AuthDbContext _dbContext;
 	private readonly IPasswordHasher _passwordHasher;
@@ -150,11 +151,88 @@ public sealed class UserService : IUserService
 
 		user.RegisterSuccessfulLogin();
 
+		var authenticationResult = IssueAuthenticationResult(user);
+
 		await _dbContext.SaveChangesAsync(cancellationToken);
 
-		var authenticationResult = _jwtTokenGenerator.GenerateToken(user);
+		return Result<AuthenticationResult>.Success(authenticationResult);
+	}
+
+	public async Task<Result<AuthenticationResult>> RefreshTokenAsync(
+		string refreshToken,
+		CancellationToken cancellationToken
+	)
+	{
+		var tokenHash = _tokenGenerator.Hash(refreshToken);
+
+		var storedRefreshToken = await _dbContext.RefreshTokens
+			.SingleOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+
+		if (storedRefreshToken is null || storedRefreshToken.RevokedAt.HasValue)
+		{
+			return Result<AuthenticationResult>.Failure("Token inválido.");
+		}
+
+		if (storedRefreshToken.ExpiresAt < DateTime.UtcNow)
+		{
+			return Result<AuthenticationResult>.Failure("Token expirado.");
+		}
+
+		var user = await _dbContext.Users.SingleAsync(u => u.Id == storedRefreshToken.UserId, cancellationToken);
+
+		// Rotação: o refresh token usado é revogado e um novo par access+refresh é emitido.
+		storedRefreshToken.Revoke();
+
+		var authenticationResult = IssueAuthenticationResult(user);
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
 
 		return Result<AuthenticationResult>.Success(authenticationResult);
+	}
+
+	public async Task<Result> LogoutAsync(
+		string refreshToken,
+		CancellationToken cancellationToken
+	)
+	{
+		var tokenHash = _tokenGenerator.Hash(refreshToken);
+
+		var storedRefreshToken = await _dbContext.RefreshTokens
+			.SingleOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+
+		if (storedRefreshToken is null || storedRefreshToken.RevokedAt.HasValue)
+		{
+			return Result.Failure("Token inválido.");
+		}
+
+		storedRefreshToken.Revoke();
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
+
+		return Result.Success();
+	}
+
+	private AuthenticationResult IssueAuthenticationResult(User user)
+	{
+		var accessTokenResult = _jwtTokenGenerator.GenerateToken(user);
+
+		var rawRefreshToken = _tokenGenerator.GenerateToken();
+		var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenExpirationDays);
+
+		var refreshToken = new RefreshToken(
+			userId: user.Id,
+			tokenHash: _tokenGenerator.Hash(rawRefreshToken),
+			expiresAt: refreshTokenExpiresAt
+		);
+
+		_dbContext.RefreshTokens.Add(refreshToken);
+
+		return new AuthenticationResult(
+			AccessToken: accessTokenResult.AccessToken,
+			ExpiresAt: accessTokenResult.ExpiresAt,
+			RefreshToken: rawRefreshToken,
+			RefreshTokenExpiresAt: refreshTokenExpiresAt
+		);
 	}
 
 	public async Task RequestPasswordResetAsync(

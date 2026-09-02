@@ -5,8 +5,8 @@ namespace Ouroboros.Modules.Auth.Infrastructure.Tests;
 
 public sealed class FakeJwtTokenGenerator : IJwtTokenGenerator
 {
-	public AuthenticationResult GenerateToken(User user)
+	public AccessTokenResult GenerateToken(User user)
 	{
-		return new AuthenticationResult($"token-for:{user.Login}", DateTime.UtcNow.AddHours(1));
+		return new AccessTokenResult($"token-for:{user.Login}", DateTime.UtcNow.AddHours(1));
 	}
 }

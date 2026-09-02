@@ -18,7 +18,7 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 		_authOptions = authOptions;
 	}
 
-	public AuthenticationResult GenerateToken(User user)
+	public AccessTokenResult GenerateToken(User user)
 	{
 		var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
 
@@ -42,6 +42,6 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 
 		var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-		return new AuthenticationResult(accessToken, expiresAt);
+		return new AccessTokenResult(accessToken, expiresAt);
 	}
 }

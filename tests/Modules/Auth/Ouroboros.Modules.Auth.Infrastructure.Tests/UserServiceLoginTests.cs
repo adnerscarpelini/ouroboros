@@ -45,10 +45,15 @@ public class UserServiceLoginTests
 
 		Assert.True(result.IsSuccess);
 		Assert.Equal("token-for:jsilva", result.Value!.AccessToken);
+		Assert.False(string.IsNullOrEmpty(result.Value.RefreshToken));
 
 		var reloadedUser = await dbContext.Users.SingleAsync();
 		Assert.Equal(0, reloadedUser.FailedLoginAttempts);
 		Assert.NotNull(reloadedUser.LastLoginAt);
+
+		var refreshToken = await dbContext.RefreshTokens.SingleAsync();
+		Assert.Equal(reloadedUser.Id, refreshToken.UserId);
+		Assert.Null(refreshToken.RevokedAt);
 	}
 
 	[Fact]

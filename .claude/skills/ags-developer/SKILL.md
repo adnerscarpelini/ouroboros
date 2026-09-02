@@ -99,7 +99,7 @@ userService.Insert(
 ## Autorização de endpoints
 
 - Todo endpoint da `Ouroboros.Api` exige autenticação (JWT Bearer) por padrão — não por convenção lembrada a cada vez, mas por uma `FallbackPolicy` configurada em `Program.cs` (`RequireAuthenticatedUser()`), que se aplica a qualquer endpoint sem anotação explícita. Endpoints públicos precisam ser marcados com `[AllowAnonymous]`, não o contrário.
-- Exceções conhecidas hoje (ficam `[AllowAnonymous]`): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/confirm-email` e `GET /api/auth/confirm-email` — são os endpoints que o usuário usa antes de ter um token. O mesmo vale, no futuro, pro fluxo de recuperação de senha.
+- Exceções conhecidas hoje (ficam `[AllowAnonymous]`): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/confirm-email`, `GET /api/auth/confirm-email`, `POST /api/auth/refresh-token`, `POST /api/auth/forgot-password` e `POST /api/auth/reset-password` — são os endpoints que o usuário usa antes de ter um `AccessToken` válido (ou, no caso do `refresh-token`, justamente porque o `AccessToken` já expirou). `POST /api/auth/logout` é a exceção contrária: mesmo sendo parte do fluxo de autenticação, exige `AccessToken` válido, porque só faz sentido chamado por quem já está autenticado.
 - Ao criar um endpoint novo, se não estiver claro se ele deve ser público ou exigir autenticação, **pergunte ao usuário antes de decidir** — não presuma nem `[Authorize]` nem `[AllowAnonymous]` por conta própria fora da lista de exceções conhecidas acima.
 
 ## Collection do Postman

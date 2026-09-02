@@ -9,6 +9,7 @@ public sealed class AuthDbContext : AppDbContext
 	public DbSet<User> Users => Set<User>();
 	public DbSet<TokenType> TokenTypes => Set<TokenType>();
 	public DbSet<Token> Tokens => Set<Token>();
+	public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
 	public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options)
 	{
@@ -54,6 +55,15 @@ public sealed class AuthDbContext : AppDbContext
 			builder.HasOne<TokenType>()
 				.WithMany()
 				.HasForeignKey(x => x.TokenTypeId);
+
+			builder.HasOne<User>()
+				.WithMany()
+				.HasForeignKey(x => x.UserId);
+		});
+
+		modelBuilder.Entity<RefreshToken>(builder =>
+		{
+			builder.HasIndex(x => x.TokenHash).IsUnique();
 
 			builder.HasOne<User>()
 				.WithMany()

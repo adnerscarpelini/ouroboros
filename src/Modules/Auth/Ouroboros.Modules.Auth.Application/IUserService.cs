@@ -33,4 +33,14 @@ public interface IUserService
 		string newPassword,
 		CancellationToken cancellationToken
 	);
+
+	Task<Result<AuthenticationResult>> RefreshTokenAsync(
+		string refreshToken,
+		CancellationToken cancellationToken
+	);
+
+	Task<Result> LogoutAsync(
+		string refreshToken,
+		CancellationToken cancellationToken
+	);
 }

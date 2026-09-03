@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ouroboros é um projeto pessoal de estudos contínuo (sem "fim" planejado) usando o backend de um e-commerce como produto de exemplo, para praticar Clean Architecture, DDD, Docker e segurança de aplicações ao longo do tempo.
 
-Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-developer](.claude/skills/ags-developer/SKILL.md) — ela define as regras de branch/commit, idioma, nomenclatura (casing) e formatação de assinaturas de métodos usadas neste repositório. Para criar, revisar ou ajustar testes automatizados, siga também a skill [ags-qa](.claude/skills/ags-qa/SKILL.md). Para qualquer decisão de banco de dados (schemas, migrations, nomenclatura de tabelas/colunas), siga a skill [ags-dba](.claude/skills/ags-dba/SKILL.md). Para criar, revisar ou atualizar qualquer documentação (`docs/`, incluindo fluxos desenhados em Excalidraw), siga a skill [ags-technical-writer](.claude/skills/ags-technical-writer/SKILL.md).
+Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-developer](.claude/skills/ags-developer/SKILL.md) — ela define as regras de branch/commit, idioma, nomenclatura (casing) e formatação de assinaturas de métodos usadas neste repositório. Para criar, revisar ou ajustar testes automatizados, siga também a skill [ags-qa](.claude/skills/ags-qa/SKILL.md). Para qualquer decisão de banco de dados (schemas, migrations, nomenclatura de tabelas/colunas), siga a skill [ags-dba](.claude/skills/ags-dba/SKILL.md). Para criar, revisar ou atualizar qualquer documentação (`docs/`, incluindo fluxos desenhados em Excalidraw), siga a skill [ags-technical-writer](.claude/skills/ags-technical-writer/SKILL.md). Para qualquer coisa de infraestrutura, container ou deploy (`Dockerfile`, `docker-compose.yml`, portas, health checks, segredos, rota/rate limiting no Api Gateway), siga a skill [ags-devops](.claude/skills/ags-devops/SKILL.md).
+
+**Toda Api nova nasce containerizada**: criar um serviço inclui o `Dockerfile`, o serviço no Compose, os health checks e a rota no gateway, na mesma tarefa. O checklist está na [ags-devops](.claude/skills/ags-devops/SKILL.md).
 
 ## Comandos
 
@@ -28,6 +30,13 @@ dotnet test tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests
 
 # rodar um único teste (por nome do método/classe, via filtro do xUnit)
 dotnet test --filter "FullyQualifiedName~NomeDoTeste"
+
+# subir banco + Mailpit (fluxo do dia a dia — as Apis rodam pela IDE / dotnet run)
+docker compose up -d
+
+# subir a stack inteira em container — ver docs/0006
+# (e-mails de desenvolvimento em http://localhost:8025; traces em http://localhost:16686)
+docker compose --profile apps up -d --build
 ```
 
 O ponto de entrada público é o **Api Gateway**, em `http://localhost:5082` (perfil `http`) ou `https://localhost:7272` (perfil `https`) — é nele que a collection Postman aponta. O Auth roda numa porta interna própria (`5081`/`7271`), só para acesso direto durante desenvolvimento; em produção, só o gateway teria porta exposta.
@@ -46,7 +55,9 @@ src/ApiGateways/Ouroboros.ApiGateway                         → ponto de entrad
 
 A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`). Um serviço nunca referencia o `Domain`/`Application` de outro serviço diretamente — só `BuildingBlocks` — ver [src/Services/README.md](src/Services/README.md).
 
-Dentro de cada projeto, classes são agrupadas por tipo em subpastas (`Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Options/`) — ver "Organização de pastas dentro de um projeto" em [docs/0000](docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
+Dentro de cada projeto, classes são agrupadas por tipo em subpastas (`Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Persistence/Repositories/`, `Options/`) — ver "Organização de pastas dentro de um projeto" em [docs/0000](docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
+
+Os casos de uso ficam na camada `Application` de cada serviço (ex.: `UserRegistrationService`), e falam com o banco só por contratos que ela declara (`IUserRepository`, `IUnitOfWork`) — nunca injetando um `DbContext`. As implementações desses contratos ficam na `Infrastructure`. Ver [docs/0005 - Repositórios e Unidade de Trabalho.md](docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md).
 
 Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 

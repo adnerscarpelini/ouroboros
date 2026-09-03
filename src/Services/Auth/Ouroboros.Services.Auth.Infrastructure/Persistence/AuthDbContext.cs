@@ -51,15 +51,17 @@ public sealed class AuthDbContext : AppDbContext
 			});
 		});
 
+		// As mesmas chaves estrangeiras de antes (token_type_id/user_id), agora declaradas a partir
+		// das referências navegáveis das entidades — o schema gerado é idêntico.
 		modelBuilder.Entity<Token>(builder =>
 		{
 			builder.HasIndex(x => x.TokenHash).IsUnique();
 
-			builder.HasOne<TokenType>()
+			builder.HasOne(x => x.TokenType)
 				.WithMany()
 				.HasForeignKey(x => x.TokenTypeId);
 
-			builder.HasOne<User>()
+			builder.HasOne(x => x.User)
 				.WithMany()
 				.HasForeignKey(x => x.UserId);
 		});
@@ -68,7 +70,7 @@ public sealed class AuthDbContext : AppDbContext
 		{
 			builder.HasIndex(x => x.TokenHash).IsUnique();
 
-			builder.HasOne<User>()
+			builder.HasOne(x => x.User)
 				.WithMany()
 				.HasForeignKey(x => x.UserId);
 		});

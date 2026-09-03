@@ -5,7 +5,7 @@ description: Convenções de documentação do projeto Ouroboros — onde os doc
 
 # ags-technical-writer
 
-Skill base pra tudo relacionado a documentação no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código) — para decisões específicas de código, testes ou banco, siga também [ags-qa](../ags-qa/SKILL.md) e [ags-dba](../ags-dba/SKILL.md), mas qualquer documento que resulte disso segue as regras daqui.
+Skill base pra tudo relacionado a documentação no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código) — para decisões específicas de código, testes, banco ou infraestrutura, siga também [ags-qa](../ags-qa/SKILL.md), [ags-dba](../ags-dba/SKILL.md) e [ags-devops](../ags-devops/SKILL.md), mas qualquer documento que resulte disso segue as regras daqui.
 
 ## Onde ficam os documentos
 

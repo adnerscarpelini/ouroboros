@@ -8,6 +8,8 @@ namespace Ouroboros.Services.Auth.Api;
 // a cada erro, em vez de injetar IErrorLogService direto no construtor.
 public sealed class GlobalExceptionHandler : IExceptionHandler
 {
+	private const string CorrelationIdHeaderName = "X-Correlation-Id";
+
 	private readonly IServiceScopeFactory _serviceScopeFactory;
 	private readonly ILogger<GlobalExceptionHandler> _logger;
 
@@ -26,7 +28,9 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 		CancellationToken cancellationToken
 	)
 	{
-		_logger.LogError(exception, "Erro não tratado capturado pelo GlobalExceptionHandler");
+		var traceId = ResolveTraceId(httpContext);
+
+		_logger.LogError(exception, "Erro não tratado capturado pelo GlobalExceptionHandler. TraceId: {TraceId}", traceId);
 
 		await using var scope = _serviceScopeFactory.CreateAsyncScope();
 		var errorLogService = scope.ServiceProvider.GetRequiredService<IErrorLogService>();
@@ -35,7 +39,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 			exception: exception,
 			source: "Api",
 			requestPath: httpContext.Request.Path,
-			traceId: httpContext.TraceIdentifier,
+			traceId: traceId,
 			cancellationToken: cancellationToken
 		);
 
@@ -47,5 +51,17 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 		);
 
 		return true;
+	}
+
+	// Prefere o X-Correlation-Id posto pelo Api Gateway: ele é o mesmo em todos os serviços que
+	// atenderam a requisição. O TraceIdentifier é local a este processo e só serve como último
+	// recurso, quando a Api é chamada direto (desenvolvimento), sem passar pelo gateway.
+	private static string ResolveTraceId(HttpContext httpContext)
+	{
+		var correlationId = httpContext.Request.Headers[CorrelationIdHeaderName].FirstOrDefault();
+
+		return string.IsNullOrWhiteSpace(correlationId)
+			? httpContext.TraceIdentifier
+			: correlationId;
 	}
 }

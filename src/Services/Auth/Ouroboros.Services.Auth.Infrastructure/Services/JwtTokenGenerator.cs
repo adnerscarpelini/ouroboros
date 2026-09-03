@@ -11,7 +11,7 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
 	private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromHours(1);
 
-	private readonly AuthOptions _authOptions;
+	private readonly JwtOptions _jwtOptions;
 
 	// Carregada uma vez e mantida viva pelo tempo de vida do serviço (registrado como Singleton).
 	// O cache interno de SignatureProvider do Microsoft.IdentityModel.Tokens guarda referência à
@@ -19,14 +19,21 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 	// a próxima chamada reusa o provider em cache apontando pra um objeto RSA já descartado —
 	// ObjectDisposedException em RSABCrypt.GetKey(). Por isso a chave nunca é descartada aqui,
 	// do mesmo jeito que a chave pública de validação em Program.cs.
-	private readonly RSA _signingKey;
+	private readonly RsaSecurityKey _signingKey;
 
-	public JwtTokenGenerator(AuthOptions authOptions)
+	public JwtTokenGenerator(JwtOptions jwtOptions)
 	{
-		_authOptions = authOptions;
+		_jwtOptions = jwtOptions;
 
-		_signingKey = RSA.Create();
-		_signingKey.ImportFromPem(authOptions.JwtSigningKeyPem);
+		var rsa = RSA.Create();
+		rsa.ImportFromPem(jwtOptions.SigningKeyPem);
+
+		// O KeyId vai no cabeçalho do token como "kid" e é o mesmo publicado no JWKS: é assim que
+		// um serviço validador sabe qual chave do conjunto usar, e é o que torna rotação possível.
+		_signingKey = new RsaSecurityKey(rsa)
+		{
+			KeyId = JwtKeyId.ComputeFrom(rsa)
+		};
 	}
 
 	public AccessTokenResult GenerateToken(User user)
@@ -40,11 +47,11 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 			new Claim(JwtRegisteredClaimNames.Email, user.Email)
 		};
 
-		var signingCredentials = new SigningCredentials(new RsaSecurityKey(_signingKey), SecurityAlgorithms.RsaSha256);
+		var signingCredentials = new SigningCredentials(_signingKey, SecurityAlgorithms.RsaSha256);
 
 		var token = new JwtSecurityToken(
-			issuer: _authOptions.JwtIssuer,
-			audience: _authOptions.JwtAudience,
+			issuer: _jwtOptions.Issuer,
+			audience: _jwtOptions.Audience,
 			claims: claims,
 			expires: expiresAt,
 			signingCredentials: signingCredentials

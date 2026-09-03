@@ -5,7 +5,12 @@ public class RefreshTokenTests
 	private static RefreshToken CreateRefreshToken()
 	{
 		return new RefreshToken(
-			userId: 1,
+			user: new User(
+				login: "jsilva",
+				fullName: "João Silva",
+				email: "joao.silva@example.com",
+				passwordHash: "hashed:existing"
+			),
 			tokenHash: "hash",
 			expiresAt: DateTime.UtcNow.AddDays(30)
 		);
@@ -17,6 +22,14 @@ public class RefreshTokenTests
 		var refreshToken = CreateRefreshToken();
 
 		Assert.Null(refreshToken.RevokedAt);
+	}
+
+	[Fact]
+	public void Constructor_KeepsUserReference()
+	{
+		var refreshToken = CreateRefreshToken();
+
+		Assert.Equal("jsilva", refreshToken.User.Login);
 	}
 
 	[Fact]

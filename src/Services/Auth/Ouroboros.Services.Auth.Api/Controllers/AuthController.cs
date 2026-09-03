@@ -9,11 +9,19 @@ namespace Ouroboros.Services.Auth.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
-	private readonly IUserService _userService;
+	private readonly IUserRegistrationService _userRegistrationService;
+	private readonly IAuthenticationService _authenticationService;
+	private readonly IPasswordResetService _passwordResetService;
 
-	public AuthController(IUserService userService)
+	public AuthController(
+		IUserRegistrationService userRegistrationService,
+		IAuthenticationService authenticationService,
+		IPasswordResetService passwordResetService
+	)
 	{
-		_userService = userService;
+		_userRegistrationService = userRegistrationService;
+		_authenticationService = authenticationService;
+		_passwordResetService = passwordResetService;
 	}
 
 	[AllowAnonymous]
@@ -23,7 +31,7 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		var result = await _userService.CreateUserAsync(
+		var result = await _userRegistrationService.CreateUserAsync(
 			login: request.Login,
 			fullName: request.FullName,
 			email: request.Email,
@@ -46,7 +54,10 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		var result = await _userService.ConfirmEmailAsync(request.Token, cancellationToken);
+		var result = await _userRegistrationService.ConfirmEmailAsync(
+			token: request.Token,
+			cancellationToken: cancellationToken
+		);
 
 		if (!result.IsSuccess)
 		{
@@ -63,7 +74,11 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		var result = await _userService.LoginAsync(request.Login, request.Password, cancellationToken);
+		var result = await _authenticationService.LoginAsync(
+			login: request.Login,
+			password: request.Password,
+			cancellationToken: cancellationToken
+		);
 
 		if (!result.IsSuccess)
 		{
@@ -85,7 +100,10 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		var result = await _userService.RefreshTokenAsync(request.RefreshToken, cancellationToken);
+		var result = await _authenticationService.RefreshTokenAsync(
+			refreshToken: request.RefreshToken,
+			cancellationToken: cancellationToken
+		);
 
 		if (!result.IsSuccess)
 		{
@@ -106,7 +124,10 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		var result = await _userService.LogoutAsync(request.RefreshToken, cancellationToken);
+		var result = await _authenticationService.LogoutAsync(
+			refreshToken: request.RefreshToken,
+			cancellationToken: cancellationToken
+		);
 
 		if (!result.IsSuccess)
 		{
@@ -123,7 +144,10 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		await _userService.RequestPasswordResetAsync(request.Email, cancellationToken);
+		await _passwordResetService.RequestPasswordResetAsync(
+			email: request.Email,
+			cancellationToken: cancellationToken
+		);
 
 		// Resposta sempre igual, exista ou não o e-mail — evita enumeração de contas.
 		return NoContent();
@@ -136,7 +160,11 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		var result = await _userService.ResetPasswordAsync(request.Token, request.NewPassword, cancellationToken);
+		var result = await _passwordResetService.ResetPasswordAsync(
+			token: request.Token,
+			newPassword: request.NewPassword,
+			cancellationToken: cancellationToken
+		);
 
 		if (!result.IsSuccess)
 		{
@@ -153,7 +181,10 @@ public sealed class AuthController : ControllerBase
 		CancellationToken cancellationToken
 	)
 	{
-		var result = await _userService.ConfirmEmailAsync(token, cancellationToken);
+		var result = await _userRegistrationService.ConfirmEmailAsync(
+			token: token,
+			cancellationToken: cancellationToken
+		);
 
 		var templateName = result.IsSuccess ? "ConfirmationSuccess.html" : "ConfirmationFailure.html";
 		var templatePath = Path.Combine(AppContext.BaseDirectory, "Templates", templateName);

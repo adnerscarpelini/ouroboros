@@ -5,7 +5,7 @@ description: Convenções de banco de dados do projeto Ouroboros — PostgreSQL,
 
 # ags-dba
 
-Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código) e a [ags-qa](../ags-qa/SKILL.md) (testes).
+Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código), a [ags-qa](../ags-qa/SKILL.md) (testes) e a [ags-devops](../ags-devops/SKILL.md) — esta cuida do **container** que hospeda o Postgres, das portas e do Compose; aqui ficam banco, schema, migrations e nomenclatura.
 
 ## Banco de dados
 
@@ -16,7 +16,7 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 
 - Cada serviço (`src/Services/<NomeDoServico>/`) tem seu próprio **banco lógico** na instância Postgres, nomeado `ouroboros_<nomedoservico>` (ex.: serviço `Auth` → banco `ouroboros_auth`), com uma *role* própria que é dona desse banco. É isso — banco físico, não só schema — que garante o isolamento entre serviços: nenhum serviço tem credencial que alcance o banco de outro.
 - Dentro do próprio banco de um serviço, o schema organiza por assunto: `<nomedoservico>` pras tabelas de negócio (ex.: schema `auth`) e `common` pras tabelas técnicas vindas do `BuildingBlocks` (ex.: `ErrorLog`) — ver [docs/0000](../../../docs/0000%20-%20Arquitetura.md#buildingblocks) sobre código vs. dado compartilhado.
-- Banco/role de cada serviço são criados por um script em `docker/postgres/init/` na primeira subida do container (ver [docs/0002](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md)) — nunca criados manualmente.
+- Banco/role de cada serviço são criados por um script em `docker/postgres/init/` na primeira subida do container (ver [docs/0002](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md)) — nunca criados manualmente. O SQL desse script é decisão daqui; o arquivo, o container e o Compose seguem a [ags-devops](../ags-devops/SKILL.md). Scripts `.sh` rodam dentro de um container Linux e **precisam** de finais de linha LF — o `.gitattributes` da raiz garante isso.
 
 ## Migrations
 
@@ -36,6 +36,7 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 ## Segredos e connection string
 
 - A connection string com a senha real **nunca** vai pro `appsettings.json` (esse arquivo é versionado). Local, ela fica no **User Secrets** do projeto `Api` de cada serviço (`dotnet user-secrets`), equivalente ao papel do `.env` no Docker Compose — ver [docs/0002 - Setup do Banco de Dados Local.md](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
+- Rodando em container, a connection string chega por variável de ambiente (`ConnectionStrings__Postgres`), montada no `docker-compose.yml` a partir do `.env` — ver [ags-devops](../ags-devops/SKILL.md).
 
 ## Entidade base
 

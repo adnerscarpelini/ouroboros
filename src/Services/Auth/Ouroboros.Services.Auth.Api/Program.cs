@@ -1,8 +1,13 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Ouroboros.Services.Auth.Api;
+using Ouroboros.BuildingBlocks.Application;
 using Ouroboros.BuildingBlocks.Infrastructure;
 using Ouroboros.Services.Auth.Infrastructure;
 
@@ -17,29 +22,84 @@ builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+builder.Services.AddHealthChecks()
+	// Marcado como "ready": entra na prontidão (a Api depende do banco para servir),
+	// mas fica fora do liveness — um banco fora do ar não significa processo travado.
+	.AddDbContextCheck<AuthDbContext>(name: "postgres", tags: ["ready"]);
+
+// Rastreamento distribuído. O X-Correlation-Id do gateway serve para procurar num log; o trace liga
+// automaticamente os spans de todos os serviços que atenderam a mesma requisição, com a duração de
+// cada trecho. A propagação entre serviços é o cabeçalho W3C "traceparent", tratado pelas
+// instrumentações abaixo — nenhum código de aplicação precisa passar id adiante.
+// Ver docs/0008 - Observabilidade.md.
+var otlpEndpoint = builder.Configuration["Otlp:Endpoint"];
+
+builder.Services.AddOpenTelemetry()
+	.ConfigureResource(resource => resource.AddService(serviceName: "auth-api"))
+	.WithTracing(tracing =>
+	{
+		tracing
+			.AddAspNetCoreInstrumentation(options =>
+			{
+				// O healthcheck do container bate a cada 10s; sem esse filtro, o rastreamento
+				// vira uma parede de spans de /health e some com o que interessa.
+				options.Filter = httpContext => !httpContext.Request.Path.StartsWithSegments("/health");
+			})
+			.AddHttpClientInstrumentation()
+			// Consultas ao banco entram como spans filhos, mostrando quanto do tempo do request foi SQL.
+			.AddSource("Npgsql");
+
+		// Sem endpoint configurado, a aplicação roda sem exportar nada em vez de encher o log de
+		// falhas de conexão — útil para quem sobe a Api sem o coletor de pé.
+		if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+		{
+			tracing.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint));
+		}
+	});
+
+// Esta Api fica atrás do Api Gateway. Sem ler os cabeçalhos X-Forwarded-*, ela enxergaria o IP, o scheme
+// e o host do gateway no lugar dos do cliente original — o que estraga log de origem e qualquer decisão
+// baseada em IP. KnownIPNetworks/KnownProxies são limpos porque em container o gateway não chega por
+// loopback e não tem IP fixo; o que garante que só ele alcança esta porta é a rede, não esta lista.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+	options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+		| ForwardedHeaders.XForwardedProto
+		| ForwardedHeaders.XForwardedHost;
+
+	options.KnownIPNetworks.Clear();
+	options.KnownProxies.Clear();
+});
+
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
 	?? throw new InvalidOperationException("Connection string 'Postgres' não configurada. Ver docs/0002 - Setup do Banco de Dados Local.md.");
 
-var apiBaseUrl = builder.Configuration["App:BaseUrl"]
-	?? throw new InvalidOperationException("Configuração 'App:BaseUrl' não definida.");
+var publicBaseUrl = builder.Configuration["App:PublicBaseUrl"]
+	?? throw new InvalidOperationException("Configuração 'App:PublicBaseUrl' não definida.");
 
-// Chave PRIVADA (assina) — só o Auth tem, fica em User Secrets, nunca é compartilhada com outro serviço.
-var jwtSigningKeyPem = builder.Configuration["Jwt:SigningKeyPem"]
-	?? throw new InvalidOperationException("Configuração 'Jwt:SigningKeyPem' não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
-// Chave PÚBLICA (valida) — não é segredo, mas ainda fica em User Secrets aqui porque é específica
-// do par de chaves gerado nesta máquina; qualquer serviço que só precise validar token usa só esta.
-var jwtPublicKeyPem = builder.Configuration["Jwt:PublicKeyPem"]
-	?? throw new InvalidOperationException("Configuração 'Jwt:PublicKeyPem' não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
+// Chave PRIVADA (assina) — só o Auth tem, nunca é compartilhada com outro serviço.
+var jwtSigningKeyPem = ReadPem("Jwt:SigningKeyPem")
+	?? throw new InvalidOperationException("Configuração 'Jwt:SigningKeyPem' (ou 'Jwt:SigningKeyPemPath') não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
+// Chave PÚBLICA (valida) — não é segredo, mas é específica do par gerado neste ambiente;
+// qualquer serviço que só precise validar token usa só esta.
+var jwtPublicKeyPem = ReadPem("Jwt:PublicKeyPem")
+	?? throw new InvalidOperationException("Configuração 'Jwt:PublicKeyPem' (ou 'Jwt:PublicKeyPemPath') não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]
 	?? throw new InvalidOperationException("Configuração 'Jwt:Issuer' não definida.");
 var jwtAudience = builder.Configuration["Jwt:Audience"]
 	?? throw new InvalidOperationException("Configuração 'Jwt:Audience' não definida.");
 
-builder.Services.AddCommon();
+var emailOutboxOptions = builder.Configuration.GetSection("EmailOutbox").Get<EmailOutboxOptions>()
+	?? throw new InvalidOperationException("Seção 'EmailOutbox' não configurada.");
+
+builder.Services.AddCommon<AuthDbContext>();
+// Entrega da fila de e-mails: roda em segundo plano, fora da transação que enfileirou.
+builder.Services.AddEmailOutbox<AuthDbContext>(emailOutboxOptions);
 builder.Services.AddAuthModule(
 	connectionString: postgresConnectionString,
-	apiBaseUrl: apiBaseUrl,
+	publicBaseUrl: publicBaseUrl,
 	jwtSigningKeyPem: jwtSigningKeyPem,
+	jwtPublicKeyPem: jwtPublicKeyPem,
 	jwtIssuer: jwtIssuer,
 	jwtAudience: jwtAudience
 );
@@ -69,19 +129,65 @@ builder.Services.AddAuthorizationBuilder()
 
 var app = builder.Build();
 
+// Precisa vir antes de qualquer middleware que leia scheme/host/IP da requisição.
+app.UseForwardedHeaders();
+
 app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+	app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// Sem UseHttpsRedirection aqui de propósito: o TLS termina no Api Gateway, que encaminha para esta Api
+// por HTTP na rede interna. Com o redirect ligado, uma requisição vinda do gateway voltava como 307
+// apontando para a porta interna do serviço (https://localhost:7271) — vazando a topologia interna
+// para o cliente e quebrando o fluxo. Ver docs/0000 - Arquitetura.md, seção "API Gateway".
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
+// AllowAnonymous explícito: a FallbackPolicy acima exigiria token, e quem consulta o health
+// (healthcheck do container, gateway, orquestrador) não tem nem como obter um.
+
+// Liveness: o processo está de pé e respondendo? Nenhuma checagem de dependência entra aqui —
+// derrubar o container porque o banco piscou só transformaria uma falha em duas.
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+
+// Readiness: a Api consegue mesmo atender? É o que o Compose espera antes de subir o gateway.
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+	Predicate = healthCheck => healthCheck.Tags.Contains("ready")
+}).AllowAnonymous();
+
 app.Run();
+
+// Lê um PEM de duas origens: o valor direto na configuração (User Secrets, no desenvolvimento local)
+// ou o caminho de um arquivo em "<chave>Path" (secret montado pelo Docker Compose, no container).
+// PEM é multilinha, o que o torna ruim de carregar em variável de ambiente.
+string? ReadPem(string configurationKey)
+{
+	var inlinePem = builder.Configuration[configurationKey];
+
+	if (!string.IsNullOrWhiteSpace(inlinePem))
+	{
+		return inlinePem;
+	}
+
+	var pemPath = builder.Configuration[$"{configurationKey}Path"];
+
+	if (string.IsNullOrWhiteSpace(pemPath))
+	{
+		return null;
+	}
+
+	if (!File.Exists(pemPath))
+	{
+		throw new InvalidOperationException($"Configuração '{configurationKey}Path' aponta para '{pemPath}', que não existe.");
+	}
+
+	return File.ReadAllText(pemPath);
+}

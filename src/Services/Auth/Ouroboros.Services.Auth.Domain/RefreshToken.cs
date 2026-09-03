@@ -9,18 +9,21 @@ public sealed class RefreshToken : Entity
 	public DateTime ExpiresAt { get; private set; }
 	public DateTime? RevokedAt { get; private set; }
 
+	// Referência navegável para a mesma coluna user_id — ver comentário equivalente em Token.
+	public User User { get; private set; } = null!;
+
 	// Construtor sem parâmetros exclusivo para o EF Core materializar a entidade a partir do banco.
 	private RefreshToken()
 	{
 	}
 
 	public RefreshToken(
-		long userId,
+		User user,
 		string tokenHash,
 		DateTime expiresAt
 	)
 	{
-		UserId = userId;
+		User = user;
 		TokenHash = tokenHash;
 		ExpiresAt = expiresAt;
 		RevokedAt = null;

@@ -18,6 +18,7 @@ Skill base para testes automatizados no projeto Ouroboros. Complementa a [ags-de
 
 - Framework: xUnit.
 - `dotnet build` já executa os testes automaticamente ao final (ver `Directory.Build.targets` na raiz do repositório e a seção de build da skill `ags-developer`).
+- O build da **imagem Docker** não roda testes: o `Dockerfile` passa `-p:OUROBOROS_SKIP_AUTOTEST=true`, porque `tests/` não entra no contexto da imagem. Teste é responsabilidade do build local e da CI — ver [ags-devops](../ags-devops/SKILL.md).
 
 ## Evolução
 

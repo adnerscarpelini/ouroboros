@@ -22,7 +22,7 @@ Request (`RegisterUserRequest`): `Login`, `FullName`, `Email`, `Password`.
 - `Email` validado como e-mail (`[EmailAddress]`).
 - `Password` validado por `StrongPasswordAttribute` (senha forte).
 
-`UserService.CreateUserAsync`:
+`UserRegistrationService.CreateUserAsync`:
 
 1. Rejeita se `Login` já está em uso (`409 Conflict`).
 2. Rejeita se `Email` já está em uso (`409 Conflict`).
@@ -36,14 +36,14 @@ Request (`RegisterUserRequest`): `Login`, `FullName`, `Email`, `Password`.
 Dentro da mesma operação de cadastro, `EnqueueValidationEmailAsync`:
 
 1. Gera um token aleatório (`ITokenGenerator.GenerateToken`) e guarda só o hash dele (`TokenGenerator.Hash`) — o token bruto nunca é persistido.
-2. Monta a URL de confirmação: `{ApiBaseUrl}/api/auth/confirm-email?token={token}`.
+2. Monta a URL de confirmação: `{PublicBaseUrl}/api/auth/confirm-email?token={token}`.
 3. Renderiza o template `UserCreationValidationEmail.html` com nome do usuário e link.
 4. Enfileira o e-mail via `IEmailQueueService.EnqueueAsync` — cria um `EmailMessage` (schema `common`) com `Sent = false`. **Não há hoje um worker que efetivamente envia esse e-mail** — o envio real ainda não está implementado, só o enfileiramento.
 5. Cria um `Token` (schema `auth`, tipo `UserCreationValidation`) associado ao usuário e ao `EmailMessage`, com validade de **24 horas**.
 
 ## 2. Confirmação de e-mail
 
-Dois endpoints chamam a mesma regra (`UserService.ConfirmEmailAsync`):
+Dois endpoints chamam a mesma regra (`UserRegistrationService.ConfirmEmailAsync`):
 
 - `GET /api/auth/confirm-email?token=...` — o link clicável dentro do e-mail. Retorna uma página HTML (`ConfirmationSuccess.html` ou `ConfirmationFailure.html`), não JSON.
 - `POST /api/auth/confirm-email` (`ConfirmEmailRequest`) — pensado pra clientes de API (app, frontend próprio). Retorna `204 No Content` em caso de sucesso ou `400 Bad Request`.
@@ -62,7 +62,7 @@ Dois endpoints chamam a mesma regra (`UserService.ConfirmEmailAsync`):
 
 Request (`LoginRequest`): `Login`, `Password`.
 
-`UserService.LoginAsync`:
+`AuthenticationService.LoginAsync`:
 
 1. Busca o usuário por `Login`. Se não existir, falha com mensagem genérica **"Login ou senha inválidos."** — não revela se o problema foi o login ou a senha.
 2. Se a conta está bloqueada (`User.IsLockedOut()`), falha com **"Conta temporariamente bloqueada por excesso de tentativas."**.
@@ -91,7 +91,7 @@ Request (`LoginRequest`): `Login`, `Password`.
 
 Sessão representada por uma `RefreshToken` (schema `auth`, entidade própria — não reaproveita `Token`/`TokenType`, que são acoplados ao fluxo de e-mail via `EmailMessageId`). Guarda só o hash do token (`ITokenGenerator.Hash`), igual aos demais tokens do serviço — o valor bruto nunca é persistido.
 
-### Emissão — `UserService.IssueAuthenticationResult`
+### Emissão — `AuthenticationService.IssueAuthenticationResult`
 
 Chamado tanto pelo login quanto pelo refresh:
 
@@ -101,7 +101,7 @@ Chamado tanto pelo login quanto pelo refresh:
 
 ### Renovação — `POST /api/auth/refresh-token` (`RefreshTokenRequest`: `RefreshToken`)
 
-`UserService.RefreshTokenAsync`, com **rotação**: cada uso do refresh token o revoga e emite um par novo — um token roubado só funciona até a próxima renovação legítima.
+`AuthenticationService.RefreshTokenAsync`, com **rotação**: cada uso do refresh token o revoga e emite um par novo — um token roubado só funciona até a próxima renovação legítima.
 
 1. Faz hash do token recebido e busca o `RefreshToken` correspondente pelo hash.
 2. Falha (`"Token inválido."`) se não encontrar ou se já estiver revogado (`RevokedAt` setado).
@@ -111,7 +111,7 @@ Chamado tanto pelo login quanto pelo refresh:
 
 ### Logout — `POST /api/auth/logout` (`LogoutRequest`: `RefreshToken`)
 
-`UserService.LogoutAsync`: revoga o refresh token recebido (`RefreshToken.Revoke()`), impedindo renovações futuras com ele. Não precisa cruzar com o usuário do `AccessToken` — a posse do refresh token bruto já prova o direito de encerrar aquela sessão, mesmo modelo de confiança usado em `ConfirmEmailAsync`/`ResetPasswordAsync`.
+`AuthenticationService.LogoutAsync`: revoga o refresh token recebido (`RefreshToken.Revoke()`), impedindo renovações futuras com ele. Não precisa cruzar com o usuário do `AccessToken` — a posse do refresh token bruto já prova o direito de encerrar aquela sessão, mesmo modelo de confiança usado em `ConfirmEmailAsync`/`ResetPasswordAsync`.
 
 1. Falha (`"Token inválido."`) se não encontrar o token pelo hash, ou se já estiver revogado.
 2. Revoga e retorna `204 No Content`, ou `400 Bad Request` em caso de falha.
@@ -123,16 +123,16 @@ Dois endpoints:
 - `POST /api/auth/forgot-password` (`ForgotPasswordRequest`: `Email`) — solicita a redefinição. Sempre retorna `204 No Content`, exista ou não o e-mail — não revela se a conta existe (evita enumeração de contas).
 - `POST /api/auth/reset-password` (`ResetPasswordRequest`: `Token`, `NewPassword`) — confirma a redefinição com o token recebido por e-mail. Retorna `204 No Content` em caso de sucesso ou `400 Bad Request`.
 
-### Solicitação — `UserService.RequestPasswordResetAsync`
+### Solicitação — `PasswordResetService.RequestPasswordResetAsync`
 
 1. Busca o usuário pelo `Email`. Se não encontrar, não faz mais nada (resposta continua `204`).
 2. Se encontrar, invalida qualquer token de redefinição pendente e ainda não usado desse usuário (`Token.Validate()` reaproveitado como invalidação — impede que um link antigo continue valendo depois de um pedido mais novo).
 3. Gera um token aleatório e guarda só o hash dele, igual ao fluxo de confirmação de e-mail.
-4. Monta a URL de redefinição: `{ApiBaseUrl}/reset-password?token={token}` — hoje aponta pra um caminho sem página própria (não há front-end no projeto ainda); quando o front-end existir, é ele quem coleta a nova senha e chama `POST /api/auth/reset-password`.
+4. Monta a URL de redefinição: `{PublicBaseUrl}/reset-password?token={token}` — hoje aponta pra um caminho sem página própria (não há front-end no projeto ainda); quando o front-end existir, é ele quem coleta a nova senha e chama `POST /api/auth/reset-password`.
 5. Renderiza o template `PasswordResetEmail.html` e enfileira o e-mail (`IEmailQueueService`, mesmo aviso do fluxo de confirmação: só enfileira, não envia de fato ainda).
 6. Cria um `Token` (schema `auth`, tipo `PasswordReset`) associado ao usuário e ao `EmailMessage`, com validade de **1 hora** (mais curta que as 24h da confirmação de e-mail, por ser mais sensível).
 
-### Confirmação — `UserService.ResetPasswordAsync`
+### Confirmação — `PasswordResetService.ResetPasswordAsync`
 
 1. Faz hash do token recebido e busca o `Token` correspondente pelo hash.
 2. Falha (`"Token inválido."`) se não encontrar, ou se o tipo do token não for `PasswordReset`.

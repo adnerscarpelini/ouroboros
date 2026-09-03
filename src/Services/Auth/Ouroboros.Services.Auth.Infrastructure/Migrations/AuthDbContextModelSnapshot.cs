@@ -33,6 +33,10 @@ namespace Ouroboros.Services.Auth.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_count");
+
                     b.Property<string>("BodyHtml")
                         .IsRequired()
                         .HasColumnType("text")
@@ -47,6 +51,14 @@ namespace Ouroboros.Services.Auth.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("external_id")
                         .HasColumnOrder(1);
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text")
+                        .HasColumnName("last_error");
 
                     b.Property<string>("Recipient")
                         .IsRequired()
@@ -425,29 +437,35 @@ namespace Ouroboros.Services.Auth.Infrastructure.Migrations
 
             modelBuilder.Entity("Ouroboros.Services.Auth.Domain.RefreshToken", b =>
                 {
-                    b.HasOne("Ouroboros.Services.Auth.Domain.User", null)
+                    b.HasOne("Ouroboros.Services.Auth.Domain.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_users_user_id");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Ouroboros.Services.Auth.Domain.Token", b =>
                 {
-                    b.HasOne("Ouroboros.Services.Auth.Domain.TokenType", null)
+                    b.HasOne("Ouroboros.Services.Auth.Domain.TokenType", "TokenType")
                         .WithMany()
                         .HasForeignKey("TokenTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_tokens_token_types_token_type_id");
 
-                    b.HasOne("Ouroboros.Services.Auth.Domain.User", null)
+                    b.HasOne("Ouroboros.Services.Auth.Domain.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_tokens_users_user_id");
+
+                    b.Navigation("TokenType");
+
+                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }

@@ -19,7 +19,7 @@ Na prática, cada camada aqui é um projeto `.csproj` separado (não só uma pas
 | No legado 3 camadas | Aqui | Papel |
 |---|---|---|
 | Regra de Negócio (a parte que não muda com a tecnologia) | `Domain` | Entidades e regras de negócio puras. Não sabe o que é banco de dados, HTTP ou qualquer framework. |
-| Regra de Negócio (a parte que orquestra: "faz isso, depois aquilo") | `Application` | Casos de uso (ex.: "criar um usuário"). Usa o `Domain`, mas ainda não sabe como os dados são salvos. |
+| Regra de Negócio (a parte que orquestra: "faz isso, depois aquilo") | `Application` | Casos de uso (ex.: "criar um usuário"). Usa o `Domain` e fala com o banco só através de contratos (`IUserRepository`, `IUnitOfWork`) que ela mesma declara — não conhece EF Core nem nenhum outro framework de persistência. Ver [docs/0005](0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md). |
 | Acesso ao banco / integrações externas | `Infrastructure` | Implementação de tudo que fala com o mundo de fora: banco de dados, e-mail, fila de mensagens, API externa, etc. |
 | O "servidor" que a tela chama | `Api` | Ponto de entrada HTTP (controllers) daquele serviço. É quem monta tudo (injeção de dependência) e expõe os endpoints. |
 
@@ -41,7 +41,7 @@ Um serviço é um pedaço de negócio isolado — ex.: `Auth`, `Cadastros`. Cada
 
 É código técnico compartilhado entre serviços — coisas que não são regra de negócio de ninguém específico, mas que vários serviços usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
 
-O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é `EmailMessage`: uma fila de e-mails a enviar (assunto, corpo HTML, destinatário, se já foi enviado e quando) — por enquanto só a estrutura da fila, nenhum serviço ainda sabe entregar e-mail de verdade (SMTP).
+O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é a fila de e-mails (`EmailMessage`), implementada como **Outbox**: o caso de uso enfileira a mensagem dentro da mesma transação do dado de negócio, e um `BackgroundService` entrega depois, fora dela, por SMTP. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
 
 **Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`EmailMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. O mapeamento (schema, nomes de tabela) é um método de extensão reutilizável (`CommonEntityConfiguration.ApplyCommonEntities()`, em `BuildingBlocks.Infrastructure`) que cada `DbContext` de serviço chama no seu `OnModelCreating`, ao lado do que já configura pro schema de negócio dele. Código pode ser compartilhado; dados não.
 
@@ -52,6 +52,8 @@ O nome vem de arquiteturas de referência conhecidas (ex.: o eShopOnContainers, 
 Ponto de entrada HTTP único e público — hoje `http://localhost:5082`. Só roteia (`YARP`, configurado via `appsettings.json`): não tem regra de negócio, não acessa banco, e não tem `ProjectReference` a nenhum projeto de serviço. Cada serviço continua com sua própria porta interna (ex.: Auth em `5081`), usada só durante desenvolvimento — em produção, só o gateway teria porta exposta.
 
 O gateway não valida nem emite JWT — cada serviço valida seus próprios tokens (ver seção "Autenticação entre serviços" abaixo). Isso evita transformar o gateway num ponto de acoplamento de identidade.
+
+O TLS termina no gateway. As Apis de serviço **não** fazem redirecionamento para HTTPS: o gateway as alcança por HTTP na rede interna, e com o redirect ligado uma requisição vinda dele voltava como `307` apontando para a porta interna do serviço (`https://localhost:7271`) — vazando a topologia interna para o cliente. Em troca, cada Api lê os cabeçalhos `X-Forwarded-*` (`UseForwardedHeaders`) para continuar enxergando o IP, o scheme e o host originais de quem chamou.
 
 ### Autenticação entre serviços
 
@@ -82,8 +84,8 @@ A regra de dependência flui sempre para dentro: `Api` → `Infrastructure` → 
 Pra evitar que classes de tipos diferentes (interface, DTO/resultado, implementação, configuração de banco) fiquem misturadas soltas na raiz, cada camada agrupa por tipo em subpastas:
 
 - **Domain**: sem subpastas — hoje só tem entidades, não há o que separar.
-- **Application**: `Interfaces/` (contratos, ex.: `IUserService`) e `Models/` (DTOs/resultados, ex.: `AuthenticationResult`, `Result`).
-- **Infrastructure**: `Persistence/` (`DbContext` e configuração de mapeamento EF Core), `Services/` (implementações concretas, ex.: `UserService`), `Options/` (records de configuração, ex.: `AuthOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
+- **Application**: `Services/` (os casos de uso em si, ex.: `UserRegistrationService`), `Interfaces/` (contratos que o caso de uso consome, ex.: `IUserRepository`, `IUnitOfWork`), `Models/` (DTOs/resultados, ex.: `AuthenticationResult`, `Result`) e `Options/` (configuração de que o caso de uso precisa, ex.: `AuthApplicationOptions`).
+- **Infrastructure**: `Persistence/` (`DbContext`, mapeamento EF Core, `UnitOfWork` e a subpasta `Repositories/` com as implementações dos contratos de persistência da Application), `Services/` (implementações concretas de contratos técnicos, ex.: `Argon2PasswordHasher`, `JwtTokenGenerator`), `Options/` (records de configuração, ex.: `JwtOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
 - **Testes**: fakes agrupados em `Fakes/`; os arquivos de teste em si ficam na raiz do projeto de teste.
 
 O namespace de cada arquivo continua o mesmo (raiz do projeto) — só a pasta física muda. Isso evita ajustar `using` em cascata pela solution toda vez que um arquivo muda de pasta.
@@ -108,16 +110,17 @@ Passo a passo prático (subir o container, gerar/aplicar migrations) em [docs/00
 ouroboros/
 ├── docker-compose.yml
 ├── docker/postgres/init/         → scripts que criam banco+role de cada serviço na 1ª subida
+├── docker/secrets/               → chaves usadas pelos containers (nunca versionadas)
 ├── src/
 │   ├── ApiGateways/
-│   │   └── Ouroboros.ApiGateway/
+│   │   └── Ouroboros.ApiGateway/        → Dockerfile próprio
 │   ├── BuildingBlocks/
 │   │   ├── Ouroboros.BuildingBlocks.Domain/
 │   │   ├── Ouroboros.BuildingBlocks.Application/
 │   │   └── Ouroboros.BuildingBlocks.Infrastructure/
 │   └── Services/
 │       └── Auth/
-│           ├── Ouroboros.Services.Auth.Api/
+│           ├── Ouroboros.Services.Auth.Api/          → Dockerfile próprio
 │           ├── Ouroboros.Services.Auth.Domain/
 │           ├── Ouroboros.Services.Auth.Application/
 │           └── Ouroboros.Services.Auth.Infrastructure/
@@ -131,11 +134,11 @@ ouroboros/
 
 ## Convenções de código
 
-As convenções de nomenclatura, idioma, formatação e fluxo de trabalho com Git usadas neste projeto estão documentadas na skill [ags-developer](../.claude/skills/ags-developer/SKILL.md).
+As convenções de nomenclatura, idioma, formatação e fluxo de trabalho com Git usadas neste projeto estão documentadas na skill [ags-developer](../.claude/skills/ags-developer/SKILL.md). As de infraestrutura — `Dockerfile`, Compose, portas, health checks e segredos — estão na skill [ags-devops](../.claude/skills/ags-devops/SKILL.md).
 
 ## Consequências
 
 - Mais processos, projetos e containers pra gerenciar do que um monolito — cada serviço novo é um host, um banco e um deploy a mais.
 - Erros de dependência incorreta entre camadas (ex.: `Domain` tentando referenciar `Infrastructure`) aparecem como erro de compilação; erros de acoplamento entre serviços (ex.: ler o banco de outro serviço) nem chegam a ser possíveis — não existe rede/credencial pra isso.
-- `BuildingBlocks` deixa de ser uma visão central de dados (ex.: log de erros de todos os serviços num lugar só) — cada serviço vê só o seu. Observabilidade central, se um dia for necessária, é um serviço separado.
+- `BuildingBlocks` deixa de ser uma visão central de dados (ex.: log de erros de todos os serviços num lugar só) — cada serviço vê só o seu. A visão central de uma requisição inteira vem do rastreamento distribuído (OpenTelemetry + Jaeger), não de uma tabela compartilhada: ver [docs/0008 - Observabilidade](0008%20-%20Observabilidade.md).
 - Estrutura preparada pra crescer: novos serviços entram em `src/Services/` seguindo a mesma convenção, sem reestruturar o que já existe.

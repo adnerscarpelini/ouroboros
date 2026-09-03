@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Threading.RateLimiting;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 // Os nomes das políticas são os mesmos usados em "RateLimiterPolicy" nas rotas do appsettings.json.
 const string authSensitivePolicy = "auth-sensitive";
@@ -13,6 +15,29 @@ builder.Services
 	.LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 builder.Services.AddHealthChecks();
+
+// Rastreamento distribuído. O gateway é a origem do trace: é ele que cria o span raiz e propaga o
+// contexto (cabeçalho W3C "traceparent") para o serviço de destino, o que faz gateway e serviço
+// aparecerem como um único trace. Ver docs/0008 - Observabilidade.md.
+var otlpEndpoint = builder.Configuration["Otlp:Endpoint"];
+
+builder.Services.AddOpenTelemetry()
+	.ConfigureResource(resource => resource.AddService(serviceName: "api-gateway"))
+	.WithTracing(tracing =>
+	{
+		tracing
+			.AddAspNetCoreInstrumentation(options =>
+			{
+				options.Filter = httpContext => !httpContext.Request.Path.StartsWithSegments("/health");
+			})
+			// É por aqui que passa o encaminhamento do YARP para o serviço de destino.
+			.AddHttpClientInstrumentation();
+
+		if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+		{
+			tracing.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint));
+		}
+	});
 
 // O gateway é a borda pública: é aqui que limite de requisição faz sentido, não dentro de cada
 // serviço. O bloqueio por usuário do Auth protege uma conta específica de força bruta, mas não

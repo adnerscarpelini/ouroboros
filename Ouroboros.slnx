@@ -8,6 +8,7 @@
     <File Path="docs/0005 - Repositórios e Unidade de Trabalho.md" />
     <File Path="docs/0006 - Rodando a Stack em Containers.md" />
     <File Path="docs/0007 - Fila de E-mails (Outbox).md" />
+    <File Path="docs/0008 - Observabilidade.md" />
     <Folder Name="/docs/excalidraw/">
       <File Path="docs/excalidraw/0003 - Autenticação.excalidraw" />
     </Folder>

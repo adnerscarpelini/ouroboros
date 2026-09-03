@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Ouroboros.Services.Auth.Api;
 using Ouroboros.BuildingBlocks.Application;
 using Ouroboros.BuildingBlocks.Infrastructure;
@@ -24,6 +26,36 @@ builder.Services.AddHealthChecks()
 	// Marcado como "ready": entra na prontidão (a Api depende do banco para servir),
 	// mas fica fora do liveness — um banco fora do ar não significa processo travado.
 	.AddDbContextCheck<AuthDbContext>(name: "postgres", tags: ["ready"]);
+
+// Rastreamento distribuído. O X-Correlation-Id do gateway serve para procurar num log; o trace liga
+// automaticamente os spans de todos os serviços que atenderam a mesma requisição, com a duração de
+// cada trecho. A propagação entre serviços é o cabeçalho W3C "traceparent", tratado pelas
+// instrumentações abaixo — nenhum código de aplicação precisa passar id adiante.
+// Ver docs/0008 - Observabilidade.md.
+var otlpEndpoint = builder.Configuration["Otlp:Endpoint"];
+
+builder.Services.AddOpenTelemetry()
+	.ConfigureResource(resource => resource.AddService(serviceName: "auth-api"))
+	.WithTracing(tracing =>
+	{
+		tracing
+			.AddAspNetCoreInstrumentation(options =>
+			{
+				// O healthcheck do container bate a cada 10s; sem esse filtro, o rastreamento
+				// vira uma parede de spans de /health e some com o que interessa.
+				options.Filter = httpContext => !httpContext.Request.Path.StartsWithSegments("/health");
+			})
+			.AddHttpClientInstrumentation()
+			// Consultas ao banco entram como spans filhos, mostrando quanto do tempo do request foi SQL.
+			.AddSource("Npgsql");
+
+		// Sem endpoint configurado, a aplicação roda sem exportar nada em vez de encher o log de
+		// falhas de conexão — útil para quem sobe a Api sem o coletor de pé.
+		if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+		{
+			tracing.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint));
+		}
+	});
 
 // Esta Api fica atrás do Api Gateway. Sem ler os cabeçalhos X-Forwarded-*, ela enxergaria o IP, o scheme
 // e o host do gateway no lugar dos do cliente original — o que estraga log de origem e qualquer decisão

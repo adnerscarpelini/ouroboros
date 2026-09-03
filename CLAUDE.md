@@ -35,7 +35,7 @@ dotnet test --filter "FullyQualifiedName~NomeDoTeste"
 docker compose up -d
 
 # subir a stack inteira em container — ver docs/0006
-# (e-mails de desenvolvimento em http://localhost:8025)
+# (e-mails de desenvolvimento em http://localhost:8025; traces em http://localhost:16686)
 docker compose --profile apps up -d --build
 ```
 

@@ -44,6 +44,18 @@ services:
       timeout: 5s
       retries: 5
 
+  # Coletor e visualizador de rastreamento distribuído (OpenTelemetry). Fica fora do profile
+  # "apps" porque as Apis rodando pela IDE também exportam para ele.
+  jaeger:
+    image: jaegertracing/all-in-one:1.65.0
+    container_name: ouroboros-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # interface web: http://localhost:16686
+      - "4317:4317"     # OTLP gRPC (é por onde as Apis exportam)
+
   auth-api:
     profiles: ["apps"]
     build:
@@ -64,6 +76,7 @@ services:
       # Endereço público (o do gateway) usado nos links enviados por e-mail.
       App__PublicBaseUrl: ${PUBLIC_BASE_URL:-http://localhost:5082}
       # PEM é multilinha e não cabe bem em variável de ambiente: as chaves chegam como secret montado.
+      Otlp__Endpoint: http://jaeger:4317
       # Dentro da rede do Compose o SMTP é o container do Mailpit, não localhost.
       EmailOutbox__SmtpHost: mailpit
       Jwt__SigningKeyPemPath: /run/secrets/jwt_private_key
@@ -88,6 +101,7 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       # Sobrescreve o destino do appsettings.json (que aponta para localhost, usado fora de container).
       ReverseProxy__Clusters__auth-cluster__Destinations__auth-api__Address: http://auth-api:8080
+      Otlp__Endpoint: http://jaeger:4317
     ports:
       - "5082:8080"
 

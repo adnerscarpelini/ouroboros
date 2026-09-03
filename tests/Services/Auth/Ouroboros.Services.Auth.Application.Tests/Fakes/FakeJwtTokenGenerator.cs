@@ -1,7 +1,6 @@
-using Ouroboros.Services.Auth.Application;
 using Ouroboros.Services.Auth.Domain;
 
-namespace Ouroboros.Services.Auth.Infrastructure.Tests;
+namespace Ouroboros.Services.Auth.Application.Tests;
 
 public sealed class FakeJwtTokenGenerator : IJwtTokenGenerator
 {

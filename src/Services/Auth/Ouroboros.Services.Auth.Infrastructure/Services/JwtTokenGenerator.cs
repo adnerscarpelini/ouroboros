@@ -11,7 +11,7 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
 	private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromHours(1);
 
-	private readonly AuthOptions _authOptions;
+	private readonly JwtOptions _jwtOptions;
 
 	// Carregada uma vez e mantida viva pelo tempo de vida do serviço (registrado como Singleton).
 	// O cache interno de SignatureProvider do Microsoft.IdentityModel.Tokens guarda referência à
@@ -21,12 +21,12 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 	// do mesmo jeito que a chave pública de validação em Program.cs.
 	private readonly RSA _signingKey;
 
-	public JwtTokenGenerator(AuthOptions authOptions)
+	public JwtTokenGenerator(JwtOptions jwtOptions)
 	{
-		_authOptions = authOptions;
+		_jwtOptions = jwtOptions;
 
 		_signingKey = RSA.Create();
-		_signingKey.ImportFromPem(authOptions.JwtSigningKeyPem);
+		_signingKey.ImportFromPem(jwtOptions.SigningKeyPem);
 	}
 
 	public AccessTokenResult GenerateToken(User user)
@@ -43,8 +43,8 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 		var signingCredentials = new SigningCredentials(new RsaSecurityKey(_signingKey), SecurityAlgorithms.RsaSha256);
 
 		var token = new JwtSecurityToken(
-			issuer: _authOptions.JwtIssuer,
-			audience: _authOptions.JwtAudience,
+			issuer: _jwtOptions.Issuer,
+			audience: _jwtOptions.Audience,
 			claims: claims,
 			expires: expiresAt,
 			signingCredentials: signingCredentials

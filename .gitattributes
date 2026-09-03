@@ -1,0 +1,7 @@
+# Normaliza os finais de linha no repositório (LF), independente do core.autocrlf de cada máquina.
+* text=auto
+
+# Scripts executados dentro de containers Linux precisam obrigatoriamente de LF. Com CRLF o bash
+# quebra ("set: -: invalid option" e heredoc sem terminador correspondente), e o script de init do
+# Postgres morre com erro de sintaxe antes de criar o banco/role do serviço.
+*.sh text eol=lf

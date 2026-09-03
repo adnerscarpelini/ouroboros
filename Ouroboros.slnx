@@ -5,6 +5,7 @@
     <File Path="docs/0002 - Setup do Banco de Dados Local.md" />
     <File Path="docs/0003 - Autenticação.md" />
     <File Path="docs/0004 - EF Core e Dapper.md" />
+    <File Path="docs/0005 - Repositórios e Unidade de Trabalho.md" />
     <Folder Name="/docs/excalidraw/">
       <File Path="docs/excalidraw/0003 - Autenticação.excalidraw" />
     </Folder>

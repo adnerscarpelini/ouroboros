@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Ouroboros.Services.Auth.Api;
 using Ouroboros.BuildingBlocks.Infrastructure;
@@ -17,11 +18,25 @@ builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+// Esta Api fica atrás do Api Gateway. Sem ler os cabeçalhos X-Forwarded-*, ela enxergaria o IP, o scheme
+// e o host do gateway no lugar dos do cliente original — o que estraga log de origem e qualquer decisão
+// baseada em IP. KnownIPNetworks/KnownProxies são limpos porque em container o gateway não chega por
+// loopback e não tem IP fixo; o que garante que só ele alcança esta porta é a rede, não esta lista.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+	options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+		| ForwardedHeaders.XForwardedProto
+		| ForwardedHeaders.XForwardedHost;
+
+	options.KnownIPNetworks.Clear();
+	options.KnownProxies.Clear();
+});
+
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
 	?? throw new InvalidOperationException("Connection string 'Postgres' não configurada. Ver docs/0002 - Setup do Banco de Dados Local.md.");
 
-var apiBaseUrl = builder.Configuration["App:BaseUrl"]
-	?? throw new InvalidOperationException("Configuração 'App:BaseUrl' não definida.");
+var publicBaseUrl = builder.Configuration["App:PublicBaseUrl"]
+	?? throw new InvalidOperationException("Configuração 'App:PublicBaseUrl' não definida.");
 
 // Chave PRIVADA (assina) — só o Auth tem, fica em User Secrets, nunca é compartilhada com outro serviço.
 var jwtSigningKeyPem = builder.Configuration["Jwt:SigningKeyPem"]
@@ -35,10 +50,10 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"]
 var jwtAudience = builder.Configuration["Jwt:Audience"]
 	?? throw new InvalidOperationException("Configuração 'Jwt:Audience' não definida.");
 
-builder.Services.AddCommon();
+builder.Services.AddCommon<AuthDbContext>();
 builder.Services.AddAuthModule(
 	connectionString: postgresConnectionString,
-	apiBaseUrl: apiBaseUrl,
+	publicBaseUrl: publicBaseUrl,
 	jwtSigningKeyPem: jwtSigningKeyPem,
 	jwtIssuer: jwtIssuer,
 	jwtAudience: jwtAudience
@@ -69,15 +84,21 @@ builder.Services.AddAuthorizationBuilder()
 
 var app = builder.Build();
 
+// Precisa vir antes de qualquer middleware que leia scheme/host/IP da requisição.
+app.UseForwardedHeaders();
+
 app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+	app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// Sem UseHttpsRedirection aqui de propósito: o TLS termina no Api Gateway, que encaminha para esta Api
+// por HTTP na rede interna. Com o redirect ligado, uma requisição vinda do gateway voltava como 307
+// apontando para a porta interna do serviço (https://localhost:7271) — vazando a topologia interna
+// para o cliente e quebrando o fluxo. Ver docs/0000 - Arquitetura.md, seção "API Gateway".
 
 app.UseAuthentication();
 app.UseAuthorization();

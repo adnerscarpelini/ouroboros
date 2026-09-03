@@ -1,12 +1,13 @@
 using Ouroboros.BuildingBlocks.Application;
 
-namespace Ouroboros.Services.Auth.Infrastructure.Tests;
+namespace Ouroboros.Services.Auth.Application.Tests;
 
 public sealed class FakeEmailQueueService : IEmailQueueService
 {
 	public string? LastSubject { get; private set; }
 	public string? LastBodyHtml { get; private set; }
 	public string? LastRecipient { get; private set; }
+	public int EnqueueCount { get; private set; }
 
 	public Task<long> EnqueueAsync(
 		string subject,
@@ -18,7 +19,8 @@ public sealed class FakeEmailQueueService : IEmailQueueService
 		LastSubject = subject;
 		LastBodyHtml = bodyHtml;
 		LastRecipient = recipient;
+		EnqueueCount++;
 
-		return Task.FromResult(1L);
+		return Task.FromResult((long)EnqueueCount);
 	}
 }

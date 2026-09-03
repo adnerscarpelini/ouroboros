@@ -1,6 +1,4 @@
-using Ouroboros.Services.Auth.Application;
-
-namespace Ouroboros.Services.Auth.Infrastructure.Tests;
+namespace Ouroboros.Services.Auth.Application.Tests;
 
 public sealed class FakePasswordHasher : IPasswordHasher
 {

@@ -19,7 +19,7 @@ Na prática, cada camada aqui é um projeto `.csproj` separado (não só uma pas
 | No legado 3 camadas | Aqui | Papel |
 |---|---|---|
 | Regra de Negócio (a parte que não muda com a tecnologia) | `Domain` | Entidades e regras de negócio puras. Não sabe o que é banco de dados, HTTP ou qualquer framework. |
-| Regra de Negócio (a parte que orquestra: "faz isso, depois aquilo") | `Application` | Casos de uso (ex.: "criar um usuário"). Usa o `Domain`, mas ainda não sabe como os dados são salvos. |
+| Regra de Negócio (a parte que orquestra: "faz isso, depois aquilo") | `Application` | Casos de uso (ex.: "criar um usuário"). Usa o `Domain` e fala com o banco só através de contratos (`IUserRepository`, `IUnitOfWork`) que ela mesma declara — não conhece EF Core nem nenhum outro framework de persistência. Ver [docs/0005](0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md). |
 | Acesso ao banco / integrações externas | `Infrastructure` | Implementação de tudo que fala com o mundo de fora: banco de dados, e-mail, fila de mensagens, API externa, etc. |
 | O "servidor" que a tela chama | `Api` | Ponto de entrada HTTP (controllers) daquele serviço. É quem monta tudo (injeção de dependência) e expõe os endpoints. |
 
@@ -53,6 +53,8 @@ Ponto de entrada HTTP único e público — hoje `http://localhost:5082`. Só ro
 
 O gateway não valida nem emite JWT — cada serviço valida seus próprios tokens (ver seção "Autenticação entre serviços" abaixo). Isso evita transformar o gateway num ponto de acoplamento de identidade.
 
+O TLS termina no gateway. As Apis de serviço **não** fazem redirecionamento para HTTPS: o gateway as alcança por HTTP na rede interna, e com o redirect ligado uma requisição vinda dele voltava como `307` apontando para a porta interna do serviço (`https://localhost:7271`) — vazando a topologia interna para o cliente. Em troca, cada Api lê os cabeçalhos `X-Forwarded-*` (`UseForwardedHeaders`) para continuar enxergando o IP, o scheme e o host originais de quem chamou.
+
 ### Autenticação entre serviços
 
 O Auth é o único emissor de identidade: só ele cria/renova/revoga token. Qualquer outro serviço que precise aceitar sessões do Auth só **valida** o JWT — nunca emite um.
@@ -82,8 +84,8 @@ A regra de dependência flui sempre para dentro: `Api` → `Infrastructure` → 
 Pra evitar que classes de tipos diferentes (interface, DTO/resultado, implementação, configuração de banco) fiquem misturadas soltas na raiz, cada camada agrupa por tipo em subpastas:
 
 - **Domain**: sem subpastas — hoje só tem entidades, não há o que separar.
-- **Application**: `Interfaces/` (contratos, ex.: `IUserService`) e `Models/` (DTOs/resultados, ex.: `AuthenticationResult`, `Result`).
-- **Infrastructure**: `Persistence/` (`DbContext` e configuração de mapeamento EF Core), `Services/` (implementações concretas, ex.: `UserService`), `Options/` (records de configuração, ex.: `AuthOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
+- **Application**: `Services/` (os casos de uso em si, ex.: `UserRegistrationService`), `Interfaces/` (contratos que o caso de uso consome, ex.: `IUserRepository`, `IUnitOfWork`), `Models/` (DTOs/resultados, ex.: `AuthenticationResult`, `Result`) e `Options/` (configuração de que o caso de uso precisa, ex.: `AuthApplicationOptions`).
+- **Infrastructure**: `Persistence/` (`DbContext`, mapeamento EF Core, `UnitOfWork` e a subpasta `Repositories/` com as implementações dos contratos de persistência da Application), `Services/` (implementações concretas de contratos técnicos, ex.: `Argon2PasswordHasher`, `JwtTokenGenerator`), `Options/` (records de configuração, ex.: `JwtOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
 - **Testes**: fakes agrupados em `Fakes/`; os arquivos de teste em si ficam na raiz do projeto de teste.
 
 O namespace de cada arquivo continua o mesmo (raiz do projeto) — só a pasta física muda. Isso evita ajustar `using` em cascata pela solution toda vez que um arquivo muda de pasta.

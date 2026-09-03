@@ -2,7 +2,7 @@
 
 ## Contexto
 
-O Ouroboros é um projeto de estudos contínuo, sem previsão de "fim", cujo produto de exemplo é o backend de um e-commerce. Como o código vai ser revisitado e evoluído por anos, a estrutura inicial precisa favorecer manutenibilidade e crescimento organizado mais do que velocidade de entrega no curto prazo.
+O Ouroboros é um projeto de estudos contínuo, sem previsão de "fim", cujo produto de exemplo é o backend de um e-commerce. Como o código vai ser revisitado e evoluído por anos, a estrutura precisa favorecer manutenibilidade e crescimento organizado mais do que velocidade de entrega no curto prazo.
 
 Este documento explica os conceitos com calma, pensando em quem vem de uma arquitetura clássica em camadas (ex.: tela → regra de negócio no servidor → banco de dados) e está vendo esses termos pela primeira vez. A ideia é que, se esquecer algum conceito lá na frente, baste reler aqui.
 
@@ -20,80 +20,111 @@ Na prática, cada camada aqui é um projeto `.csproj` separado (não só uma pas
 |---|---|---|
 | Regra de Negócio (a parte que não muda com a tecnologia) | `Domain` | Entidades e regras de negócio puras. Não sabe o que é banco de dados, HTTP ou qualquer framework. |
 | Regra de Negócio (a parte que orquestra: "faz isso, depois aquilo") | `Application` | Casos de uso (ex.: "criar um usuário"). Usa o `Domain`, mas ainda não sabe como os dados são salvos. |
-| Acesso ao banco / integrações externas | `Infrastructure` | Implementação de tudo que fala com o mundo de fora: banco de dados, Active Directory, e-mail, fila de mensagens, API externa, etc. |
-| O "servidor" que a tela chama | `Api` | Ponto de entrada HTTP (controllers). É quem monta tudo (injeção de dependência) e expõe os endpoints. |
+| Acesso ao banco / integrações externas | `Infrastructure` | Implementação de tudo que fala com o mundo de fora: banco de dados, e-mail, fila de mensagens, API externa, etc. |
+| O "servidor" que a tela chama | `Api` | Ponto de entrada HTTP (controllers) daquele serviço. É quem monta tudo (injeção de dependência) e expõe os endpoints. |
 
 A diferença mais importante pro legado clássico: lá, a "Regra de Negócio" costuma ser um bloco só, onde tudo se mistura (orquestração, regra pura e até um pouco de SQL). Aqui isso é separado de propósito, e o compilador ajuda a manter separado.
 
-### Monolito modular
+### Microsserviços
 
-**Hoje o projeto inteiro roda como uma aplicação só** (`Ouroboros.Api`), do mesmo jeito que o seu legado tem um servidor só. A diferença é que, por dentro, o código já é organizado em pedaços isolados (**módulos**), um por assunto de negócio.
+O projeto é dividido em **microsserviços**: cada contexto de negócio (ex.: `Auth`) é uma aplicação própria, com processo, banco e deploy independentes, se comunicando por rede (HTTP) através de um **API Gateway** único — nunca chamando o código ou lendo o banco de outro serviço diretamente.
 
-Isso é diferente de **microsserviço**: microsserviço é quando cada um desses pedaços vira uma aplicação separada, rodando em processos diferentes, cada uma com seu próprio banco, se comunicando por rede. A gente **não tem isso ainda** — só deixamos a organização pronta para que, se um dia quisermos separar um pedaço em uma aplicação própria, isso seja possível sem reescrever tudo.
+Isso é diferente de um **monolito modular** (onde o código já é organizado em módulos isolados, mas tudo roda num processo só, compartilhando banco): aqui a fronteira entre serviços é física, não só uma convenção de código — reforçada por rede e banco separados, não só pelo compilador.
 
-### Módulo (bounded context)
+Hoje existe só um serviço de negócio real, o `Auth`. A estrutura é a mesma pra qualquer serviço novo (ver [src/Services/README.md](../src/Services/README.md)).
 
-Um módulo é um pedaço de negócio isolado — ex.: `Auth`, `Catalog`, `ContasAReceber`. Cada módulo tem sua própria trinca `Domain`/`Application`/(`Infrastructure`, quando necessário), e **nunca** referencia o `Domain`/`Application` de outro módulo diretamente. Essa regra de isolamento é o que permite, no futuro, arrancar um módulo inteiro e transformar em um serviço separado sem descobrir que ele estava "grudado" em outro.
+### Serviço (bounded context)
 
-### Common
+Um serviço é um pedaço de negócio isolado — ex.: `Auth`, `Cadastros`. Cada serviço tem sua própria trinca `Domain`/`Application`/`Infrastructure` mais um projeto `Api` próprio (o host HTTP dele), e **nunca** referencia o `Domain`/`Application`/`Infrastructure` de outro serviço diretamente, nem lê o banco de outro serviço. Se um serviço precisar de algo de outro, isso passa por um contrato explícito (HTTP, evento) — nunca por acoplamento direto de código ou de dados.
 
-É código técnico compartilhado entre módulos — coisas que não são regra de negócio de ninguém específico, mas que vários módulos (ou a própria `Api`) usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
+### BuildingBlocks
 
-O primeiro conteúdo real do `Common` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core, persistidos no schema `common` do Postgres. Um handler global de exceções (`GlobalExceptionHandler`, na `Ouroboros.Api`) captura qualquer erro não tratado e registra ali — centralizado num único lugar, em vez de espalhado em `try/catch` pela aplicação inteira.
+É código técnico compartilhado entre serviços — coisas que não são regra de negócio de ninguém específico, mas que vários serviços usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
 
-O segundo é a entidade `EmailMessage` (também no schema `common`): uma fila de e-mails a enviar (assunto, corpo HTML, destinatário, se já foi enviado e quando). Por enquanto é só a estrutura da fila — nenhum módulo ainda sabe entregar e-mail de verdade (SMTP); isso fica pra quando existir um serviço de envio consumindo essa fila. Fica no `Common`, e não no `Auth`, porque enviar e-mail não é uma regra de negócio de nenhum módulo específico — vários vão precisar (confirmação de cadastro, redefinição de senha, notificação de pedido, etc.).
+O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é `EmailMessage`: uma fila de e-mails a enviar (assunto, corpo HTML, destinatário, se já foi enviado e quando) — por enquanto só a estrutura da fila, nenhum serviço ainda sabe entregar e-mail de verdade (SMTP).
+
+**Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`EmailMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. O mapeamento (schema, nomes de tabela) é um método de extensão reutilizável (`CommonEntityConfiguration.ApplyCommonEntities()`, em `BuildingBlocks.Infrastructure`) que cada `DbContext` de serviço chama no seu `OnModelCreating`, ao lado do que já configura pro schema de negócio dele. Código pode ser compartilhado; dados não.
 
 O nome vem de arquiteturas de referência conhecidas (ex.: o eShopOnContainers, da própria Microsoft) — não é uma tecnologia nova, é só uma pasta com esse nome.
 
+### API Gateway
+
+Ponto de entrada HTTP único e público — hoje `http://localhost:5082`. Só roteia (`YARP`, configurado via `appsettings.json`): não tem regra de negócio, não acessa banco, e não tem `ProjectReference` a nenhum projeto de serviço. Cada serviço continua com sua própria porta interna (ex.: Auth em `5081`), usada só durante desenvolvimento — em produção, só o gateway teria porta exposta.
+
+O gateway não valida nem emite JWT — cada serviço valida seus próprios tokens (ver seção "Autenticação entre serviços" abaixo). Isso evita transformar o gateway num ponto de acoplamento de identidade.
+
+### Autenticação entre serviços
+
+O Auth é o único emissor de identidade: só ele cria/renova/revoga token. Qualquer outro serviço que precise aceitar sessões do Auth só **valida** o JWT — nunca emite um.
+
+A assinatura usa um **par de chaves RSA assimétrico (RS256)**, não uma chave simétrica compartilhada: a chave privada só existe no Auth; a chave pública (não é segredo) é o que qualquer serviço validador recebe. Isso evita o problema de uma chave simétrica em múltiplos serviços — com HMAC, todo serviço que só precisa validar acabaria conhecendo o mesmo segredo capaz de assinar, e qualquer vazamento permitiria forjar token. Detalhe completo (claims, validade, geração do par de chaves) em [docs/0003 - Autenticação.md](0003%20-%20Autenticação.md) e [docs/0002 - Setup do Banco de Dados Local.md](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
+
 ## Decisão
 
-Adotar **Clean Architecture** dentro de um **monolito modular**, com cada camada/módulo como um projeto `.csproj` separado.
+Adotar **Clean Architecture** com **microsserviços**, cada camada/serviço como um projeto `.csproj` separado.
 
-### Camadas hoje
+### Serviços hoje
 
-O primeiro módulo de negócio é o `Auth`, com as três camadas (`Domain`/`Application`/`Infrastructure`) e o primeiro caso de uso real: registro de usuário (`POST /api/auth/register`), com validação de senha forte, hash Argon2id e persistência no Postgres. O que existe além dele é a base compartilhada:
+O primeiro serviço de negócio é o `Auth`, com as quatro camadas (`Domain`/`Application`/`Infrastructure`/`Api`) e os casos de uso de identidade: registro, confirmação de e-mail, login, refresh token, logout e redefinição de senha (ver [docs/0003](0003%20-%20Autenticação.md)). O que existe além dele é a base compartilhada e o ponto de entrada:
 
 | Projeto | Responsabilidade |
 |---|---|
-| `Ouroboros.Common.Domain` | Tipos-base de domínio compartilhados entre módulos. Não depende de nenhuma outra camada nem de frameworks externos. |
-| `Ouroboros.Common.Application` | Abstrações de aplicação compartilhadas entre módulos. Depende apenas de `Common.Domain`. |
-| `Ouroboros.Common.Infrastructure` | Infraestrutura de propósito geral compartilhada entre módulos. Depende de `Common.Application`. |
-| `Ouroboros.Api` | Ponto de entrada HTTP: controllers, injeção de dependência, configuração. Depende do `Common` e, futuramente, dos módulos de negócio. |
+| `Ouroboros.BuildingBlocks.Domain` | Tipos-base de domínio compartilhados entre serviços. Não depende de nenhuma outra camada nem de frameworks externos. |
+| `Ouroboros.BuildingBlocks.Application` | Abstrações de aplicação compartilhadas entre serviços. Depende apenas de `BuildingBlocks.Domain`. |
+| `Ouroboros.BuildingBlocks.Infrastructure` | Infraestrutura de propósito geral compartilhada entre serviços — código, nunca dado. Depende de `BuildingBlocks.Application`. |
+| `Ouroboros.ApiGateway` | Ponto de entrada HTTP público (YARP). Não referencia nenhum projeto de serviço. |
+| `Ouroboros.Services.Auth.Api` | Host HTTP do Auth: controllers, injeção de dependência, configuração. Depende do `BuildingBlocks` e do próprio `Auth.Infrastructure`. |
 
 A regra de dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`.
 
+### Organização de pastas dentro de um projeto
+
+Pra evitar que classes de tipos diferentes (interface, DTO/resultado, implementação, configuração de banco) fiquem misturadas soltas na raiz, cada camada agrupa por tipo em subpastas:
+
+- **Domain**: sem subpastas — hoje só tem entidades, não há o que separar.
+- **Application**: `Interfaces/` (contratos, ex.: `IUserService`) e `Models/` (DTOs/resultados, ex.: `AuthenticationResult`, `Result`).
+- **Infrastructure**: `Persistence/` (`DbContext` e configuração de mapeamento EF Core), `Services/` (implementações concretas, ex.: `UserService`), `Options/` (records de configuração, ex.: `AuthOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
+- **Testes**: fakes agrupados em `Fakes/`; os arquivos de teste em si ficam na raiz do projeto de teste.
+
+O namespace de cada arquivo continua o mesmo (raiz do projeto) — só a pasta física muda. Isso evita ajustar `using` em cascata pela solution toda vez que um arquivo muda de pasta.
+
+Todo serviço novo (`Cadastros`, etc.) segue essa mesma convenção desde o início.
+
 ### Testes
 
-Cada camada de `src/` tem um projeto de testes correspondente em `tests/`, no mesmo agrupamento (`Common/`, e um por módulo dentro de `Modules/`), usando xUnit.
+Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 
-## Módulos e preparo para microsserviços
+## Banco de dados
 
-Módulos de negócio ficam em `src/Modules/<NomeDoModulo>/`, cada um com sua própria trinca `Domain`/`Application`/`Infrastructure`, isolado dos demais módulos — ver [src/Modules/README.md](../src/Modules/README.md) para a convenção e a regra de isolamento entre módulos.
+Um **banco lógico por serviço**, numa **única instância Postgres compartilhada** — bancos diferentes na mesma instância já são isolados pelo próprio Postgres (uma conexão aberta num banco não enxerga outro). Cada serviço recebe uma *role* própria, dona do seu banco; nenhum serviço usa uma credencial que alcance o banco de outro.
 
-Um módulo pode depender de `Common`, mas nunca do `Domain`/`Application` de outro módulo diretamente. É essa regra — não a estrutura de pastas em si — que mantém a possibilidade real de, mais adiante, extrair um módulo para um serviço/repositório próprio.
+Um container por serviço daria isolamento de recursos (CPU/memória/IO) e permitiria versões de Postgres diferentes, mas custa mais containers rodando à toa numa máquina de desenvolvimento — banco único por serviço dentro de uma instância compartilhada é suficiente pra este projeto; um serviço que precisar de isolamento de recursos de verdade ganha sua própria instância nesse momento.
 
-Por enquanto a `Ouroboros.Api` continua sendo um único host para todos os módulos (monolito modular). Dividir a API em serviços separados por módulo é uma decisão que pode ser tomada depois, e não muda a organização interna dos módulos quando isso acontecer.
+Passo a passo prático (subir o container, gerar/aplicar migrations) em [docs/0002 - Setup do Banco de Dados Local.md](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
 
 ## Estrutura de pastas
 
 ```
 ouroboros/
+├── docker-compose.yml
+├── docker/postgres/init/         → scripts que criam banco+role de cada serviço na 1ª subida
 ├── src/
-│   ├── Common/
-│   │   ├── Ouroboros.Common.Domain/
-│   │   ├── Ouroboros.Common.Application/
-│   │   └── Ouroboros.Common.Infrastructure/
-│   ├── Modules/
-│   │   └── Auth/          → Domain + Application + Infrastructure
-│   └── Ouroboros.Api/
+│   ├── ApiGateways/
+│   │   └── Ouroboros.ApiGateway/
+│   ├── BuildingBlocks/
+│   │   ├── Ouroboros.BuildingBlocks.Domain/
+│   │   ├── Ouroboros.BuildingBlocks.Application/
+│   │   └── Ouroboros.BuildingBlocks.Infrastructure/
+│   └── Services/
+│       └── Auth/
+│           ├── Ouroboros.Services.Auth.Api/
+│           ├── Ouroboros.Services.Auth.Domain/
+│           ├── Ouroboros.Services.Auth.Application/
+│           └── Ouroboros.Services.Auth.Infrastructure/
 ├── tests/
-│   ├── Common/
-│   │   ├── Ouroboros.Common.Domain.Tests/
-│   │   ├── Ouroboros.Common.Application.Tests/
-│   │   └── Ouroboros.Common.Infrastructure.Tests/
-│   ├── Modules/
-│   │   └── Auth/
-│   └── Ouroboros.Api.Tests/
+│   ├── BuildingBlocks/
+│   └── Services/
+│       └── Auth/
 ├── docs/
 └── Ouroboros.slnx
 ```
@@ -104,6 +135,7 @@ As convenções de nomenclatura, idioma, formatação e fluxo de trabalho com Gi
 
 ## Consequências
 
-- Mais arquivos de projeto para gerenciar desde o início, comparado a uma solution única.
-- Erros de dependência incorreta entre camadas (ex.: `Domain` tentando referenciar `Infrastructure`) aparecem como erro de compilação, não como revisão manual de código.
-- Estrutura preparada para crescer: novos módulos de negócio entram em `src/Modules/` sem reestruturar o que já existe, e a regra de isolamento entre módulos deixa a porta aberta para, futuramente, extrair um módulo como serviço independente.
+- Mais processos, projetos e containers pra gerenciar do que um monolito — cada serviço novo é um host, um banco e um deploy a mais.
+- Erros de dependência incorreta entre camadas (ex.: `Domain` tentando referenciar `Infrastructure`) aparecem como erro de compilação; erros de acoplamento entre serviços (ex.: ler o banco de outro serviço) nem chegam a ser possíveis — não existe rede/credencial pra isso.
+- `BuildingBlocks` deixa de ser uma visão central de dados (ex.: log de erros de todos os serviços num lugar só) — cada serviço vê só o seu. Observabilidade central, se um dia for necessária, é um serviço separado.
+- Estrutura preparada pra crescer: novos serviços entram em `src/Services/` seguindo a mesma convenção, sem reestruturar o que já existe.

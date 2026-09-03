@@ -26,12 +26,12 @@ Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regra
 - Escrever só o necessário para o problema atual — evitar abstrações prematuras, generalizações especulativas, código morto ou duplicação desnecessária (KISS/YAGNI).
 - Preferir nomes descritivos que dispensem comentário explicativo.
 
-## Novo módulo vs. módulo existente
+## Novo serviço vs. serviço existente
 
-- Antes de implementar uma funcionalidade nova, analisar se ela pertence a um módulo já existente em `src/Modules/` (mesmo contexto de negócio) ou se representa um contexto novo, que pede um módulo novo.
-- Apresentar essa análise ao usuário antes de criar um módulo novo: qual módulo existente poderia acomodar a funcionalidade (se algum) e por quê, ou a sugestão de nome/escopo para o módulo novo. Só criar o módulo novo depois da confirmação do usuário — não decidir isso sozinho.
-- Se a funcionalidade claramente pertence a um módulo já existente, pode seguir direto nele, sem precisar dessa confirmação.
-- Ver [src/Modules/README.md](../../../src/Modules/README.md) para a convenção de estrutura e a regra de isolamento entre módulos.
+- Antes de implementar uma funcionalidade nova, analisar se ela pertence a um serviço já existente em `src/Services/` (mesmo contexto de negócio) ou se representa um contexto novo, que pede um serviço novo.
+- Apresentar essa análise ao usuário antes de criar um serviço novo: qual serviço existente poderia acomodar a funcionalidade (se algum) e por quê, ou a sugestão de nome/escopo para o serviço novo. Só criar o serviço novo depois da confirmação do usuário — não decidir isso sozinho. Criar um serviço novo é uma decisão maior que criar um módulo: implica processo, banco e deploy próprios.
+- Se a funcionalidade claramente pertence a um serviço já existente, pode seguir direto nele, sem precisar dessa confirmação.
+- Ver [src/Services/README.md](../../../src/Services/README.md) para a convenção de estrutura e a regra de isolamento entre serviços.
 
 ## Nomenclatura (casing)
 
@@ -84,7 +84,7 @@ userService.Insert(
 ## Testes
 
 - Todo serviço/caso de uso ou regra de negócio novo deve ser coberto por um teste correspondente — para as regras de cobertura e demais convenções de teste, siga a skill [ags-qa](../ags-qa/SKILL.md).
-- `dotnet build` já executa os testes automaticamente ao final (ver `Directory.Build.targets` na raiz do repositório) — não é preciso rodar `dotnet test` manualmente à parte, embora nada impeça. Essa automação só dispara ao buildar a `Ouroboros.Api` (projeto de entrada); buildar um projeto individual isoladamente não aciona os testes.
+- `dotnet build` já executa os testes automaticamente ao final (ver `Directory.Build.targets` na raiz do repositório) — não é preciso rodar `dotnet test` manualmente à parte, embora nada impeça. Essa automação só dispara ao buildar a `Ouroboros.Services.Auth.Api` (projeto de entrada); buildar um projeto individual isoladamente não aciona os testes.
 
 ## Banco de dados
 
@@ -92,19 +92,19 @@ userService.Insert(
 
 ## Tratamento de erros
 
-- Não usar `try/catch` só pra logar e relançar (ou engolir) uma exceção — deixe subir. Qualquer erro não tratado que chegue até a Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`) e registrado via `IErrorLogService`, sem precisar de código extra em cada método.
+- Não usar `try/catch` só pra logar e relançar (ou engolir) uma exceção — deixe subir. Qualquer erro não tratado que chegue até a Api de um serviço é capturado automaticamente pelo `GlobalExceptionHandler` daquele serviço (ex.: `src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs`) e registrado via `IErrorLogService`, sem precisar de código extra em cada método.
 - Só usar `try/catch` quando houver algo real a fazer com a exceção naquele ponto (recuperar, traduzir para um erro de domínio específico, tentar de novo, etc.) — nunca apenas para logar.
 - Mecanismo completo documentado em [docs/0000 - Arquitetura.md](../../../docs/0000%20-%20Arquitetura.md).
 
 ## Autorização de endpoints
 
-- Todo endpoint da `Ouroboros.Api` exige autenticação (JWT Bearer) por padrão — não por convenção lembrada a cada vez, mas por uma `FallbackPolicy` configurada em `Program.cs` (`RequireAuthenticatedUser()`), que se aplica a qualquer endpoint sem anotação explícita. Endpoints públicos precisam ser marcados com `[AllowAnonymous]`, não o contrário.
+- Toda Api de serviço exige autenticação (JWT Bearer) por padrão — não por convenção lembrada a cada vez, mas por uma `FallbackPolicy` configurada em `Program.cs` (`RequireAuthenticatedUser()`), que se aplica a qualquer endpoint sem anotação explícita. Endpoints públicos precisam ser marcados com `[AllowAnonymous]`, não o contrário.
 - Exceções conhecidas hoje (ficam `[AllowAnonymous]`): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/confirm-email`, `GET /api/auth/confirm-email`, `POST /api/auth/refresh-token`, `POST /api/auth/forgot-password` e `POST /api/auth/reset-password` — são os endpoints que o usuário usa antes de ter um `AccessToken` válido (ou, no caso do `refresh-token`, justamente porque o `AccessToken` já expirou). `POST /api/auth/logout` é a exceção contrária: mesmo sendo parte do fluxo de autenticação, exige `AccessToken` válido, porque só faz sentido chamado por quem já está autenticado.
 - Ao criar um endpoint novo, se não estiver claro se ele deve ser público ou exigir autenticação, **pergunte ao usuário antes de decidir** — não presuma nem `[Authorize]` nem `[AllowAnonymous]` por conta própria fora da lista de exceções conhecidas acima.
 
 ## Collection do Postman
 
-- Sempre que um método/endpoint novo for criado ou alterado na `Ouroboros.Api`, revisar e ajustar `src/Ouroboros.Api/Postman/Ouroboros.postman_collection.json` para refletir a mudança (nova requisição, parâmetros, exemplos, etc.).
+- Sempre que um método/endpoint novo for criado ou alterado numa Api de serviço, revisar e ajustar a collection Postman daquele serviço (ex.: `src/Services/Auth/Ouroboros.Services.Auth.Api/Postman/Ouroboros.postman_collection.json`) para refletir a mudança (nova requisição, parâmetros, exemplos, etc.). O `baseUrl` da collection aponta pro Api Gateway, não pra porta interna do serviço.
 
 ## Documentação
 

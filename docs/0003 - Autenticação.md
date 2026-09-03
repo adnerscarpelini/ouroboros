@@ -1,6 +1,6 @@
 # 0003 - Autenticação
 
-Fluxo completo de autenticação do módulo Auth: cadastro, confirmação de e-mail, login, refresh token, logout e redefinição de senha. Diagrama correspondente em [docs/excalidraw/0003 - Autenticação.excalidraw](excalidraw/0003%20-%20Autenticação.excalidraw) (ainda não reflete refresh token/logout).
+Fluxo completo de autenticação do serviço Auth: cadastro, confirmação de e-mail, login, refresh token, logout e redefinição de senha. Diagrama correspondente em [docs/excalidraw/0003 - Autenticação.excalidraw](excalidraw/0003%20-%20Autenticação.excalidraw) (ainda não reflete refresh token/logout).
 
 ## Visão geral
 
@@ -82,14 +82,14 @@ Request (`LoginRequest`): `Login`, `Password`.
 
 ### Token JWT (access token)
 
-- Assinado com HMAC SHA256, chave em `Jwt:SigningKey` (User Secrets — ver [docs/0002 - Setup do Banco de Dados Local.md](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md)).
+- Assinado com **RS256** (par de chaves RSA assimétrico, não uma chave simétrica compartilhada): a chave privada (`Jwt:SigningKeyPem`, User Secrets) só existe no Auth e nunca sai daqui; a chave pública (`Jwt:PublicKeyPem`, User Secrets) valida o token e é o que qualquer outro serviço vai usar pra aceitar sessões emitidas pelo Auth, sem precisar confiar num segredo compartilhado. Ver [docs/0002](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md) pra gerar o par e [docs/0000](0000%20-%20Arquitetura.md#autenticação-entre-serviços) pra decisão completa.
 - Validade: **1 hora**.
 - Claims: `sub` (ExternalId do usuário), `unique_name` (Login), `email`.
 - Expirado, o cliente troca o refresh token por um par novo (seção 4) em vez de logar de novo.
 
 ## 4. Refresh token e logout
 
-Sessão representada por uma `RefreshToken` (schema `auth`, entidade própria — não reaproveita `Token`/`TokenType`, que são acoplados ao fluxo de e-mail via `EmailMessageId`). Guarda só o hash do token (`ITokenGenerator.Hash`), igual aos demais tokens do módulo — o valor bruto nunca é persistido.
+Sessão representada por uma `RefreshToken` (schema `auth`, entidade própria — não reaproveita `Token`/`TokenType`, que são acoplados ao fluxo de e-mail via `EmailMessageId`). Guarda só o hash do token (`ITokenGenerator.Hash`), igual aos demais tokens do serviço — o valor bruto nunca é persistido.
 
 ### Emissão — `UserService.IssueAuthenticationResult`
 

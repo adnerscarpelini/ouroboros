@@ -1,5 +1,7 @@
 # 0006 - Rodando a Stack em Containers
 
+Este documento é o passo a passo prático. As **convenções** por trás dele (o que todo `Dockerfile` precisa ter, o que entra no Compose ao criar um serviço, política de portas e de segredos) estão na skill [ags-devops](../.claude/skills/ags-devops/SKILL.md).
+
 ## Os dois modos
 
 | Comando | O que sobe | Quando usar |
@@ -7,7 +9,7 @@
 | `docker compose up -d` | Postgres + Mailpit | Dia a dia: as Apis rodam pela IDE ou por `dotnet run`, contra o banco em container. É o fluxo do [0002](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md). |
 | `docker compose --profile apps up -d` | Postgres + Mailpit + Auth + Api Gateway | Quando quiser exercitar a stack como ela seria em produção: cada serviço no seu container, se achando pela rede. |
 
-O Mailpit (servidor SMTP de desenvolvimento, ver [0007](0007%20-%20Fila%20de%20E-mails%20(Outbox).md)) sobe nos dois modos, porque o fluxo pela IDE também precisa dele.
+O Mailpit (servidor SMTP de desenvolvimento, ver [0007](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md)) sobe nos dois modos, porque o fluxo pela IDE também precisa dele.
 
 Os serviços de aplicação ficam no profile `apps` para que o primeiro modo continue funcionando sem disputar as portas com o que estiver rodando pela IDE.
 

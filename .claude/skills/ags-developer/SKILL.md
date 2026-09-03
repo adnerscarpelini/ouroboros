@@ -31,6 +31,7 @@ Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regra
 - Antes de implementar uma funcionalidade nova, analisar se ela pertence a um serviço já existente em `src/Services/` (mesmo contexto de negócio) ou se representa um contexto novo, que pede um serviço novo.
 - Apresentar essa análise ao usuário antes de criar um serviço novo: qual serviço existente poderia acomodar a funcionalidade (se algum) e por quê, ou a sugestão de nome/escopo para o serviço novo. Só criar o serviço novo depois da confirmação do usuário — não decidir isso sozinho. Criar um serviço novo é uma decisão maior que criar um módulo: implica processo, banco e deploy próprios.
 - Se a funcionalidade claramente pertence a um serviço já existente, pode seguir direto nele, sem precisar dessa confirmação.
+- Confirmado o serviço novo, siga também a [ags-devops](../ags-devops/SKILL.md): a infraestrutura dele (container, porta, health check, rota no gateway) faz parte da mesma entrega.
 - Ver [src/Services/README.md](../../../src/Services/README.md) para a convenção de estrutura e a regra de isolamento entre serviços.
 
 ## Nomenclatura (casing)
@@ -89,6 +90,11 @@ userService.Insert(
 ## Banco de dados
 
 - Qualquer decisão ou implementação envolvendo banco de dados (schemas, migrations, nomenclatura de tabelas/colunas, etc.) segue a skill [ags-dba](../ags-dba/SKILL.md).
+
+## Infraestrutura, container e deploy
+
+- Qualquer coisa que envolva **rodar** o projeto em vez de escrevê-lo — `Dockerfile`, `docker-compose.yml`, portas, health checks, variáveis de ambiente, segredos, rota ou rate limiting no Api Gateway — segue a skill [ags-devops](../ags-devops/SKILL.md).
+- **Toda Api nova nasce containerizada.** Criar um serviço não é só criar os projetos: o `Dockerfile`, o serviço no Compose, os health checks e a rota no gateway entram na mesma tarefa. O checklist completo está na `ags-devops`.
 
 ## Tratamento de erros
 

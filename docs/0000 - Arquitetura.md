@@ -41,7 +41,7 @@ Um serviço é um pedaço de negócio isolado — ex.: `Auth`, `Cadastros`. Cada
 
 É código técnico compartilhado entre serviços — coisas que não são regra de negócio de ninguém específico, mas que vários serviços usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
 
-O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é a fila de e-mails (`EmailMessage`), implementada como **Outbox**: o caso de uso enfileira a mensagem dentro da mesma transação do dado de negócio, e um `BackgroundService` entrega depois, fora dela, por SMTP. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20(Outbox).md).
+O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é a fila de e-mails (`EmailMessage`), implementada como **Outbox**: o caso de uso enfileira a mensagem dentro da mesma transação do dado de negócio, e um `BackgroundService` entrega depois, fora dela, por SMTP. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
 
 **Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`EmailMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. O mapeamento (schema, nomes de tabela) é um método de extensão reutilizável (`CommonEntityConfiguration.ApplyCommonEntities()`, em `BuildingBlocks.Infrastructure`) que cada `DbContext` de serviço chama no seu `OnModelCreating`, ao lado do que já configura pro schema de negócio dele. Código pode ser compartilhado; dados não.
 
@@ -134,7 +134,7 @@ ouroboros/
 
 ## Convenções de código
 
-As convenções de nomenclatura, idioma, formatação e fluxo de trabalho com Git usadas neste projeto estão documentadas na skill [ags-developer](../.claude/skills/ags-developer/SKILL.md).
+As convenções de nomenclatura, idioma, formatação e fluxo de trabalho com Git usadas neste projeto estão documentadas na skill [ags-developer](../.claude/skills/ags-developer/SKILL.md). As de infraestrutura — `Dockerfile`, Compose, portas, health checks e segredos — estão na skill [ags-devops](../.claude/skills/ags-devops/SKILL.md).
 
 ## Consequências
 

@@ -12,6 +12,8 @@ src/Services/<NomeDoServico>/
 └── Ouroboros.Services.<NomeDoServico>.Infrastructure/
 ```
 
+Todo serviço também tem um `Dockerfile` no seu projeto `Api` e um serviço correspondente no `docker-compose.yml` — **uma Api nova nasce containerizada**, e o checklist do que entra junto (health checks, porta, rota no gateway, segredos) está na skill [ags-devops](../../.claude/skills/ags-devops/SKILL.md).
+
 Cada camada segue as mesmas regras já definidas para o projeto (ver [docs/0000 - Arquitetura.md](../../docs/0000%20-%20Arquitetura.md) e a skill `ags-developer`). O projeto `Infrastructure` só é criado quando o serviço realmente tiver algo pra colocar lá (ex.: persistência) — não é criado vazio por antecipação.
 
 O `Auth` é o primeiro exemplo dessa convenção em prática, com `Domain` (entidades `User`, `Token`, `RefreshToken` e `TokenType` — esta última já nasce com os tipos `UserCreationValidation` e `PasswordReset` via seed de migration), `Application` (os casos de uso `UserRegistrationService`, `AuthenticationService` e `PasswordResetService`, mais os contratos de que eles dependem — `IUserRepository`, `IUnitOfWork`, `IPasswordHasher` — sem nenhuma dependência de infraestrutura) e `Infrastructure` (as implementações desses contratos: repositórios EF Core, `UnitOfWork`, `AuthDbContext` e `AuthModule.AddAuthModule` — ver [ags-dba](../../.claude/skills/ags-dba/SKILL.md) e [docs/0005](../../docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md)).

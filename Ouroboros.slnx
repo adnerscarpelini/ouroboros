@@ -1,28 +1,37 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Ouroboros.Api/Ouroboros.Api.csproj" />
+  <Folder Name="/docs/">
+    <File Path="docs/0000 - Arquitetura.md" />
+    <File Path="docs/0001 - Comandos Git.md" />
+    <File Path="docs/0002 - Setup do Banco de Dados Local.md" />
+    <File Path="docs/0003 - Autenticação.md" />
+    <File Path="docs/0004 - EF Core e Dapper.md" />
+    <Folder Name="/docs/excalidraw/">
+      <File Path="docs/excalidraw/0003 - Autenticação.excalidraw" />
+    </Folder>
   </Folder>
-  <Folder Name="/src/Common/">
-    <Project Path="src/Common/Ouroboros.Common.Application/Ouroboros.Common.Application.csproj" />
-    <Project Path="src/Common/Ouroboros.Common.Domain/Ouroboros.Common.Domain.csproj" />
-    <Project Path="src/Common/Ouroboros.Common.Infrastructure/Ouroboros.Common.Infrastructure.csproj" />
+  <Folder Name="/src/ApiGateways/">
+    <Project Path="src/ApiGateways/Ouroboros.ApiGateway/Ouroboros.ApiGateway.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Auth/">
-    <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Application/Ouroboros.Modules.Auth.Application.csproj" />
-    <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Domain/Ouroboros.Modules.Auth.Domain.csproj" />
-    <Project Path="src/Modules/Auth/Ouroboros.Modules.Auth.Infrastructure/Ouroboros.Modules.Auth.Infrastructure.csproj" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Application/Ouroboros.BuildingBlocks.Application.csproj" />
+    <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain/Ouroboros.BuildingBlocks.Domain.csproj" />
+    <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure/Ouroboros.BuildingBlocks.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Ouroboros.Api.Tests/Ouroboros.Api.Tests.csproj" />
+  <Folder Name="/src/Services/Auth/">
+    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Api/Ouroboros.Services.Auth.Api.csproj" />
+    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Application/Ouroboros.Services.Auth.Application.csproj" />
+    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Domain/Ouroboros.Services.Auth.Domain.csproj" />
+    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Infrastructure/Ouroboros.Services.Auth.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/tests/Common/">
-    <Project Path="tests/Common/Ouroboros.Common.Application.Tests/Ouroboros.Common.Application.Tests.csproj" />
-    <Project Path="tests/Common/Ouroboros.Common.Domain.Tests/Ouroboros.Common.Domain.Tests.csproj" />
-    <Project Path="tests/Common/Ouroboros.Common.Infrastructure.Tests/Ouroboros.Common.Infrastructure.Tests.csproj" />
+  <Folder Name="/tests/BuildingBlocks/">
+    <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Application.Tests/Ouroboros.BuildingBlocks.Application.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests/Ouroboros.BuildingBlocks.Domain.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure.Tests/Ouroboros.BuildingBlocks.Infrastructure.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/Modules/Auth/">
-    <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Application.Tests/Ouroboros.Modules.Auth.Application.Tests.csproj" />
-    <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Domain.Tests/Ouroboros.Modules.Auth.Domain.Tests.csproj" />
-    <Project Path="tests/Modules/Auth/Ouroboros.Modules.Auth.Infrastructure.Tests/Ouroboros.Modules.Auth.Infrastructure.Tests.csproj" />
+  <Folder Name="/tests/Services/Auth/">
+    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Api.Tests/Ouroboros.Services.Auth.Api.Tests.csproj" />
+    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Application.Tests/Ouroboros.Services.Auth.Application.Tests.csproj" />
+    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Domain.Tests/Ouroboros.Services.Auth.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Infrastructure.Tests/Ouroboros.Services.Auth.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

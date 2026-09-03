@@ -10,37 +10,36 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 ## Banco de dados
 
 - SGBD: **PostgreSQL**.
-- Nome do banco: `ouroboros`.
+- Uma única instância Postgres compartilhada entre serviços — não um container por serviço. Ver [docs/0000 - Arquitetura.md](../../../docs/0000%20-%20Arquitetura.md#banco-de-dados).
 
-## Schemas por módulo
+## Banco e schema por serviço
 
-- Cada módulo de negócio (`src/Modules/<NomeDoModulo>/`) tem seu próprio **schema** no Postgres, com o nome do módulo em minúsculo (ex.: módulo `Auth` → schema `auth`).
-- Um módulo nunca lê nem escreve em tabela de outro schema/módulo diretamente — mesma regra de isolamento já aplicada ao código (ver [src/Modules/README.md](../../../src/Modules/README.md)), agora estendida aos dados.
-- É essa separação por schema, e não a existência de bancos físicos separados, que hoje garante o isolamento — enquanto o projeto for um monolito modular, um único banco `ouroboros` hospeda todos os schemas.
-- Tabelas do `Common` (não são de um módulo de negócio específico, ex.: `ErrorLog`) ficam no schema `common`, mesmo padrão de nome-do-módulo-em-minúsculo usado pelos demais.
+- Cada serviço (`src/Services/<NomeDoServico>/`) tem seu próprio **banco lógico** na instância Postgres, nomeado `ouroboros_<nomedoservico>` (ex.: serviço `Auth` → banco `ouroboros_auth`), com uma *role* própria que é dona desse banco. É isso — banco físico, não só schema — que garante o isolamento entre serviços: nenhum serviço tem credencial que alcance o banco de outro.
+- Dentro do próprio banco de um serviço, o schema organiza por assunto: `<nomedoservico>` pras tabelas de negócio (ex.: schema `auth`) e `common` pras tabelas técnicas vindas do `BuildingBlocks` (ex.: `ErrorLog`) — ver [docs/0000](../../../docs/0000%20-%20Arquitetura.md#buildingblocks) sobre código vs. dado compartilhado.
+- Banco/role de cada serviço são criados por um script em `docker/postgres/init/` na primeira subida do container (ver [docs/0002](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md)) — nunca criados manualmente.
 
 ## Migrations
 
 - Ferramenta: **EF Core Migrations**.
-- Cada módulo com persistência tem seu próprio `DbContext` (na camada `Infrastructure` do módulo, nomeado `<NomeDoModulo>DbContext`, ex.: `AuthDbContext`), configurado para usar apenas o schema daquele módulo via `modelBuilder.HasDefaultSchema("<schema>")` em `OnModelCreating`, e suas próprias migrations — não existe um `DbContext` único e global para o projeto inteiro. Todo `DbContext` de módulo herda de `AppDbContext` (`Ouroboros.Common.Infrastructure`) em vez de `DbContext` diretamente — ver seção "Entidade base" abaixo.
-- Pacotes usados no `Infrastructure` de cada módulo com persistência: `Npgsql.EntityFrameworkCore.PostgreSQL` e `EFCore.NamingConventions`. O `Microsoft.EntityFrameworkCore.Design` (necessário pra ferramenta `dotnet ef`) fica só no projeto de entrada (`Ouroboros.Api`).
-- Comando pra criar uma migration de um módulo (rodar dentro da pasta `Infrastructure` do módulo):
+- Cada serviço com persistência tem seu próprio `DbContext` (na camada `Infrastructure` do serviço, nomeado `<NomeDoServico>DbContext`, ex.: `AuthDbContext`), configurado para usar o schema daquele serviço via `modelBuilder.HasDefaultSchema("<schema>")` em `OnModelCreating`, mais o mapeamento de `BuildingBlocks` (`ApplyCommonEntities()`) pro schema `common` — e suas próprias migrations, únicas pro banco daquele serviço. Todo `DbContext` de serviço herda de `AppDbContext` (`Ouroboros.BuildingBlocks.Infrastructure`) em vez de `DbContext` diretamente — ver seção "Entidade base" abaixo.
+- Pacotes usados no `Infrastructure` de cada serviço com persistência: `Npgsql.EntityFrameworkCore.PostgreSQL` e `EFCore.NamingConventions`. O `Microsoft.EntityFrameworkCore.Design` (necessário pra ferramenta `dotnet ef`) fica só no projeto `Api` daquele serviço (projeto de entrada).
+- Comando pra criar/aplicar uma migration de um serviço (rodar dentro da pasta `Infrastructure` do serviço — o `Api` é irmão dela, `--startup-project` sobe só um nível):
   ```bash
-  dotnet ef migrations add NomeDaMigration --startup-project ../../../Ouroboros.Api --context <NomeDoModulo>DbContext
+  dotnet ef migrations add NomeDaMigration --startup-project ../Ouroboros.Services.<NomeDoServico>.Api --context <NomeDoServico>DbContext
+  dotnet ef database update --startup-project ../Ouroboros.Services.<NomeDoServico>.Api --context <NomeDoServico>DbContext
   ```
-  (ajustar o `--startup-project` pro `Ouroboros.Api` conforme a profundidade da pasta atual; para `Common`, é `../../Ouroboros.Api`.)
 
-## Registro do módulo (DI)
+## Registro do serviço (DI)
 
-- Cada módulo com persistência expõe um único método de extensão em `Infrastructure`, no padrão `Add<NomeDoModulo>Module(this IServiceCollection services, string connectionString)`, que registra o `DbContext` do módulo (com `UseNpgsql` + `UseSnakeCaseNamingConvention`) e os serviços de `Application` daquele módulo. A `Ouroboros.Api` só chama esse método — não registra `DbContext`/serviços de módulo diretamente no `Program.cs`.
+- Cada serviço com persistência expõe um único método de extensão em `Infrastructure`, no padrão `Add<NomeDoServico>Module(this IServiceCollection services, string connectionString, ...)`, que registra o `DbContext` do serviço (com `UseNpgsql` + `UseSnakeCaseNamingConvention`) e os serviços de `Application` daquele serviço. A `Api` do serviço só chama esse método — não registra `DbContext`/serviços diretamente no `Program.cs`.
 
 ## Segredos e connection string
 
-- A connection string com a senha real **nunca** vai pro `appsettings.json` (esse arquivo é versionado). Local, ela fica no **User Secrets** do projeto `Ouroboros.Api` (`dotnet user-secrets`), equivalente ao papel do `.env` no Docker Compose — ver [docs/0002 - Setup do Banco de Dados Local.md](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
+- A connection string com a senha real **nunca** vai pro `appsettings.json` (esse arquivo é versionado). Local, ela fica no **User Secrets** do projeto `Api` de cada serviço (`dotnet user-secrets`), equivalente ao papel do `.env` no Docker Compose — ver [docs/0002 - Setup do Banco de Dados Local.md](../../../docs/0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
 
 ## Entidade base
 
-Toda entidade persistida herda de `Entity` (`Ouroboros.Common.Domain`), que carrega quatro colunas presentes em **todas** as tabelas do sistema, sempre nessa ordem física (garantida por `HasColumnOrder` em `AppDbContext`):
+Toda entidade persistida herda de `Entity` (`Ouroboros.BuildingBlocks.Domain`), que carrega quatro colunas presentes em **todas** as tabelas do sistema, sempre nessa ordem física (garantida por `HasColumnOrder` em `AppDbContext`):
 
 1. `id` (`long` / `bigint`, identity) — chave primária interna, usada em joins e FKs. Nunca exposta pela Api.
 2. `external_id` (`Guid` / `uuid`, único, gerado em `Guid.NewGuid()` na criação) — identificador público, usado em rotas/DTOs da Api. Enumeration-safe: não revela volume nem ordem de criação como um `id` sequencial exposto revelaria.
@@ -68,7 +67,7 @@ public abstract class Entity
 }
 ```
 
-`AppDbContext` (também em `Ouroboros.Common.Infrastructure`) é a base de todo `<NomeDoModulo>DbContext`: aplica o índice único em `external_id` e o `HasColumnOrder` pra qualquer entidade que herde de `Entity`, e faz o auto-stamp de `updated_at` no `SaveChanges`. Um `DbContext` de módulo só precisa herdar dele (em vez de `DbContext` puro) — o resto (schema do módulo, índices específicos como `login`/`email` do `User`) continua configurado no próprio `OnModelCreating` do módulo, chamando `base.OnModelCreating(modelBuilder)` no final.
+`AppDbContext` (também em `Ouroboros.BuildingBlocks.Infrastructure`) é a base de todo `<NomeDoServico>DbContext`: aplica o índice único em `external_id` e o `HasColumnOrder` pra qualquer entidade que herde de `Entity`, e faz o auto-stamp de `updated_at` no `SaveChanges`. Um `DbContext` de serviço só precisa herdar dele (em vez de `DbContext` puro) — o resto (schema do serviço, índices específicos como `login`/`email` do `User`, e o `ApplyCommonEntities()` do `BuildingBlocks`) continua configurado no próprio `OnModelCreating` do serviço, chamando `base.OnModelCreating(modelBuilder)` no final.
 
 ## Entidades persistidas (padrão de construtor para o EF Core)
 
@@ -106,14 +105,14 @@ Propriedades de referência não-nulas (`string`, não `string?`) precisam do `=
 
 ## Leitura pesada: Query Objects com Dapper
 
-- Padrão default pra qualquer leitura continua sendo **EF Core** (LINQ contra o `DbContext` do módulo) — o mesmo usado pra escrita.
+- Padrão default pra qualquer leitura continua sendo **EF Core** (LINQ contra o `DbContext` do serviço) — o mesmo usado pra escrita.
 - Só se cria um **Query Object** com **Dapper** quando uma leitura específica for pesada de verdade (relatório/dashboard com múltiplos joins e agregações, ou uma consulta que já ficou difícil/ineficiente em LINQ). Não criar por antecipação — decisão completa em [docs/0004 - EF Core e Dapper.md](../../../docs/0004%20-%20EF%20Core%20e%20Dapper.md).
 - Convenção, quando existir a necessidade:
   - Contrato em `Application/Queries/I<Nome>Query.cs`: interface com um único método `ExecuteAsync(...)`, retornando um DTO (`record`) — nunca uma entidade de `Domain`.
-  - Implementação em `Infrastructure/Queries/<Nome>Query.cs`: usa Dapper, SQL escrito à mão, com o schema do módulo explícito na query (Dapper não conhece o `HasDefaultSchema` do `DbContext`).
-  - Registro no mesmo `Add<NomeDoModulo>Module` onde já entram os serviços: `services.AddScoped<I<Nome>Query, <Nome>Query>();`.
-  - Conexão vem de `IDbConnectionFactory` (contrato em `Ouroboros.Common.Application`, implementação Npgsql em `Ouroboros.Common.Infrastructure`), reaproveitando a mesma connection string do EF Core.
-  - Pacote `Dapper` entra só no `Infrastructure` do módulo que tiver o primeiro Query Object — mesma regra de "`Infrastructure` só nasce quando há algo real pra colocar lá".
+  - Implementação em `Infrastructure/Queries/<Nome>Query.cs`: usa Dapper, SQL escrito à mão, com o schema do serviço explícito na query (Dapper não conhece o `HasDefaultSchema` do `DbContext`).
+  - Registro no mesmo `Add<NomeDoServico>Module` onde já entram os serviços: `services.AddScoped<I<Nome>Query, <Nome>Query>();`.
+  - Conexão vem de `IDbConnectionFactory` (contrato em `Ouroboros.BuildingBlocks.Application`, implementação Npgsql em `Ouroboros.BuildingBlocks.Infrastructure`), reaproveitando a mesma connection string do EF Core.
+  - Pacote `Dapper` entra só no `Infrastructure` do serviço que tiver o primeiro Query Object — mesma regra de "`Infrastructure` só nasce quando há algo real pra colocar lá".
 
 ```csharp
 // Application/Queries/IUserLoginAttemptsReportQuery.cs

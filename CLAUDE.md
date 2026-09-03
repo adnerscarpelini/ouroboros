@@ -14,40 +14,45 @@ Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-d
 # build da solution inteira (executa os testes automaticamente ao final, ver Directory.Build.targets)
 dotnet build
 
-# rodar a API (perfil "http" ou "https" definido em launchSettings.json)
-dotnet run --project src/Ouroboros.Api
+# rodar a API do Auth (porta interna 5081/7271 — perfil "http" ou "https" em launchSettings.json)
+dotnet run --project src/Services/Auth/Ouroboros.Services.Auth.Api
+
+# rodar o Api Gateway (porta pública 5082/7272) — precisa do Auth rodando pra ter o que rotear
+dotnet run --project src/ApiGateways/Ouroboros.ApiGateway
 
 # rodar todos os testes
 dotnet test
 
 # rodar os testes de um único projeto
-dotnet test tests/Common/Ouroboros.Common.Domain.Tests
+dotnet test tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests
 
 # rodar um único teste (por nome do método/classe, via filtro do xUnit)
 dotnet test --filter "FullyQualifiedName~NomeDoTeste"
 ```
 
-A API sobe em `http://localhost:5082` (perfil `http`) ou `https://localhost:7272` (perfil `https`).
+O ponto de entrada público é o **Api Gateway**, em `http://localhost:5082` (perfil `http`) ou `https://localhost:7272` (perfil `https`) — é nele que a collection Postman aponta. O Auth roda numa porta interna própria (`5081`/`7271`), só para acesso direto durante desenvolvimento; em produção, só o gateway teria porta exposta.
 
 ## Arquitetura
 
-Clean Architecture dentro de um monolito modular, com cada camada/módulo como um projeto `.csproj` separado, para que a regra de dependência seja garantida pelo compilador. Decisão completa e justificativa em [docs/0000 - Arquitetura.md](docs/0000%20-%20Arquitetura.md).
+Clean Architecture com microsserviços, cada camada/serviço como um projeto `.csproj` separado, para que a regra de dependência seja garantida pelo compilador. Decisão completa e justificativa em [docs/0000 - Arquitetura.md](docs/0000%20-%20Arquitetura.md).
 
 ```
-src/Common/Ouroboros.Common.Domain           → tipos-base de domínio compartilhados entre módulos. Sem dependências de outras camadas.
-src/Common/Ouroboros.Common.Application      → abstrações de aplicação compartilhadas entre módulos. Depende de Common.Domain.
-src/Common/Ouroboros.Common.Infrastructure   → infraestrutura de propósito geral compartilhada entre módulos. Depende de Common.Application.
-src/Modules/<NomeDoModulo>/                  → módulos de negócio (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure. Primeiro exemplo: Auth (src/Modules/Auth/).
-src/Ouroboros.Api                            → controllers, injeção de dependência, configuração HTTP. Depende do Common e dos módulos.
+src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain           → tipos-base de domínio compartilhados entre serviços. Sem dependências de outras camadas.
+src/BuildingBlocks/Ouroboros.BuildingBlocks.Application      → abstrações de aplicação compartilhadas entre serviços. Depende de BuildingBlocks.Domain.
+src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure   → infraestrutura de propósito geral compartilhada entre serviços (código, não dado — cada serviço persiste na própria base). Depende de BuildingBlocks.Application.
+src/Services/<NomeDoServico>/                                → microsserviços (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure + um projeto Api próprio. Primeiro exemplo: Auth (src/Services/Auth/), com host HTTP em Ouroboros.Services.Auth.Api.
+src/ApiGateways/Ouroboros.ApiGateway                         → ponto de entrada HTTP público (YARP). Só roteia — sem regra de negócio, sem banco, sem referência a projetos de serviço.
 ```
 
-A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`). Um módulo de negócio nunca referencia o `Domain`/`Application` de outro módulo diretamente — só `Common` — ver [src/Modules/README.md](src/Modules/README.md).
+A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`. Nunca adicione uma referência de projeto na direção contrária (ex.: `Domain` referenciando `Infrastructure`). Um serviço nunca referencia o `Domain`/`Application` de outro serviço diretamente — só `BuildingBlocks` — ver [src/Services/README.md](src/Services/README.md).
 
-Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/Common/...` hoje). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
+Dentro de cada projeto, classes são agrupadas por tipo em subpastas (`Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Options/`) — ver "Organização de pastas dentro de um projeto" em [docs/0000](docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
+
+Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 
 ## Tratamento de erros
 
-Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Ouroboros.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.Common.Domain.ErrorLog` (schema `common`) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
+Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api do Auth é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.BuildingBlocks.Domain.ErrorLog` (schema `common`, dentro do próprio banco do serviço) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
 
 ## Documentação
 
@@ -55,7 +60,7 @@ Ver skill [ags-technical-writer](.claude/skills/ags-technical-writer/SKILL.md).
 
 ## Postman
 
-`src/Ouroboros.Api/Postman/Ouroboros.postman_collection.json` é a collection Postman do projeto (schema v2.1). Sempre que um método/endpoint da Api for criado ou alterado, revise e ajuste essa collection.
+`src/Services/Auth/Ouroboros.Services.Auth.Api/Postman/Ouroboros.postman_collection.json` é a collection Postman do projeto (schema v2.1). Sempre que um método/endpoint de uma Api for criado ou alterado, revise e ajuste essa collection.
 
 ## Git
 

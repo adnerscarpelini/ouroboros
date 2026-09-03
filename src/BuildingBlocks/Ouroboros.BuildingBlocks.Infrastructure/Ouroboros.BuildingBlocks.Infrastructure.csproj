@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ouroboros.BuildingBlocks.Application\Ouroboros.BuildingBlocks.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Npgsql.EntityFrameworkCore.PostgreSQL fica só pelos tipos base do EF Core (DbContext, ModelBuilder)
+         usados por AppDbContext/CommonEntityConfiguration — UseNpgsql/UseSnakeCaseNamingConvention agora
+         só acontecem no Add<NomeDoServico>Module de cada serviço, não mais aqui. -->
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

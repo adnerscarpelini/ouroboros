@@ -24,15 +24,20 @@ Passo a passo para subir o PostgreSQL local do projeto do zero — útil se form
 
 ## 3. Criar o arquivo `.env` local
 
-A senha do banco **não fica versionada no Git** — só existe no arquivo `.env`, que é local e ignorado pelo `.gitignore`. O que vai pro repositório é o `.env.example`, que é só um modelo com um valor de exemplo (`change-me`), não a senha de verdade.
+As senhas do banco **não ficam versionadas no Git** — só existem no arquivo `.env`, que é local e ignorado pelo `.gitignore`. O que vai pro repositório é o `.env.example`, que é só um modelo com valores de exemplo (`change-me`), não as senhas de verdade.
+
+O `.env` tem duas senhas, não uma só — a instância Postgres é compartilhada entre serviços (ver [docs/0000 - Arquitetura.md](0000%20-%20Arquitetura.md#banco-de-dados)), mas cada serviço tem sua própria credencial de banco:
+
+- `POSTGRES_PASSWORD`: senha do superusuário administrativo (`postgres`) — usado só pra gestão da instância (DBeaver como admin, scripts de init). A Api nunca conecta com ele.
+- `AUTH_DB_PASSWORD`: senha da role `auth_service`, dona do banco `ouroboros_auth` — é essa que a Api do Auth usa.
 
 1. Na raiz do projeto, copiar o modelo:
    ```powershell
    Copy-Item .env.example .env
    ```
-2. Abrir o `.env` e trocar `change-me` por uma senha de verdade (qualquer uma, é ambiente local).
+2. Abrir o `.env` e trocar os dois `change-me` por senhas de verdade (quaisquer uma, é ambiente local).
 
-Se a máquina foi formatada e o `.env` antigo se perdeu, isso é esperado — é só criar um novo `.env` com uma senha nova. Como os dados do banco ficam num volume Docker (não no `.env`), só o container em si precisa ser recriado; se o volume também tiver sido perdido (ex.: reinstalou o Docker do zero), o banco sobe vazio de novo.
+Se a máquina foi formatada e o `.env` antigo se perdeu, isso é esperado — é só criar um novo `.env` com senhas novas. Como os dados do banco ficam num volume Docker (não no `.env`), só o container em si precisa ser recriado; se o volume também tiver sido perdido (ex.: reinstalou o Docker do zero), o banco sobe vazio de novo — nesse caso é preciso reaplicar as migrations (`dotnet ef database update`, ver seção 6) e atualizar a connection string no User Secrets com a nova senha.
 
 ## 4. Subir o banco
 
@@ -41,6 +46,8 @@ Na raiz do projeto:
 ```bash
 docker compose up -d
 ```
+
+Na primeira subida (volume novo), o script em `docker/postgres/init/` roda automaticamente e cria o banco `ouroboros_auth` com a role `auth_service` já dona dele — não precisa criar nada manualmente. Quando outro serviço existir, o mesmo container ganha um banco/role novo, sem precisar de um container a mais.
 
 Conferir se subiu e está saudável:
 
@@ -56,36 +63,43 @@ A senha também não pode ir pro `appsettings.json` (esse arquivo é versionado)
 
 1. Inicializar (só precisa uma vez, já feito no projeto, mas fica documentado caso o `UserSecretsId` do `.csproj` mude):
    ```bash
-   dotnet user-secrets init --project src/Ouroboros.Api
+   dotnet user-secrets init --project src/Services/Auth/Ouroboros.Services.Auth.Api
    ```
-2. Definir a connection string, usando o mesmo usuário/senha do `.env`:
+2. Definir a connection string, usando a senha de `AUTH_DB_PASSWORD` no `.env` (não a de `POSTGRES_PASSWORD` — a Api conecta como `auth_service`, não como superusuário):
    ```bash
-   dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros;Username=ouroboros;Password=<senha do .env>" --project src/Ouroboros.Api
+   dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros_auth;Username=auth_service;Password=<AUTH_DB_PASSWORD do .env>" --project src/Services/Auth/Ouroboros.Services.Auth.Api
    ```
 
 Sem isso, a Api lança erro ao iniciar (`Connection string 'Postgres' não configurada`).
 
-Também pelo User Secrets (não é banco de dados, mas é outro segredo local que não pode ir pro `appsettings.json`): a chave usada pra assinar os tokens JWT emitidos no login. Qualquer valor aleatório serve — por exemplo, gerado assim no PowerShell:
+Também pelo User Secrets: o par de chaves RSA usado para assinar (JWT) e validar os tokens emitidos no login. É um par assimétrico, não uma senha única — a chave **privada** assina e só o Auth a possui; a chave **pública** só valida, e é o que qualquer outro serviço vai precisar quando existir (ver [docs/0000 - Arquitetura.md](0000%20-%20Arquitetura.md#autenticação-entre-serviços)).
 
-```powershell
-$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-$bytes = New-Object byte[] 32
-$rng.GetBytes($bytes)
-[Convert]::ToBase64String($bytes)
-```
+1. Gerar o par de chaves (formato PEM, com `openssl` — já vem com o Git for Windows):
+   ```bash
+   openssl genrsa -out jwt-private.pem 2048
+   openssl rsa -in jwt-private.pem -pubout -out jwt-public.pem
+   ```
+2. Guardar as duas no User Secrets (o conteúdo do `.pem`, arquivo inteiro, como uma única string):
+   ```bash
+   dotnet user-secrets set "Jwt:SigningKeyPem" "$(cat jwt-private.pem)" --project src/Services/Auth/Ouroboros.Services.Auth.Api
+   dotnet user-secrets set "Jwt:PublicKeyPem" "$(cat jwt-public.pem)" --project src/Services/Auth/Ouroboros.Services.Auth.Api
+   ```
+3. Apagar os dois arquivos `.pem` da pasta do projeto depois de guardados no User Secrets — eles não devem ficar soltos no disco fora do cofre do User Secrets, e principalmente nunca devem ser commitados.
 
-```bash
-dotnet user-secrets set "Jwt:SigningKey" "<valor gerado acima>" --project src/Ouroboros.Api
-```
-
-Sem isso, a Api lança erro ao iniciar (`Configuração 'Jwt:SigningKey' não definida`).
+Sem isso, a Api lança erro ao iniciar (`Configuração 'Jwt:SigningKeyPem' não definida` ou `'Jwt:PublicKeyPem' não definida`).
 
 ## 6. Instalar a ferramenta `dotnet-ef`
 
-Necessária pra criar/aplicar migrations mais adiante:
+Necessária pra criar/aplicar migrations:
 
 ```bash
 dotnet tool install --global dotnet-ef
+```
+
+Comando pra aplicar as migrations do Auth num banco novo/vazio (rodar dentro de `src/Services/Auth/Ouroboros.Services.Auth.Infrastructure`):
+
+```bash
+dotnet ef database update --startup-project ../Ouroboros.Services.Auth.Api --context AuthDbContext
 ```
 
 ## 7. Instalar o DBeaver e conectar
@@ -94,9 +108,11 @@ dotnet tool install --global dotnet-ef
 2. Criar uma nova conexão PostgreSQL com:
    - **Host**: `localhost`
    - **Porta**: `5432`
-   - **Banco/Database**: `ouroboros`
-   - **Usuário**: o valor de `POSTGRES_USER` no `.env`
-   - **Senha**: o valor de `POSTGRES_PASSWORD` no `.env`
+   - **Banco/Database**: `ouroboros_auth`
+   - **Usuário**: `auth_service`
+   - **Senha**: o valor de `AUTH_DB_PASSWORD` no `.env`
+
+   (Pra tarefas administrativas na instância — não específicas de um serviço — conecte como superusuário: usuário `postgres` / senha de `POSTGRES_PASSWORD` no `.env`, banco `postgres`.)
 
 ## Comandos do dia a dia
 

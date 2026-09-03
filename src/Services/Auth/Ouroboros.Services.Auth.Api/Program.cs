@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Ouroboros.Services.Auth.Api;
+using Ouroboros.BuildingBlocks.Application;
 using Ouroboros.BuildingBlocks.Infrastructure;
 using Ouroboros.Services.Auth.Infrastructure;
 
@@ -17,6 +19,11 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+
+builder.Services.AddHealthChecks()
+	// Marcado como "ready": entra na prontidão (a Api depende do banco para servir),
+	// mas fica fora do liveness — um banco fora do ar não significa processo travado.
+	.AddDbContextCheck<AuthDbContext>(name: "postgres", tags: ["ready"]);
 
 // Esta Api fica atrás do Api Gateway. Sem ler os cabeçalhos X-Forwarded-*, ela enxergaria o IP, o scheme
 // e o host do gateway no lugar dos do cliente original — o que estraga log de origem e qualquer decisão
@@ -38,23 +45,29 @@ var postgresConnectionString = builder.Configuration.GetConnectionString("Postgr
 var publicBaseUrl = builder.Configuration["App:PublicBaseUrl"]
 	?? throw new InvalidOperationException("Configuração 'App:PublicBaseUrl' não definida.");
 
-// Chave PRIVADA (assina) — só o Auth tem, fica em User Secrets, nunca é compartilhada com outro serviço.
-var jwtSigningKeyPem = builder.Configuration["Jwt:SigningKeyPem"]
-	?? throw new InvalidOperationException("Configuração 'Jwt:SigningKeyPem' não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
-// Chave PÚBLICA (valida) — não é segredo, mas ainda fica em User Secrets aqui porque é específica
-// do par de chaves gerado nesta máquina; qualquer serviço que só precise validar token usa só esta.
-var jwtPublicKeyPem = builder.Configuration["Jwt:PublicKeyPem"]
-	?? throw new InvalidOperationException("Configuração 'Jwt:PublicKeyPem' não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
+// Chave PRIVADA (assina) — só o Auth tem, nunca é compartilhada com outro serviço.
+var jwtSigningKeyPem = ReadPem("Jwt:SigningKeyPem")
+	?? throw new InvalidOperationException("Configuração 'Jwt:SigningKeyPem' (ou 'Jwt:SigningKeyPemPath') não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
+// Chave PÚBLICA (valida) — não é segredo, mas é específica do par gerado neste ambiente;
+// qualquer serviço que só precise validar token usa só esta.
+var jwtPublicKeyPem = ReadPem("Jwt:PublicKeyPem")
+	?? throw new InvalidOperationException("Configuração 'Jwt:PublicKeyPem' (ou 'Jwt:PublicKeyPemPath') não definida. Ver docs/0002 - Setup do Banco de Dados Local.md.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]
 	?? throw new InvalidOperationException("Configuração 'Jwt:Issuer' não definida.");
 var jwtAudience = builder.Configuration["Jwt:Audience"]
 	?? throw new InvalidOperationException("Configuração 'Jwt:Audience' não definida.");
 
+var emailOutboxOptions = builder.Configuration.GetSection("EmailOutbox").Get<EmailOutboxOptions>()
+	?? throw new InvalidOperationException("Seção 'EmailOutbox' não configurada.");
+
 builder.Services.AddCommon<AuthDbContext>();
+// Entrega da fila de e-mails: roda em segundo plano, fora da transação que enfileirou.
+builder.Services.AddEmailOutbox<AuthDbContext>(emailOutboxOptions);
 builder.Services.AddAuthModule(
 	connectionString: postgresConnectionString,
 	publicBaseUrl: publicBaseUrl,
 	jwtSigningKeyPem: jwtSigningKeyPem,
+	jwtPublicKeyPem: jwtPublicKeyPem,
 	jwtIssuer: jwtIssuer,
 	jwtAudience: jwtAudience
 );
@@ -105,4 +118,44 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// AllowAnonymous explícito: a FallbackPolicy acima exigiria token, e quem consulta o health
+// (healthcheck do container, gateway, orquestrador) não tem nem como obter um.
+
+// Liveness: o processo está de pé e respondendo? Nenhuma checagem de dependência entra aqui —
+// derrubar o container porque o banco piscou só transformaria uma falha em duas.
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+
+// Readiness: a Api consegue mesmo atender? É o que o Compose espera antes de subir o gateway.
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+	Predicate = healthCheck => healthCheck.Tags.Contains("ready")
+}).AllowAnonymous();
+
 app.Run();
+
+// Lê um PEM de duas origens: o valor direto na configuração (User Secrets, no desenvolvimento local)
+// ou o caminho de um arquivo em "<chave>Path" (secret montado pelo Docker Compose, no container).
+// PEM é multilinha, o que o torna ruim de carregar em variável de ambiente.
+string? ReadPem(string configurationKey)
+{
+	var inlinePem = builder.Configuration[configurationKey];
+
+	if (!string.IsNullOrWhiteSpace(inlinePem))
+	{
+		return inlinePem;
+	}
+
+	var pemPath = builder.Configuration[$"{configurationKey}Path"];
+
+	if (string.IsNullOrWhiteSpace(pemPath))
+	{
+		return null;
+	}
+
+	if (!File.Exists(pemPath))
+	{
+		throw new InvalidOperationException($"Configuração '{configurationKey}Path' aponta para '{pemPath}', que não existe.");
+	}
+
+	return File.ReadAllText(pemPath);
+}

@@ -41,7 +41,7 @@ Um serviço é um pedaço de negócio isolado — ex.: `Auth`, `Cadastros`. Cada
 
 É código técnico compartilhado entre serviços — coisas que não são regra de negócio de ninguém específico, mas que vários serviços usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
 
-O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é `EmailMessage`: uma fila de e-mails a enviar (assunto, corpo HTML, destinatário, se já foi enviado e quando) — por enquanto só a estrutura da fila, nenhum serviço ainda sabe entregar e-mail de verdade (SMTP).
+O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é a fila de e-mails (`EmailMessage`), implementada como **Outbox**: o caso de uso enfileira a mensagem dentro da mesma transação do dado de negócio, e um `BackgroundService` entrega depois, fora dela, por SMTP. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20(Outbox).md).
 
 **Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`EmailMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. O mapeamento (schema, nomes de tabela) é um método de extensão reutilizável (`CommonEntityConfiguration.ApplyCommonEntities()`, em `BuildingBlocks.Infrastructure`) que cada `DbContext` de serviço chama no seu `OnModelCreating`, ao lado do que já configura pro schema de negócio dele. Código pode ser compartilhado; dados não.
 
@@ -110,16 +110,17 @@ Passo a passo prático (subir o container, gerar/aplicar migrations) em [docs/00
 ouroboros/
 ├── docker-compose.yml
 ├── docker/postgres/init/         → scripts que criam banco+role de cada serviço na 1ª subida
+├── docker/secrets/               → chaves usadas pelos containers (nunca versionadas)
 ├── src/
 │   ├── ApiGateways/
-│   │   └── Ouroboros.ApiGateway/
+│   │   └── Ouroboros.ApiGateway/        → Dockerfile próprio
 │   ├── BuildingBlocks/
 │   │   ├── Ouroboros.BuildingBlocks.Domain/
 │   │   ├── Ouroboros.BuildingBlocks.Application/
 │   │   └── Ouroboros.BuildingBlocks.Infrastructure/
 │   └── Services/
 │       └── Auth/
-│           ├── Ouroboros.Services.Auth.Api/
+│           ├── Ouroboros.Services.Auth.Api/          → Dockerfile próprio
 │           ├── Ouroboros.Services.Auth.Domain/
 │           ├── Ouroboros.Services.Auth.Application/
 │           └── Ouroboros.Services.Auth.Infrastructure/

@@ -1,0 +1,21 @@
+# Artefatos de build da máquina host: copiá-los para dentro da imagem quebra o build no container
+# (binários compilados para outro ambiente) e deixa o contexto de build enorme.
+**/bin/
+**/obj/
+**/.vs/
+
+.git/
+.gitattributes
+.gitignore
+
+# Segredos e arquivos locais nunca entram na imagem — as chaves chegam via secret do Compose.
+.env
+docker/secrets/
+**/*.user
+**/*.pem
+
+# Não são necessários para compilar o serviço.
+docs/
+tests/
+*.md
+project-logo.png

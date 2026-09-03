@@ -11,6 +11,7 @@ public static class AuthModule
 		string connectionString,
 		string publicBaseUrl,
 		string jwtSigningKeyPem,
+		string jwtPublicKeyPem,
 		string jwtIssuer,
 		string jwtAudience
 	)
@@ -23,6 +24,7 @@ public static class AuthModule
 
 		services.AddSingleton(new JwtOptions(
 			SigningKeyPem: jwtSigningKeyPem,
+			PublicKeyPem: jwtPublicKeyPem,
 			Issuer: jwtIssuer,
 			Audience: jwtAudience
 		));
@@ -44,6 +46,8 @@ public static class AuthModule
 		services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
 		// Singleton: carrega a chave RSA uma única vez e não a descarta — ver comentário em JwtTokenGenerator.
 		services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+		// Singleton: o material público da chave é calculado uma vez e não muda em tempo de execução.
+		services.AddSingleton<IJwtKeyProvider, JwtKeyProvider>();
 
 		return services;
 	}

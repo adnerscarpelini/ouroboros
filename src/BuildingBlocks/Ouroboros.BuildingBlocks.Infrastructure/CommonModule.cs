@@ -22,4 +22,21 @@ public static class CommonModule
 
 		return services;
 	}
+
+	// Liga a entrega da fila de e-mails do serviço. Fica separado do AddCommon porque um serviço pode
+	// enfileirar e-mail sem ser ele o responsável por entregar (ou não usar e-mail nenhum).
+	// Ver docs/0007 - Fila de E-mails (Outbox).md.
+	public static IServiceCollection AddEmailOutbox<TDbContext>(
+		this IServiceCollection services,
+		EmailOutboxOptions options
+	)
+		where TDbContext : AppDbContext
+	{
+		services.AddSingleton(options);
+		services.AddScoped<IEmailSender, SmtpEmailSender>();
+		services.AddScoped<EmailOutboxDispatcher<TDbContext>>();
+		services.AddHostedService<EmailOutboxProcessor<TDbContext>>();
+
+		return services;
+	}
 }

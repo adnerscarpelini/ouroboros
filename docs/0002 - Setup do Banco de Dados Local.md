@@ -1,5 +1,8 @@
 # 0002 - Setup do Banco de Dados Local
 
+> Este documento cobre o fluxo do dia a dia: **só o banco em container**, com as Apis rodando pela IDE.
+> Para subir a stack inteira em container (Postgres + Auth + Gateway), ver [0006 - Rodando a Stack em Containers](0006%20-%20Rodando%20a%20Stack%20em%20Containers.md).
+
 Passo a passo para subir o PostgreSQL local do projeto do zero — útil se formatar a máquina ou configurar um ambiente novo. Assume que o repositório já está clonado e que a máquina é Windows.
 
 ## 1. Instalar o WSL2

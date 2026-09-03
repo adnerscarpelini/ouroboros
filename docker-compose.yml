@@ -1,3 +1,13 @@
+# Dois modos de subir o projeto:
+#
+#   docker compose up -d                      → só o Postgres. As Apis rodam pela IDE / dotnet run
+#                                               (fluxo do dia a dia, ver docs/0002).
+#   docker compose --profile apps up -d       → a stack inteira em container: Postgres + Auth + Gateway
+#                                               (ver docs/0006).
+#
+# Os serviços de aplicação ficam no profile "apps" justamente para que o primeiro modo continue
+# funcionando sem disputar as portas 5082/5081 com o que estiver rodando pela IDE.
+
 services:
   postgres:
     image: postgres:17
@@ -17,6 +27,75 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Servidor SMTP de desenvolvimento: aceita qualquer e-mail e mostra numa interface web,
+  # sem entregar nada de verdade. Fica fora do profile "apps" porque o fluxo pela IDE
+  # também precisa de um destino SMTP local.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ouroboros-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # interface web: http://localhost:8025
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-api:
+    profiles: ["apps"]
+    build:
+      context: .
+      dockerfile: src/Services/Auth/Ouroboros.Services.Auth.Api/Dockerfile
+    container_name: ouroboros-auth-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      # Host "postgres" é o nome do serviço acima — descoberta pela rede do Compose, não por IP fixo.
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=ouroboros_auth;Username=auth_service;Password=${AUTH_DB_PASSWORD}"
+      # Endereço público (o do gateway) usado nos links enviados por e-mail.
+      App__PublicBaseUrl: ${PUBLIC_BASE_URL:-http://localhost:5082}
+      # PEM é multilinha e não cabe bem em variável de ambiente: as chaves chegam como secret montado.
+      # Dentro da rede do Compose o SMTP é o container do Mailpit, não localhost.
+      EmailOutbox__SmtpHost: mailpit
+      Jwt__SigningKeyPemPath: /run/secrets/jwt_private_key
+      Jwt__PublicKeyPemPath: /run/secrets/jwt_public_key
+    secrets:
+      - jwt_private_key
+      - jwt_public_key
+    # Sem "ports" de propósito: só o gateway tem porta publicada, como descrito em docs/0000.
+
+  api-gateway:
+    profiles: ["apps"]
+    build:
+      context: .
+      dockerfile: src/ApiGateways/Ouroboros.ApiGateway/Dockerfile
+    container_name: ouroboros-api-gateway
+    restart: unless-stopped
+    depends_on:
+      auth-api:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      # Sobrescreve o destino do appsettings.json (que aponta para localhost, usado fora de container).
+      ReverseProxy__Clusters__auth-cluster__Destinations__auth-api__Address: http://auth-api:8080
+    ports:
+      - "5082:8080"
+
+secrets:
+  jwt_private_key:
+    file: ./docker/secrets/jwt-private.pem
+  jwt_public_key:
+    file: ./docker/secrets/jwt-public.pem
 
 volumes:
   ouroboros_postgres_data:

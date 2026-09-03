@@ -6,6 +6,8 @@
     <File Path="docs/0003 - Autenticação.md" />
     <File Path="docs/0004 - EF Core e Dapper.md" />
     <File Path="docs/0005 - Repositórios e Unidade de Trabalho.md" />
+    <File Path="docs/0006 - Rodando a Stack em Containers.md" />
+    <File Path="docs/0007 - Fila de E-mails (Outbox).md" />
     <Folder Name="/docs/excalidraw/">
       <File Path="docs/excalidraw/0003 - Autenticação.excalidraw" />
     </Folder>

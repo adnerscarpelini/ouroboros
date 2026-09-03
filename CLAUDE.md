@@ -28,6 +28,13 @@ dotnet test tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests
 
 # rodar um único teste (por nome do método/classe, via filtro do xUnit)
 dotnet test --filter "FullyQualifiedName~NomeDoTeste"
+
+# subir banco + Mailpit (fluxo do dia a dia — as Apis rodam pela IDE / dotnet run)
+docker compose up -d
+
+# subir a stack inteira em container — ver docs/0006
+# (e-mails de desenvolvimento em http://localhost:8025)
+docker compose --profile apps up -d --build
 ```
 
 O ponto de entrada público é o **Api Gateway**, em `http://localhost:5082` (perfil `http`) ou `https://localhost:7272` (perfil `https`) — é nele que a collection Postman aponta. O Auth roda numa porta interna própria (`5081`/`7271`), só para acesso direto durante desenvolvimento; em produção, só o gateway teria porta exposta.

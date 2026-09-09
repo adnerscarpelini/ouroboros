@@ -35,7 +35,7 @@ Não foi encontrado `AGENTS.md` no repositório nem nos dois diretórios ancestr
 | Hosts e contratos HTTP | [Program Auth](../src/Services/Auth/Ouroboros.Services.Auth.Api/Program.cs), [AuthModule](../src/Services/Auth/Ouroboros.Services.Auth.Infrastructure/AuthModule.cs), [AuthController](../src/Services/Auth/Ouroboros.Services.Auth.Api/Controllers/AuthController.cs), [Postman](../src/Services/Auth/Ouroboros.Services.Auth.Api/Postman/Ouroboros.postman_collection.json) | Trocar composição; preservar requests/responses públicos, confirmação e recuperação. |
 | Gateway | [Program](../src/ApiGateways/Ouroboros.ApiGateway/Program.cs), [rotas](../src/ApiGateways/Ouroboros.ApiGateway/appsettings.json) | Não transportar mensagens pelo gateway; avaliar somente rota operacional de saúde. |
 | Infraestrutura | [Compose](../docker-compose.yml), [modelo de ambiente](../.env.example), [init Postgres](../docker/postgres/init/01-create-auth-db.sh), [Dockerfile Auth](../src/Services/Auth/Ouroboros.Services.Auth.Api/Dockerfile) | Novo host, banco/role e broker; SMTP sai de Auth. |
-| Observabilidade | [0008](../docs/0008%20-%20Observabilidade.md), [GlobalExceptionHandler](../src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs) | Propagar contexto por outbox/broker; handlers HTTP não capturam falhas de workers. |
+| Diagnóstico | [GlobalExceptionHandler](../src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs) | Propagar correlação por outbox/broker; handlers HTTP não capturam falhas de workers. |
 | Verificação | [tests](../tests), [Directory.Build.targets](../Directory.Build.targets) | Adaptar unitários e acrescentar integração real de transação, concorrência e recuperação. |
 
 ## Comportamento atual
@@ -58,7 +58,7 @@ O dispatcher seleciona mensagens não enviadas com tentativas abaixo do limite, 
 
 `SmtpEmailSender` usa MailKit 4.17.0 e `SecureSocketOptions.Auto`; não autentica no SMTP e não configura identidade estável de mensagem. O sucesso inclui `DisconnectAsync`, portanto uma falha após aceitação do conteúdo ainda pode ser registrada como falha e gerar reenvio. Mailpit é o destino local; não há configuração completa de provedor de produção.
 
-O Compose sobe Postgres 17, Mailpit e Jaeger como infraestrutura; Auth e gateway ficam no profile `apps`. Auth depende hoje da saúde de Mailpit para subir, mesmo que possa aceitar solicitações com SMTP indisponível. O script cria banco/role de Auth, mas não revoga privilégios de `PUBLIC`: banco e role separados, isoladamente, não demonstram a proibição de conexão cruzada. Validar permissões efetivas na implementação; não afirmar que este levantamento comprovou isolamento em execução.
+O Compose sobe Postgres 17 e Mailpit como infraestrutura; Auth e gateway ficam no profile `apps`. Auth depende hoje da saúde de Mailpit para subir, mesmo que possa aceitar solicitações com SMTP indisponível. O script cria banco/role de Auth, mas não revoga privilégios de `PUBLIC`: banco e role separados, isoladamente, não demonstram a proibição de conexão cruzada. Validar permissões efetivas na implementação; não afirmar que este levantamento comprovou isolamento em execução.
 
 ## Arquitetura proposta
 
@@ -88,7 +88,7 @@ Nome proposto: `EmailNotificationRequestedV1`, tipo lógico `notifications.email
 | `TemplateKey`, `TemplateVersion`, `Locale` | Inicialmente `auth.email-confirmation` e `auth.password-reset`, versão `1`, `pt-BR`. |
 | `Data` | Objeto validado por template: `FullName` e `ConfirmationUrl` ou `ResetUrl`. Sem senha, JWT ou entidade `User` serializada. |
 | `ExpiresAt` | Mesmo instante de expiração do token. Calcular uma vez no produtor para token e solicitação. |
-| `TraceParent`, `TraceState` | Contexto W3C persistido e repassado pela infraestrutura; não substituir UUID de idempotência pelo trace ID. |
+| `CorrelationId` | O `X-Correlation-Id` da requisição de origem, persistido e repassado para ligar os logs dos dois serviços; não substituir o UUID de idempotência por ele. |
 
 Rejeitar campos obrigatórios ausentes, versões desconhecidas, template não permitido ao produtor e payload maior que limite configurado (proposta inicial: 64 KiB). Mudanças compatíveis adicionam campos opcionais; alterações semânticas exigem nova versão, com consumidor implantado antes do produtor. Retirar uma versão somente depois de esvaziar outbox, fila e quarentena correspondentes.
 
@@ -173,24 +173,24 @@ Revisar privilégios de `PUBLIC`: revogar `CONNECT`/`TEMPORARY` nos bancos de se
 | Componente | Configuração proposta |
 |---|---|
 | Auth | `ConnectionStrings:Postgres`, `App:PublicBaseUrl` e JWT continuam; adicionar `Messaging` e `Outbox`; retirar `EmailOutbox`/SMTP após corte. |
-| Notifications | Connection string própria, `Messaging`, `EmailDelivery` (lote, retries, timeouts, leases), `Smtp` (host, porta, remetente, usuário/senha opcionais, TLS explícito), `Otlp:Endpoint`. |
+| Notifications | Connection string própria, `Messaging`, `EmailDelivery` (lote, retries, timeouts, leases), `Smtp` (host, porta, remetente, usuário/senha opcionais, TLS explícito). |
 | Secrets | `NOTIFICATIONS_DB_PASSWORD`, credenciais de broker distintas e SMTP no `.env.example` apenas como nomes/exemplos; valores via User Secrets/ambiente/secret montado. Validar opções no startup. |
 | Compose | `notifications-api` no profile `apps`, sem `ports`, porta interna 8080, contexto raiz, Dockerfile multiestágio .NET 10, usuário não root, healthcheck e `restart: unless-stopped`. |
 | IDE | Propor portas 5083/7273 em `launchSettings.json`, verificando disponibilidade no momento da implementação. |
 | Broker | Infraestrutura fora de `apps`, volume, healthcheck e restart; portas de desenvolvimento vinculadas a localhost, sem exposição pública de administração. |
 | SMTP | Mailpit permanece para desenvolvimento, acessado por Notifications. Retirar `depends_on: mailpit` de Auth. Produção exige política TLS explícita e credencial do provedor quando necessária; não herdar fallback implícito de `Auto`. |
 
-`/health` verifica processo; `/health/ready` de Notifications verifica banco e capacidade do consumidor de receber mensagens. SMTP indisponível sinaliza degradação/alarme de entrega, sem impedir persistência de solicitações. Notifications pode continuar enviando entregas já persistidas enquanto broker está indisponível. Auth mantém prontidão de negócio dependente do próprio banco, sem depender de SMTP, Notifications ou broker para aceitar transações locais. No Compose, dependências reais usam `service_healthy`; Jaeger continua best-effort.
+`/health` verifica processo; `/health/ready` de Notifications verifica banco e capacidade do consumidor de receber mensagens. SMTP indisponível sinaliza degradação/alarme de entrega, sem impedir persistência de solicitações. Notifications pode continuar enviando entregas já persistidas enquanto broker está indisponível. Auth mantém prontidão de negócio dependente do próprio banco, sem depender de SMTP, Notifications ou broker para aceitar transações locais. No Compose, dependências reais usam `service_healthy`.
 
 A skill devops exige rota no gateway para Api nova. Proposta mínima: rotas exatas de saúde `/api/notifications/health` e `/api/notifications/health/ready`, transformadas para os caminhos internos e com política de rate limiting operacional; sem catch-all nem endpoint de envio público. Saúde é a exceção anônima já prevista nas convenções. Não adicionar `depends_on` do gateway em Notifications, para sua indisponibilidade não bloquear o acesso ao Auth. Endpoints futuros de consulta/reprocessamento exigem definição própria de autorização antes de implementação; fallback autenticado continua sendo a convenção para hosts HTTP. Se se preferir saúde somente interna, registrar a revisão da regra da skill na implementação.
 
-## Observabilidade e critérios operacionais
+## Diagnóstico e critérios operacionais
 
-O mecanismo atual instrumenta HTTP e Npgsql; não basta para uma mensagem armazenada e publicada depois. Persistir contexto W3C na outbox, extrair no consumer e abrir spans explícitos de publicação, ingestão e tentativa. Manter correlação com trace de origem e UUID da solicitação em logs estruturados; tentativas tardias podem usar novo trace com link ao original. Não colocar tokens/payload em tags e não presumir que a instrumentação de HttpClient instrumenta AMQP ou SMTP.
+O projeto não tem rastreamento distribuído: a correlação hoje é o `X-Correlation-Id` posto pelo Api Gateway, gravado em `error_logs.trace_id`. Uma mensagem armazenada e publicada depois precisa carregar essa correlação: persistir o identificador de correlação na outbox, propagá-lo no envelope publicado e relê-lo no consumer, para que publicação, ingestão e tentativa apareçam no log com o mesmo id da requisição de origem. Manter também o UUID da solicitação em logs estruturados. Não colocar tokens nem payload em log.
 
-Falhas de workers devem ter recuperação no próprio loop e log correlacionado; `GlobalExceptionHandler` cobre apenas HTTP. Erro de persistência de diagnóstico não pode impedir recuperação nem resultar em ACK prematuro. Histórico durável fica no banco; Jaeger local perde traces ao reiniciar e não substitui esse histórico.
+Falhas de workers devem ter recuperação no próprio loop e log correlacionado; `GlobalExceptionHandler` cobre apenas HTTP. Erro de persistência de diagnóstico não pode impedir recuperação nem resultar em ACK prematuro. Histórico durável fica no banco: o log do processo é volátil e não substitui esse histórico.
 
-Expor contagem de pendentes, idade da solicitação mais antiga, tempo até aceitação, taxas de retry/falha/expiração, conflitos de idempotência, quarentena e leases vencidos. Proposta de alertas iniciais: qualquer falha terminal/conflito, quarentena não vazia ou pendência acima de cinco minutos. Ajustar depois com dados; não prometer SLO de entrega SMTP. O projeto não tem backend de métricas: começar com instrumentos .NET e consultas/logs documentados para operação, deixando implantação de coletor de métricas como decisão explícita, sem afirmar que Jaeger já resolve alertas.
+Expor contagem de pendentes, idade da solicitação mais antiga, tempo até aceitação, taxas de retry/falha/expiração, conflitos de idempotência, quarentena e leases vencidos. Proposta de alertas iniciais: qualquer falha terminal/conflito, quarentena não vazia ou pendência acima de cinco minutos. Ajustar depois com dados; não prometer SLO de entrega SMTP. O projeto não tem backend de métricas: começar com instrumentos .NET e consultas/logs documentados para operação, deixando implantação de coletor de métricas como decisão explícita.
 
 ## Transição dos dados e implantação
 
@@ -284,7 +284,6 @@ Aceite obrigatório da implementação:
 | [0005 - Repositórios e Unidade de Trabalho](../docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md) | Remover referência ao `EmailMessageId` e atualizar atomicidade sem SaveChanges para obter ID de mensagem. |
 | [0006 - Containers](../docs/0006%20-%20Rodando%20a%20Stack%20em%20Containers.md) | Broker, Notifications, saúde, portas, secrets, implantação e diagnóstico. |
 | [0007 - Fila de E-mails](../docs/0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md) | Evoluir documento operacional para outbox transacional e entrega central; preservar explicação histórica quando útil. |
-| [0008 - Observabilidade](../docs/0008%20-%20Observabilidade.md) | Traces assíncronos, estados/métricas e diferenças entre publicação, ingestão e SMTP. |
 | [README](../README.md), [Services/README](../src/Services/README.md), [CLAUDE.md](../CLAUDE.md), skills dba/developer/devops/qa | Corrigir referências antigas de skills quando aplicável; revisar exemplos de EmailMessage comum, regra de Contracts, infraestrutura e comando de testes. |
 | [Postman Auth](../src/Services/Auth/Ouroboros.Services.Auth.Api/Postman/Ouroboros.postman_collection.json), [Excalidraw Auth](../docs/excalidraw/0003%20-%20Autenticação.excalidraw) | Preservar contratos existentes, atualizar instruções para aguardar entrega assíncrona; revisar fluxo desenhado ao implementar. |
 

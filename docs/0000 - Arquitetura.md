@@ -140,5 +140,5 @@ As convenções de nomenclatura, idioma, formatação e fluxo de trabalho com Gi
 
 - Mais processos, projetos e containers pra gerenciar do que um monolito — cada serviço novo é um host, um banco e um deploy a mais.
 - Erros de dependência incorreta entre camadas (ex.: `Domain` tentando referenciar `Infrastructure`) aparecem como erro de compilação; erros de acoplamento entre serviços (ex.: ler o banco de outro serviço) nem chegam a ser possíveis — não existe rede/credencial pra isso.
-- `BuildingBlocks` deixa de ser uma visão central de dados (ex.: log de erros de todos os serviços num lugar só) — cada serviço vê só o seu. A visão central de uma requisição inteira vem do rastreamento distribuído (OpenTelemetry + Jaeger), não de uma tabela compartilhada: ver [docs/0008 - Observabilidade](0008%20-%20Observabilidade.md).
+- `BuildingBlocks` deixa de ser uma visão central de dados (ex.: log de erros de todos os serviços num lugar só) — cada serviço vê só o seu. Para ligar o que aconteceu num serviço ao que aconteceu no outro numa mesma requisição, o projeto usa hoje o `X-Correlation-Id` posto pelo Api Gateway, gravado em `error_logs.trace_id`, e não uma tabela compartilhada.
 - Estrutura preparada pra crescer: novos serviços entram em `src/Services/` seguindo a mesma convenção, sem reestruturar o que já existe.

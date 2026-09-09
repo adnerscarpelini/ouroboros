@@ -10,6 +10,11 @@ Skill base pra tudo relacionado a documentação no projeto Ouroboros. Complemen
 ## Onde ficam os documentos
 
 - Todo documento fica em `docs/`, em **Markdown**, numerado sequencialmente: `0000 - Arquitetura.md`, `0001 - Comandos Git.md`, `0002 - Setup do Banco de Dados Local.md`, etc.
+- `docs/` contém somente documentação permanente do projeto: arquitetura, processos, funcionamento e decisões consolidadas.
+- Especificações de trabalho ficam em `specs/` na raiz do repositório. Elas representam histórias/items de trabalho no estilo Jira e usam o nome `YYYY-MM-DD - Titulo.md`.
+- Toda spec deve começar com front matter YAML contendo `title` e `state`. Os estados permitidos são `new`, `in progress` e `done`.
+- Antes de desenvolver uma nova feature, procure uma spec correspondente e pergunte ao usuário se ela já existe. Se não existir, crie-a antes da implementação; se existir, trabalhe sobre ela e atualize-a conforme o escopo, decisões, arquivos afetados e critérios de aceite evoluírem.
+- Ao sugerir uma mensagem de commit, inclua a data/número da spec correspondente.
 - Sempre que algo for implementado ou alterado no projeto, revisar os documentos existentes em `docs/` e editar o(s) que forem afetados pela mudança — documentação desatualizada é pior do que nenhuma.
 - Só criar um documento novo, no próximo número da sequência, se nenhum documento existente cobrir o assunto. Não criar documentos por antecipação, sem uma necessidade real.
 

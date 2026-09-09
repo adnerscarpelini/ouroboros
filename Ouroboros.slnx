@@ -8,7 +8,6 @@
     <File Path="docs/0005 - Repositórios e Unidade de Trabalho.md" />
     <File Path="docs/0006 - Rodando a Stack em Containers.md" />
     <File Path="docs/0007 - Fila de E-mails (Outbox).md" />
-    <File Path="docs/0008 - Observabilidade.md" />
     <Folder Name="/docs/excalidraw/">
       <File Path="docs/excalidraw/0003 - Autenticação.excalidraw" />
     </Folder>
@@ -37,5 +36,8 @@
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Application.Tests/Ouroboros.Services.Auth.Application.Tests.csproj" />
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Domain.Tests/Ouroboros.Services.Auth.Domain.Tests.csproj" />
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Infrastructure.Tests/Ouroboros.Services.Auth.Infrastructure.Tests.csproj" />
+  </Folder>
+  <Folder Name="/specs/">
+    <File Path="specs/2026-09-09 - Servico de Notificacoes.md" />
   </Folder>
 </Solution>

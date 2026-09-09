@@ -5,6 +5,12 @@ description: Convenções de infraestrutura, containers e deploy do projeto Ouro
 
 # ags-devops
 
+## Specs como histórias de trabalho
+
+- Antes de criar ou alterar infraestrutura para uma nova feature, procure em `specs/` a spec correspondente e pergunte ao usuário se ela já existe.
+- Se não existir, crie a spec antes de implementar; se existir, trabalhe sobre ela e mantenha-a atualizada com decisões, impactos e critérios de aceite. Specs são histórias/items de trabalho no estilo Jira, nomeadas `YYYY-MM-DD - Titulo.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML.
+- Ao sugerir uma mensagem de commit, inclua a data/número da spec correspondente.
+
 Skill base para infraestrutura, containers e deploy no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código) e a [ags-dba](../ags-dba/SKILL.md) (banco, role e migrations — aqui fica só o container que hospeda o Postgres).
 
 ## Escopo
@@ -50,17 +56,17 @@ Dois modos, e os dois precisam continuar funcionando:
 
 | Comando | Sobe | Para quê |
 |---|---|---|
-| `docker compose up -d` | Só a infraestrutura (Postgres, Mailpit, Jaeger) | Dia a dia: as Apis rodam pela IDE contra essa infraestrutura |
+| `docker compose up -d` | Só a infraestrutura (Postgres, Mailpit) | Dia a dia: as Apis rodam pela IDE contra essa infraestrutura |
 | `docker compose --profile apps up -d --build` | Infraestrutura + todos os serviços | Exercitar a stack como ela seria em produção |
 
 Regras:
 
 - **Serviço de aplicação vai no profile `apps`.** Sem isso ele disputaria porta com o que estiver rodando pela IDE.
-- **Infraestrutura fica fora do profile** (Postgres, Mailpit, Jaeger, e o que vier depois) — o fluxo pela IDE também depende dela.
+- **Infraestrutura fica fora do profile** (Postgres, Mailpit, e o que vier depois) — o fluxo pela IDE também depende dela.
 - **Só o Api Gateway publica porta.** Serviço nenhum ganha `ports:`. Do host, um serviço só é alcançável através do gateway; é a fronteira de rede que torna a regra de isolamento real, e não só uma convenção de código.
 - **Descoberta por nome de serviço** (`postgres`, `mailpit`, `auth-api`), nunca por IP.
 - **`depends_on` sempre com `condition: service_healthy`**, nunca a forma curta. Sem isso o gateway sobe antes de existir alguém para quem encaminhar.
-- **`depends_on` só para dependência de verdade.** Vale para o que o serviço precisa para *atender* (banco, serviço a montante). Não vale para dependência best-effort: o coletor de traces, por exemplo, não entra — se ele estiver fora do ar, perdem-se traces, não requisições, e travar a subida do serviço por causa disso transformaria uma falha de observabilidade numa indisponibilidade.
+- **`depends_on` só para dependência de verdade.** Vale para o que o serviço precisa para *atender* (banco, serviço a montante). Não vale para dependência best-effort: travar a subida de um serviço por causa de um componente auxiliar transformaria uma falha secundária numa indisponibilidade.
 - **`restart: unless-stopped`** em todo serviço.
 - **`container_name` no padrão `ouroboros-<serviço>`.**
 
@@ -70,7 +76,6 @@ Regras:
 |---|---|---|
 | 5432 | Postgres | Sim — migrations e DBeaver a partir da máquina |
 | 1025 / 8025 | Mailpit (SMTP / interface web) | Sim |
-| 4317 / 16686 | Jaeger (OTLP gRPC / interface web) | Sim |
 | 5082 / 7272 | Api Gateway | Sim — **único** ponto de entrada público |
 | 8080 | Qualquer serviço **dentro** do container | Não |
 | 5081 / 7271 | Auth rodando pela IDE | Sim, só em desenvolvimento |
@@ -113,20 +118,6 @@ O gateway só roteia: sem regra de negócio, sem banco, sem `ProjectReference` a
 - **Correlation ID**: o gateway garante um `X-Correlation-Id` em todo request e o devolve na resposta. Serviço nenhum gera o seu — todos leem o que veio, inclusive o `GlobalExceptionHandler` ao registrar erro.
 - **TLS termina no gateway.** Api de serviço não faz `UseHttpsRedirection` (o redirect devolveria `307` apontando para a porta interna, vazando a topologia); faz `UseForwardedHeaders` para continuar enxergando IP, scheme e host originais.
 
-## Observabilidade
-
-Todo host (Api ou gateway) exporta rastreamento via **OpenTelemetry**, por OTLP, para o **Jaeger** (`http://localhost:16686`). Ao criar um serviço, copie o bloco do `Program.cs` do Auth e ajuste o `serviceName`:
-
-- `ConfigureResource(... AddService(serviceName: "<nome-do-servico>"))` — é o nome que aparece no Jaeger, igual ao nome do serviço no Compose.
-- `AddAspNetCoreInstrumentation` filtrando `/health` — o healthcheck bate a cada 10s e afogaria o resto.
-- `AddHttpClientInstrumentation` — é o que liga um serviço ao próximo no mesmo trace.
-- `AddSource("Npgsql")` nos serviços com banco, para ver o SQL como spans filhos.
-- Exportador **condicional**: sem `Otlp:Endpoint` configurado, a aplicação sobe sem exportar, em vez de encher o log de falhas de conexão.
-
-A propagação entre serviços é o cabeçalho W3C `traceparent`, tratado pelas instrumentações — nenhum código de aplicação passa identificador adiante.
-
-O `X-Correlation-Id` que o gateway devolve **é o trace id**, e é o mesmo valor gravado em `error_logs.trace_id`. Um id só, propagado por dois caminhos: mantenha assim. Detalhe completo em [docs/0008 - Observabilidade](../../../docs/0008%20-%20Observabilidade.md).
-
 ## Migrations
 
 O Compose **não** aplica migrations. Elas são aplicadas a partir da máquina (`dotnet ef database update`), e é por isso que o Postgres publica a porta 5432. Conteúdo e nomenclatura das migrations seguem a [ags-dba](../ags-dba/SKILL.md).
@@ -134,7 +125,7 @@ O Compose **não** aplica migrations. Elas são aplicadas a partir da máquina (
 ## Comandos do dia a dia
 
 ```bash
-docker compose up -d                          # infraestrutura (Postgres + Mailpit + Jaeger)
+docker compose up -d                          # infraestrutura (Postgres + Mailpit)
 docker compose --profile apps up -d --build   # stack inteira; --build é obrigatório após mudar código
 docker compose --profile apps ps              # status e saúde de cada container
 docker compose --profile apps logs -f auth-api
@@ -148,4 +139,4 @@ Passo a passo completo de setup em [docs/0006 - Rodando a Stack em Containers](.
 
 ## Evolução
 
-Esta skill é o lugar para acumular, com o tempo, o que ainda não existe no projeto: pipeline de CI/CD, registry e versionamento de imagens, ambientes além do local, orquestração (Kubernetes ou similar), métricas e amostragem de traces (ver [docs/0008](../../../docs/0008%20-%20Observabilidade.md)).
+Esta skill é o lugar para acumular, com o tempo, o que ainda não existe no projeto: pipeline de CI/CD, registry e versionamento de imagens, ambientes além do local, orquestração (Kubernetes ou similar) e observabilidade (rastreamento distribuído e métricas).

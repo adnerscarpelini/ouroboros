@@ -5,6 +5,12 @@ description: Convenções de banco de dados do projeto Ouroboros — PostgreSQL,
 
 # ags-dba
 
+## Specs como histórias de trabalho
+
+- Antes de criar ou alterar persistência para uma nova feature, procure em `specs/` a spec correspondente e pergunte ao usuário se ela já existe.
+- Se não existir, crie a spec antes da implementação; se existir, use-a como fonte de escopo e atualize-a durante o trabalho. Specs são histórias/items de trabalho no estilo Jira e usam `YYYY-MM-DD - Titulo.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML.
+- Ao sugerir a mensagem de commit de uma alteração de banco, inclua a data/número da spec correspondente.
+
 Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código), a [ags-qa](../ags-qa/SKILL.md) (testes) e a [ags-devops](../ags-devops/SKILL.md) — esta cuida do **container** que hospeda o Postgres, das portas e do Compose; aqui ficam banco, schema, migrations e nomenclatura.
 
 ## Banco de dados

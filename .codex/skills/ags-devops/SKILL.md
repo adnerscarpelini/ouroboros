@@ -5,6 +5,12 @@ description: Convenções de infraestrutura, containers e deploy do projeto Ouro
 
 # ags-devops
 
+## Specs como histórias de trabalho
+
+- Antes de criar ou alterar infraestrutura para uma nova feature, procure em `specs/` a spec correspondente e pergunte ao usuário se ela já existe.
+- Se não existir, crie a spec antes de implementar; se existir, trabalhe sobre ela e mantenha-a atualizada com decisões, impactos e critérios de aceite. Specs são histórias/items de trabalho no estilo Jira, nomeadas `YYYY-MM-DD - Titulo.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML.
+- Ao sugerir uma mensagem de commit, inclua a data/número da spec correspondente.
+
 Skill base para infraestrutura, containers e deploy no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código) e a [ags-dba](../ags-dba/SKILL.md) (banco, role e migrations — aqui fica só o container que hospeda o Postgres).
 
 ## Escopo

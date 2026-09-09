@@ -5,6 +5,13 @@ description: Convenções de desenvolvimento C#/.NET do projeto Ouroboros — br
 
 # ags-developer
 
+## Specs como histórias de trabalho
+
+- Antes de desenvolver uma nova feature, procure em `specs/` uma spec correspondente e pergunte ao usuário se ela já existe.
+- Se não existir, crie uma spec antes de implementar, usando `YYYY-MM-DD - Titulo.md` e metadados YAML `title` e `state: new`. A spec representa uma história/item de trabalho, no estilo Jira.
+- Se existir, trabalhe a partir dela e atualize-a sempre que o escopo, decisões, arquivos afetados, critérios de aceite ou estado mudarem. Estados permitidos: `new`, `in progress` e `done`.
+- Ao sugerir uma mensagem de commit, inclua o número/data da spec correspondente (por exemplo, `spec 2026-09-09`) junto do Conventional Commit.
+
 Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regras ao trabalhar com código C#/.NET neste repositório.
 
 ## Controle de versão

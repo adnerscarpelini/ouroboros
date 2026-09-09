@@ -38,4 +38,7 @@
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Domain.Tests/Ouroboros.Services.Auth.Domain.Tests.csproj" />
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Infrastructure.Tests/Ouroboros.Services.Auth.Infrastructure.Tests.csproj" />
   </Folder>
+  <Folder Name="/specs/">
+    <File Path="specs/2026-09-09 - Servico de Notificacoes.md" />
+  </Folder>
 </Solution>

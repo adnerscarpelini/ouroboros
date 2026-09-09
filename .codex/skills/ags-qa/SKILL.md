@@ -5,6 +5,12 @@ description: Convenções de testes automatizados (xUnit) do projeto Ouroboros �
 
 # ags-qa
 
+## Specs como histórias de trabalho
+
+- Antes de criar ou alterar testes para uma nova feature, procure em `specs/` a spec correspondente e pergunte ao usuário se ela já existe.
+- Se não existir, crie a spec antes do desenvolvimento; se existir, use-a como história/item de trabalho e atualize-a conforme surgirem mudanças de escopo, cobertura ou critérios de aceite. Use `YYYY-MM-DD - Titulo.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML.
+- Ao sugerir uma mensagem de commit, inclua a data/número da spec correspondente.
+
 Skill base para testes automatizados no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) — para idioma, casing e demais convenções gerais de código (também válidas para código de teste), siga aquela skill.
 
 ## Cobertura

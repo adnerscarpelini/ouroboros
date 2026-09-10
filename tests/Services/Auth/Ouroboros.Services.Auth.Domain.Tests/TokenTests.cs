@@ -12,7 +12,7 @@ public class TokenTests
 				email: "joao.silva@example.com",
 				passwordHash: "hashed:existing"
 			),
-			emailMessageId: 1,
+			notificationRequestId: Guid.NewGuid(),
 			tokenHash: "hash",
 			expiresAt: DateTime.UtcNow.AddHours(1)
 		);

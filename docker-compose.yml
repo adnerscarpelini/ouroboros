@@ -17,6 +17,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      NOTIFICATIONS_DB_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -54,8 +55,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mailpit:
-        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: 8080
@@ -63,14 +62,34 @@ services:
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=ouroboros_auth;Username=auth_service;Password=${AUTH_DB_PASSWORD}"
       # Endereço público (o do gateway) usado nos links enviados por e-mail.
       App__PublicBaseUrl: ${PUBLIC_BASE_URL:-http://localhost:5082}
-      # Dentro da rede do Compose o SMTP é o container do Mailpit, não localhost.
-      EmailOutbox__SmtpHost: mailpit
+      # Sem SMTP nem depends_on do Mailpit de propósito: o Auth só grava a solicitação na própria
+      # outbox. Quem conhece servidor de e-mail é o serviço de Notificações.
       # PEM é multilinha e não cabe bem em variável de ambiente: as chaves chegam como secret montado.
       Jwt__SigningKeyPemPath: /run/secrets/jwt_private_key
       Jwt__PublicKeyPemPath: /run/secrets/jwt_public_key
     secrets:
       - jwt_private_key
       - jwt_public_key
+    # Sem "ports" de propósito: só o gateway tem porta publicada, como descrito em docs/0000.
+
+  notifications-api:
+    profiles: ["apps"]
+    build:
+      context: .
+      dockerfile: src/Services/Notifications/Ouroboros.Services.Notifications.Api/Dockerfile
+    container_name: ouroboros-notifications-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=ouroboros_notifications;Username=notifications_service;Password=${NOTIFICATIONS_DB_PASSWORD}"
+      # Dentro da rede do Compose o SMTP é o container do Mailpit, não localhost.
+      Smtp__Host: mailpit
     # Sem "ports" de propósito: só o gateway tem porta publicada, como descrito em docs/0000.
 
   api-gateway:
@@ -88,6 +107,7 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       # Sobrescreve o destino do appsettings.json (que aponta para localhost, usado fora de container).
       ReverseProxy__Clusters__auth-cluster__Destinations__auth-api__Address: http://auth-api:8080
+      ReverseProxy__Clusters__notifications-cluster__Destinations__notifications-api__Address: http://notifications-api:8080
     ports:
       - "5082:8080"
 

@@ -6,7 +6,10 @@ public sealed class Token : Entity
 {
 	public long TokenTypeId { get; private set; }
 	public long UserId { get; private set; }
-	public long EmailMessageId { get; private set; }
+	// Identificador da solicitação de notificação que leva este token ao usuário. É um Guid solto de
+	// propósito: a entrega vive no banco do serviço de Notificações, e chave estrangeira não atravessa
+	// serviço. O token também sobrevive à limpeza da outbox, então nem uma FK local caberia aqui.
+	public Guid NotificationRequestId { get; private set; }
 	public string TokenHash { get; private set; } = null!;
 	public DateTime ExpiresAt { get; private set; }
 	public bool Validated { get; private set; }
@@ -14,8 +17,6 @@ public sealed class Token : Entity
 
 	// Referências navegáveis para as mesmas colunas token_type_id/user_id: o caso de uso passa a
 	// trabalhar com o TokenType e o User em si, não com um id que só existe depois de gravar.
-	// EmailMessageId continua sendo um id solto porque email_messages vive no schema "common" e a
-	// coluna nunca teve chave estrangeira (ver migration InitialCreate).
 	public TokenType TokenType { get; private set; } = null!;
 	public User User { get; private set; } = null!;
 
@@ -27,14 +28,14 @@ public sealed class Token : Entity
 	public Token(
 		TokenType tokenType,
 		User user,
-		long emailMessageId,
+		Guid notificationRequestId,
 		string tokenHash,
 		DateTime expiresAt
 	)
 	{
 		TokenType = tokenType;
 		User = user;
-		EmailMessageId = emailMessageId;
+		NotificationRequestId = notificationRequestId;
 		TokenHash = tokenHash;
 		ExpiresAt = expiresAt;
 		Validated = false;

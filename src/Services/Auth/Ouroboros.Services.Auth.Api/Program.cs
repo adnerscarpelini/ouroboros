@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Ouroboros.Services.Auth.Api;
 using Ouroboros.BuildingBlocks.Application;
+using Ouroboros.Contracts.Notifications;
 using Ouroboros.BuildingBlocks.Infrastructure;
 using Ouroboros.Services.Auth.Infrastructure;
 
@@ -57,12 +58,17 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"]
 var jwtAudience = builder.Configuration["Jwt:Audience"]
 	?? throw new InvalidOperationException("Configuração 'Jwt:Audience' não definida.");
 
-var emailOutboxOptions = builder.Configuration.GetSection("EmailOutbox").Get<EmailOutboxOptions>()
-	?? throw new InvalidOperationException("Seção 'EmailOutbox' não configurada.");
+var outboxOptions = builder.Configuration.GetSection("Outbox").Get<OutboxOptions>()
+	?? throw new InvalidOperationException("Seção 'Outbox' não configurada.");
 
 builder.Services.AddCommon<AuthDbContext>();
-// Entrega da fila de e-mails: roda em segundo plano, fora da transação que enfileirou.
-builder.Services.AddEmailOutbox<AuthDbContext>(emailOutboxOptions);
+// Outbox transacional: o caso de uso grava a solicitação na mesma transação do dado de negócio e este
+// processo publica depois, fora dela. Enquanto não houver transporte registrado (ver a spec de
+// mensageria), as mensagens ficam pendentes na tabela em vez de serem perdidas.
+builder.Services.AddTransactionalOutbox<AuthDbContext>(
+	producer: new OutboxProducer(NotificationProducers.Auth),
+	options: outboxOptions
+);
 builder.Services.AddAuthModule(
 	connectionString: postgresConnectionString,
 	publicBaseUrl: publicBaseUrl,

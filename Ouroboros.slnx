@@ -10,10 +10,14 @@
     <File Path="docs/0007 - Fila de E-mails (Outbox).md" />
     <Folder Name="/docs/excalidraw/">
       <File Path="docs/excalidraw/0003 - Autenticação.excalidraw" />
+      <File Path="docs/excalidraw/0007 - Fila de E-mails (Outbox).excalidraw" />
     </Folder>
   </Folder>
   <Folder Name="/src/ApiGateways/">
     <Project Path="src/ApiGateways/Ouroboros.ApiGateway/Ouroboros.ApiGateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Contracts/">
+    <Project Path="src/Contracts/Ouroboros.Contracts.Notifications/Ouroboros.Contracts.Notifications.csproj" />
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Application/Ouroboros.BuildingBlocks.Application.csproj" />
@@ -26,6 +30,12 @@
     <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Domain/Ouroboros.Services.Auth.Domain.csproj" />
     <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Infrastructure/Ouroboros.Services.Auth.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Notifications/">
+    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Api/Ouroboros.Services.Notifications.Api.csproj" />
+    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Application/Ouroboros.Services.Notifications.Application.csproj" />
+    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Domain/Ouroboros.Services.Notifications.Domain.csproj" />
+    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure/Ouroboros.Services.Notifications.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Application.Tests/Ouroboros.BuildingBlocks.Application.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests/Ouroboros.BuildingBlocks.Domain.Tests.csproj" />
@@ -37,7 +47,15 @@
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Domain.Tests/Ouroboros.Services.Auth.Domain.Tests.csproj" />
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Infrastructure.Tests/Ouroboros.Services.Auth.Infrastructure.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Services/Notifications/">
+    <Project Path="tests/Services/Notifications/Ouroboros.Services.Notifications.Application.Tests/Ouroboros.Services.Notifications.Application.Tests.csproj" />
+    <Project Path="tests/Services/Notifications/Ouroboros.Services.Notifications.Domain.Tests/Ouroboros.Services.Notifications.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure.Tests/Ouroboros.Services.Notifications.Infrastructure.Tests.csproj" />
+  </Folder>
   <Folder Name="/specs/">
-    <File Path="specs/2026-09-09 - Servico de Notificacoes.md" />
+    <File Path="specs/2026-09-10 - Mensageria com RabbitMQ.md" />
+    <Folder Name="/specs/archived/">
+      <File Path="specs/archived/2026-09-09 - Servico de Notificacoes.md" />
+    </Folder>
   </Folder>
 </Solution>

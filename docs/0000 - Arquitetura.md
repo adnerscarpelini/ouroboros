@@ -41,9 +41,9 @@ Um serviço é um pedaço de negócio isolado — ex.: `Auth`, `Cadastros`. Cada
 
 É código técnico compartilhado entre serviços — coisas que não são regra de negócio de ninguém específico, mas que vários serviços usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
 
-O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é a fila de e-mails (`EmailMessage`), implementada como **Outbox**: o caso de uso enfileira a mensagem dentro da mesma transação do dado de negócio, e um `BackgroundService` entrega depois, fora dela, por SMTP. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
+O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é a **outbox transacional** (`OutboxMessage`): o caso de uso grava a solicitação dentro da mesma transação do dado de negócio, e um `BackgroundService` publica depois, fora dela. Quem entrega o e-mail é o serviço de Notificações, do outro lado do transporte. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
 
-**Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`EmailMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. O mapeamento (schema, nomes de tabela) é um método de extensão reutilizável (`CommonEntityConfiguration.ApplyCommonEntities()`, em `BuildingBlocks.Infrastructure`) que cada `DbContext` de serviço chama no seu `OnModelCreating`, ao lado do que já configura pro schema de negócio dele. Código pode ser compartilhado; dados não.
+**Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`OutboxMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. O mapeamento (schema, nomes de tabela) é um método de extensão reutilizável (`CommonEntityConfiguration.ApplyCommonEntities()`, em `BuildingBlocks.Infrastructure`) que cada `DbContext` de serviço chama no seu `OnModelCreating`, ao lado do que já configura pro schema de negócio dele. Código pode ser compartilhado; dados não.
 
 O nome vem de arquiteturas de referência conhecidas (ex.: o eShopOnContainers, da própria Microsoft) — não é uma tecnologia nova, é só uma pasta com esse nome.
 
@@ -67,7 +67,11 @@ Adotar **Clean Architecture** com **microsserviços**, cada camada/serviço como
 
 ### Serviços hoje
 
-O primeiro serviço de negócio é o `Auth`, com as quatro camadas (`Domain`/`Application`/`Infrastructure`/`Api`) e os casos de uso de identidade: registro, confirmação de e-mail, login, refresh token, logout e redefinição de senha (ver [docs/0003](0003%20-%20Autenticação.md)). O que existe além dele é a base compartilhada e o ponto de entrada:
+O primeiro serviço de negócio é o `Auth`, com as quatro camadas (`Domain`/`Application`/`Infrastructure`/`Api`) e os casos de uso de identidade: registro, confirmação de e-mail, login, refresh token, logout e redefinição de senha (ver [docs/0003](0003%20-%20Autenticação.md)).
+
+O segundo é o `Notifications`, que entrega o que os outros serviços solicitam: templates versionados, provedor SMTP, retentativa e histórico de envio, num lugar só. Ele não tem endpoint de negócio — a solicitação chega por mensageria — e nunca lê o banco de um produtor. Ver [docs/0007](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
+
+O que existe além deles é a base compartilhada e o ponto de entrada:
 
 | Projeto | Responsabilidade |
 |---|---|
@@ -75,7 +79,9 @@ O primeiro serviço de negócio é o `Auth`, com as quatro camadas (`Domain`/`Ap
 | `Ouroboros.BuildingBlocks.Application` | Abstrações de aplicação compartilhadas entre serviços. Depende apenas de `BuildingBlocks.Domain`. |
 | `Ouroboros.BuildingBlocks.Infrastructure` | Infraestrutura de propósito geral compartilhada entre serviços — código, nunca dado. Depende de `BuildingBlocks.Application`. |
 | `Ouroboros.ApiGateway` | Ponto de entrada HTTP público (YARP). Não referencia nenhum projeto de serviço. |
+| `Ouroboros.Contracts.Notifications` | DTOs versionados do contrato de notificação. Referenciado pela `Application` de quem produz e de quem consome — a única exceção à regra de referência entre serviços. |
 | `Ouroboros.Services.Auth.Api` | Host HTTP do Auth: controllers, injeção de dependência, configuração. Depende do `BuildingBlocks` e do próprio `Auth.Infrastructure`. |
+| `Ouroboros.Services.Notifications.Api` | Host do serviço de Notificações. Sem endpoint de negócio: solicitação chega por mensageria, não por HTTP. Expõe só os health checks e hospeda o processador de entrega. |
 
 A regra de dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`.
 
@@ -118,16 +124,24 @@ ouroboros/
 │   │   ├── Ouroboros.BuildingBlocks.Domain/
 │   │   ├── Ouroboros.BuildingBlocks.Application/
 │   │   └── Ouroboros.BuildingBlocks.Infrastructure/
+│   ├── Contracts/
+│   │   └── Ouroboros.Contracts.Notifications/   → só DTOs versionados
 │   └── Services/
-│       └── Auth/
-│           ├── Ouroboros.Services.Auth.Api/          → Dockerfile próprio
-│           ├── Ouroboros.Services.Auth.Domain/
-│           ├── Ouroboros.Services.Auth.Application/
-│           └── Ouroboros.Services.Auth.Infrastructure/
+│       ├── Auth/
+│       │   ├── Ouroboros.Services.Auth.Api/          → Dockerfile próprio
+│       │   ├── Ouroboros.Services.Auth.Domain/
+│       │   ├── Ouroboros.Services.Auth.Application/
+│       │   └── Ouroboros.Services.Auth.Infrastructure/
+│       └── Notifications/
+│           ├── Ouroboros.Services.Notifications.Api/ → Dockerfile próprio
+│           ├── Ouroboros.Services.Notifications.Domain/
+│           ├── Ouroboros.Services.Notifications.Application/
+│           └── Ouroboros.Services.Notifications.Infrastructure/
 ├── tests/
 │   ├── BuildingBlocks/
 │   └── Services/
-│       └── Auth/
+│       ├── Auth/
+│       └── Notifications/
 ├── docs/
 └── Ouroboros.slnx
 ```

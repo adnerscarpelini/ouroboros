@@ -1,4 +1,5 @@
 using Ouroboros.BuildingBlocks.Application;
+using Ouroboros.Contracts.Notifications;
 using Ouroboros.Services.Auth.Domain;
 
 namespace Ouroboros.Services.Auth.Application;
@@ -13,8 +14,7 @@ public sealed class PasswordResetService : IPasswordResetService
 	private readonly IUnitOfWork _unitOfWork;
 	private readonly IPasswordHasher _passwordHasher;
 	private readonly ITokenGenerator _tokenGenerator;
-	private readonly IEmailQueueService _emailQueueService;
-	private readonly IEmailTemplateRenderer _emailTemplateRenderer;
+	private readonly IOutboxMessageQueue _outboxMessageQueue;
 	private readonly AuthApplicationOptions _options;
 
 	public PasswordResetService(
@@ -24,8 +24,7 @@ public sealed class PasswordResetService : IPasswordResetService
 		IUnitOfWork unitOfWork,
 		IPasswordHasher passwordHasher,
 		ITokenGenerator tokenGenerator,
-		IEmailQueueService emailQueueService,
-		IEmailTemplateRenderer emailTemplateRenderer,
+		IOutboxMessageQueue outboxMessageQueue,
 		AuthApplicationOptions options
 	)
 	{
@@ -35,8 +34,7 @@ public sealed class PasswordResetService : IPasswordResetService
 		_unitOfWork = unitOfWork;
 		_passwordHasher = passwordHasher;
 		_tokenGenerator = tokenGenerator;
-		_emailQueueService = emailQueueService;
-		_emailTemplateRenderer = emailTemplateRenderer;
+		_outboxMessageQueue = outboxMessageQueue;
 		_options = options;
 	}
 
@@ -66,7 +64,7 @@ public sealed class PasswordResetService : IPasswordResetService
 					cancellationToken: transactionCancellationToken
 				);
 
-				await EnqueuePasswordResetEmailAsync(
+				await RequestPasswordResetEmailAsync(
 					user: user,
 					cancellationToken: transactionCancellationToken
 				);
@@ -135,7 +133,7 @@ public sealed class PasswordResetService : IPasswordResetService
 		}
 	}
 
-	private async Task EnqueuePasswordResetEmailAsync(
+	private async Task RequestPasswordResetEmailAsync(
 		User user,
 		CancellationToken cancellationToken
 	)
@@ -147,33 +145,35 @@ public sealed class PasswordResetService : IPasswordResetService
 
 		var rawToken = _tokenGenerator.GenerateToken();
 
+		var expiresAt = DateTime.UtcNow.AddHours(PasswordResetTokenExpirationHours);
+
 		// Sem página própria ainda: aponta pro front-end que vai coletar a nova senha
 		// e chamar POST /api/auth/reset-password com token + senha.
 		var resetUrl = $"{_options.PublicBaseUrl}/reset-password?token={Uri.EscapeDataString(rawToken)}";
 
-		var bodyHtml = await _emailTemplateRenderer.RenderAsync(
-			templateName: EmailTemplateNames.PasswordReset,
-			placeholders: new Dictionary<string, string>
-			{
-				["FullName"] = user.FullName,
-				["ResetUrl"] = resetUrl
-			},
-			cancellationToken: cancellationToken
-		);
-
-		var emailMessageId = await _emailQueueService.EnqueueAsync(
-			subject: "Redefinição de senha",
-			bodyHtml: bodyHtml,
-			recipient: user.Email,
-			cancellationToken: cancellationToken
+		var notificationRequestId = _outboxMessageQueue.Add(
+			messageType: NotificationMessageTypes.EmailRequested,
+			schemaVersion: NotificationMessageTypes.EmailRequestedSchemaVersion,
+			payload: new EmailNotificationRequestedV1(
+				Recipient: user.Email,
+				TemplateKey: EmailTemplateKeys.AuthPasswordReset,
+				TemplateVersion: 1,
+				Locale: EmailLocales.Default,
+				Data: new Dictionary<string, string>
+				{
+					["FullName"] = user.FullName,
+					["ResetUrl"] = resetUrl
+				},
+				ExpiresAt: expiresAt
+			)
 		);
 
 		_tokenRepository.Add(new Token(
 			tokenType: tokenType,
 			user: user,
-			emailMessageId: emailMessageId,
+			notificationRequestId: notificationRequestId,
 			tokenHash: _tokenGenerator.Hash(rawToken),
-			expiresAt: DateTime.UtcNow.AddHours(PasswordResetTokenExpirationHours)
+			expiresAt: expiresAt
 		));
 	}
 }

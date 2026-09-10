@@ -58,32 +58,37 @@ Nenhum segredo está no `appsettings.json`. Dentro do container, tudo chega por 
 
 | Configuração | Como chega |
 |---|---|
-| `ConnectionStrings:Postgres` | Variável `ConnectionStrings__Postgres`, montada no `docker-compose.yml` a partir de `AUTH_DB_PASSWORD` |
+| `ConnectionStrings:Postgres` (Auth) | Variável `ConnectionStrings__Postgres`, montada no `docker-compose.yml` a partir de `AUTH_DB_PASSWORD` |
+| `ConnectionStrings:Postgres` (Notificações) | Idem, a partir de `NOTIFICATIONS_DB_PASSWORD` |
+| `Smtp:Host` (Notificações) | Variável `Smtp__Host`, apontando para o container `mailpit` |
 | `App:PublicBaseUrl` | Variável `App__PublicBaseUrl` (padrão: `http://localhost:5082`) |
 | `Jwt:SigningKeyPem` / `Jwt:PublicKeyPem` | Secret montado; a Api lê o caminho em `Jwt:SigningKeyPemPath` / `Jwt:PublicKeyPemPath` |
-| Destino do gateway | Variável `ReverseProxy__Clusters__auth-cluster__Destinations__auth-api__Address` |
+| Destino do gateway | Variáveis `ReverseProxy__Clusters__<cluster>__Destinations__<destino>__Address`, uma por cluster |
 
 A Api aceita a chave das duas formas: valor direto na configuração (User Secrets, fora do container) ou caminho de arquivo em `<chave>Path` (secret, dentro do container).
 
 ## Rede e portas
 
-- **Só o Api Gateway publica porta** (`5082`). O Auth escuta em `8080` apenas dentro da rede do Compose — do host, `localhost:5081` não responde. É a promessa do [0000](0000%20-%20Arquitetura.md#api-gateway) valendo de fato, não só no papel.
-- Os serviços se acham pelo **nome do serviço** no Compose (`postgres`, `auth-api`), não por IP.
+- **Só o Api Gateway publica porta** (`5082`). Auth e Notificações escutam em `8080` apenas dentro da rede do Compose — do host, `localhost:5081` e `localhost:5083` não respondem. É a promessa do [0000](0000%20-%20Arquitetura.md#api-gateway) valendo de fato, não só no papel.
+- Os serviços se acham pelo **nome do serviço** no Compose (`postgres`, `mailpit`, `auth-api`, `notifications-api`), não por IP.
 - O Postgres continua publicando `5432` para as migrations e o DBeaver.
 
 ## Health checks
 
-Auth e Gateway expõem `GET /health` (anônimo). O Compose usa isso para ordenar a subida:
+Toda Api expõe `GET /health` (liveness) e `GET /health/ready` (readiness), ambos anônimos. O Compose usa a prontidão para ordenar a subida:
 
 - `auth-api` só sobe depois do Postgres estar `healthy`;
+- `notifications-api` só sobe depois do Postgres e do Mailpit estarem `healthy`;
 - `api-gateway` só sobe depois do `auth-api` estar `healthy`.
 
 Sem isso, o gateway subiria antes de existir alguém para quem encaminhar.
 
+O gateway **não** depende de `notifications-api` de propósito: a indisponibilidade das notificações não pode bloquear o acesso ao Auth. Pelo gateway, a saúde do serviço é consultável em `/api/notifications/health` e `/api/notifications/health/ready`.
+
 ## Detalhes das imagens
 
 - Build em dois estágios: compila no `sdk:10.0`, publica só o resultado no `aspnet:10.0`.
-- O contexto de build é a **raiz do repositório**, porque os serviços referenciam projetos de `src/BuildingBlocks/`.
+- O contexto de build é a **raiz do repositório**, porque os serviços referenciam projetos de `src/BuildingBlocks/` e `src/Contracts/`.
 - Os `.csproj` são copiados antes do resto do código para que o `restore` fique em cache enquanto as dependências não mudarem.
 - O processo roda como usuário **não-root** (`APP_UID`, da imagem base).
 - O `publish` passa `-p:OUROBOROS_SKIP_AUTOTEST=true`: o `Directory.Build.targets` dispara `dotnet test` da solution ao buildar a Api do Auth, e a pasta `tests/` não entra no contexto da imagem. Os testes rodam no build local, não no build da imagem.

@@ -23,76 +23,6 @@ namespace Ouroboros.Services.Auth.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Ouroboros.BuildingBlocks.Domain.EmailMessage", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id")
-                        .HasColumnOrder(0);
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("attempt_count");
-
-                    b.Property<string>("BodyHtml")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("body_html");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasColumnOrder(2);
-
-                    b.Property<Guid>("ExternalId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("external_id")
-                        .HasColumnOrder(1);
-
-                    b.Property<DateTime?>("LastAttemptAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_attempt_at");
-
-                    b.Property<string>("LastError")
-                        .HasColumnType("text")
-                        .HasColumnName("last_error");
-
-                    b.Property<string>("Recipient")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("recipient");
-
-                    b.Property<bool>("Sent")
-                        .HasColumnType("boolean")
-                        .HasColumnName("sent");
-
-                    b.Property<DateTime?>("SentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sent_at");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("subject");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at")
-                        .HasColumnOrder(3);
-
-                    b.HasKey("Id")
-                        .HasName("pk_email_messages");
-
-                    b.HasIndex("ExternalId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_email_messages_external_id");
-
-                    b.ToTable("email_messages", "common");
-                });
-
             modelBuilder.Entity("Ouroboros.BuildingBlocks.Domain.ErrorLog", b =>
                 {
                     b.Property<long>("Id")
@@ -153,6 +83,91 @@ namespace Ouroboros.Services.Auth.Infrastructure.Migrations
                         .HasDatabaseName("ix_error_logs_external_id");
 
                     b.ToTable("error_logs", "common");
+                });
+
+            modelBuilder.Entity("Ouroboros.BuildingBlocks.Domain.OutboxMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id")
+                        .HasColumnOrder(0);
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_count");
+
+                    b.Property<string>("CorrelationId")
+                        .HasColumnType("text")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasColumnOrder(2);
+
+                    b.Property<Guid>("ExternalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("external_id")
+                        .HasColumnOrder(1);
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message_type");
+
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("payload");
+
+                    b.Property<string>("Producer")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("producer");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasColumnOrder(3);
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox_messages");
+
+                    b.HasIndex("ExternalId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_outbox_messages_external_id");
+
+                    b.HasIndex("Status", "NextAttemptAt")
+                        .HasDatabaseName("ix_outbox_messages_status_next_attempt_at");
+
+                    b.ToTable("outbox_messages", "common");
                 });
 
             modelBuilder.Entity("Ouroboros.Services.Auth.Domain.RefreshToken", b =>
@@ -229,10 +244,6 @@ namespace Ouroboros.Services.Auth.Infrastructure.Migrations
                         .HasColumnName("created_at")
                         .HasColumnOrder(2);
 
-                    b.Property<long>("EmailMessageId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("email_message_id");
-
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
@@ -241,6 +252,10 @@ namespace Ouroboros.Services.Auth.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("external_id")
                         .HasColumnOrder(1);
+
+                    b.Property<Guid>("NotificationRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("notification_request_id");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()

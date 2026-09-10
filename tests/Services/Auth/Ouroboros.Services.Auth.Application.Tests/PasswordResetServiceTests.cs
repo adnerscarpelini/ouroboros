@@ -1,3 +1,4 @@
+using Ouroboros.Contracts.Notifications;
 using Ouroboros.Services.Auth.Domain;
 
 namespace Ouroboros.Services.Auth.Application.Tests;
@@ -5,7 +6,7 @@ namespace Ouroboros.Services.Auth.Application.Tests;
 public class PasswordResetServiceTests
 {
 	[Fact]
-	public async Task RequestPasswordResetAsync_WithExistingEmail_EnqueuesEmailAndCreatesToken()
+	public async Task RequestPasswordResetAsync_WithExistingEmail_RequestsNotificationAndCreatesToken()
 	{
 		var context = new AuthTestContext();
 		context.AddUser();
@@ -14,10 +15,13 @@ public class PasswordResetServiceTests
 
 		await passwordResetService.RequestPasswordResetAsync("joao.silva@example.com", CancellationToken.None);
 
-		Assert.Equal("joao.silva@example.com", context.EmailQueueService.LastRecipient);
-		Assert.Equal(EmailTemplateNames.PasswordReset, context.EmailTemplateRenderer.LastTemplateName);
+		var notificationRequest = Assert.Single(context.OutboxMessageQueue.Requests);
+		Assert.Equal("joao.silva@example.com", notificationRequest.Recipient);
+		Assert.Equal(EmailTemplateKeys.AuthPasswordReset, notificationRequest.TemplateKey);
 
 		var token = Assert.Single(context.TokenRepository.Tokens);
+		// O token guarda a solicitação que o leva ao usuário — correlação, não chave estrangeira.
+		Assert.NotEqual(Guid.Empty, token.NotificationRequestId);
 		Assert.Equal(TokenTypeNames.PasswordReset, token.TokenType.Name);
 		Assert.False(token.Validated);
 	}
@@ -38,7 +42,7 @@ public class PasswordResetServiceTests
 	}
 
 	[Fact]
-	public async Task RequestPasswordResetAsync_WithUnknownEmail_DoesNotEnqueueEmailOrCreateToken()
+	public async Task RequestPasswordResetAsync_WithUnknownEmail_DoesNotRequestNotificationOrCreateToken()
 	{
 		var context = new AuthTestContext();
 
@@ -46,7 +50,7 @@ public class PasswordResetServiceTests
 
 		await passwordResetService.RequestPasswordResetAsync("nao-existe@example.com", CancellationToken.None);
 
-		Assert.Null(context.EmailQueueService.LastRecipient);
+		Assert.Empty(context.OutboxMessageQueue.Requests);
 		Assert.Empty(context.TokenRepository.Tokens);
 	}
 

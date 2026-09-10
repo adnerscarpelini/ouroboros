@@ -43,7 +43,6 @@ public static class AuthModule
 
 		services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
 		services.AddScoped<ITokenGenerator, TokenGenerator>();
-		services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
 		// Singleton: carrega a chave RSA uma única vez e não a descarta — ver comentário em JwtTokenGenerator.
 		services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
 		// Singleton: o material público da chave é calculado uma vez e não muda em tempo de execução.

@@ -13,8 +13,7 @@ internal sealed class AuthTestContext
 	public FakeUnitOfWork UnitOfWork { get; } = new();
 	public FakePasswordHasher PasswordHasher { get; } = new();
 	public FakeTokenGenerator TokenGenerator { get; } = new();
-	public FakeEmailQueueService EmailQueueService { get; } = new();
-	public FakeEmailTemplateRenderer EmailTemplateRenderer { get; } = new();
+	public FakeOutboxMessageQueue OutboxMessageQueue { get; } = new();
 	public FakeJwtTokenGenerator JwtTokenGenerator { get; } = new();
 
 	public AuthApplicationOptions Options { get; } = new(PublicBaseUrl: "http://localhost:5082");
@@ -28,8 +27,7 @@ internal sealed class AuthTestContext
 			unitOfWork: UnitOfWork,
 			passwordHasher: PasswordHasher,
 			tokenGenerator: TokenGenerator,
-			emailQueueService: EmailQueueService,
-			emailTemplateRenderer: EmailTemplateRenderer,
+			outboxMessageQueue: OutboxMessageQueue,
 			options: Options
 		);
 	}
@@ -55,8 +53,7 @@ internal sealed class AuthTestContext
 			unitOfWork: UnitOfWork,
 			passwordHasher: PasswordHasher,
 			tokenGenerator: TokenGenerator,
-			emailQueueService: EmailQueueService,
-			emailTemplateRenderer: EmailTemplateRenderer,
+			outboxMessageQueue: OutboxMessageQueue,
 			options: Options
 		);
 	}
@@ -101,7 +98,7 @@ internal sealed class AuthTestContext
 		var token = new Token(
 			tokenType: tokenType,
 			user: user,
-			emailMessageId: 1,
+			notificationRequestId: Guid.NewGuid(),
 			tokenHash: tokenHash,
 			expiresAt: expiresAt
 		);

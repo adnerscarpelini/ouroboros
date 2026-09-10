@@ -19,6 +19,9 @@ dotnet build
 # rodar a API do Auth (porta interna 5081/7271 — perfil "http" ou "https" em launchSettings.json)
 dotnet run --project src/Services/Auth/Ouroboros.Services.Auth.Api
 
+# rodar a API de Notificações (porta interna 5083/7273)
+dotnet run --project src/Services/Notifications/Ouroboros.Services.Notifications.Api
+
 # rodar o Api Gateway (porta pública 5082/7272) — precisa do Auth rodando pra ter o que rotear
 dotnet run --project src/ApiGateways/Ouroboros.ApiGateway
 
@@ -49,7 +52,8 @@ Clean Architecture com microsserviços, cada camada/serviço como um projeto `.c
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain           → tipos-base de domínio compartilhados entre serviços. Sem dependências de outras camadas.
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Application      → abstrações de aplicação compartilhadas entre serviços. Depende de BuildingBlocks.Domain.
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure   → infraestrutura de propósito geral compartilhada entre serviços (código, não dado — cada serviço persiste na própria base). Depende de BuildingBlocks.Application.
-src/Services/<NomeDoServico>/                                → microsserviços (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure + um projeto Api próprio. Primeiro exemplo: Auth (src/Services/Auth/), com host HTTP em Ouroboros.Services.Auth.Api.
+src/Contracts/Ouroboros.Contracts.Notifications           → DTOs versionados do contrato de integração entre produtores e o serviço de Notificações. Só contrato: sem entidade, sem banco, sem SDK de transporte.
+src/Services/<NomeDoServico>/                                → microsserviços (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure + um projeto Api próprio. Hoje: Auth (src/Services/Auth/) e Notifications (src/Services/Notifications/).
 src/ApiGateways/Ouroboros.ApiGateway                         → ponto de entrada HTTP público (YARP). Só roteia — sem regra de negócio, sem banco, sem referência a projetos de serviço.
 ```
 
@@ -63,7 +67,7 @@ Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`
 
 ## Tratamento de erros
 
-Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api do Auth é capturado automaticamente pelo `GlobalExceptionHandler` (`src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.BuildingBlocks.Domain.ErrorLog` (schema `common`, dentro do próprio banco do serviço) via `IErrorLogService`. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
+Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api de um serviço é capturado automaticamente pelo `GlobalExceptionHandler` daquele serviço (ex.: `src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.BuildingBlocks.Domain.ErrorLog` (schema `common`, dentro do próprio banco do serviço) via `IErrorLogService`. Ele cobre só o que chega por HTTP: processador de fundo trata a própria falha e registra no mesmo lugar. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
 
 ## Documentação
 

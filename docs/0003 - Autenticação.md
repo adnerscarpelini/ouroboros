@@ -37,9 +37,9 @@ Dentro da mesma operação de cadastro, `EnqueueValidationEmailAsync`:
 
 1. Gera um token aleatório (`ITokenGenerator.GenerateToken`) e guarda só o hash dele (`TokenGenerator.Hash`) — o token bruto nunca é persistido.
 2. Monta a URL de confirmação: `{PublicBaseUrl}/api/auth/confirm-email?token={token}`.
-3. Renderiza o template `UserCreationValidationEmail.html` com nome do usuário e link.
-4. Enfileira o e-mail via `IEmailQueueService.EnqueueAsync` — cria um `EmailMessage` (schema `common`) com `Sent = false`. **Não há hoje um worker que efetivamente envia esse e-mail** — o envio real ainda não está implementado, só o enfileiramento.
-5. Cria um `Token` (schema `auth`, tipo `UserCreationValidation`) associado ao usuário e ao `EmailMessage`, com validade de **24 horas**.
+3. Monta o link de confirmação e os dados do template `auth.email-confirmation` — o HTML em si é montado pelo serviço de Notificações, não aqui.
+4. Solicita o e-mail via `IOutboxMessageQueue.Add` — grava um `OutboxMessage` (schema `common`) com `Status = Pending`, na mesma transação. O Auth não monta HTML nem conhece SMTP: quem entrega é o serviço de Notificações. **Enquanto a mensageria não existir, a solicitação fica pendente e o e-mail não é entregue** — ver [0007](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
+5. Cria um `Token` (schema `auth`, tipo `UserCreationValidation`) associado ao usuário e à solicitação de notificação (`NotificationRequestId`), com validade de **24 horas** — o mesmo instante de expiração vai na solicitação.
 
 ## 2. Confirmação de e-mail
 
@@ -89,7 +89,7 @@ Request (`LoginRequest`): `Login`, `Password`.
 
 ## 4. Refresh token e logout
 
-Sessão representada por uma `RefreshToken` (schema `auth`, entidade própria — não reaproveita `Token`/`TokenType`, que são acoplados ao fluxo de e-mail via `EmailMessageId`). Guarda só o hash do token (`ITokenGenerator.Hash`), igual aos demais tokens do serviço — o valor bruto nunca é persistido.
+Sessão representada por uma `RefreshToken` (schema `auth`, entidade própria — não reaproveita `Token`/`TokenType`, que são acoplados ao fluxo de e-mail via `NotificationRequestId`). Guarda só o hash do token (`ITokenGenerator.Hash`), igual aos demais tokens do serviço — o valor bruto nunca é persistido.
 
 ### Emissão — `AuthenticationService.IssueAuthenticationResult`
 
@@ -129,8 +129,8 @@ Dois endpoints:
 2. Se encontrar, invalida qualquer token de redefinição pendente e ainda não usado desse usuário (`Token.Validate()` reaproveitado como invalidação — impede que um link antigo continue valendo depois de um pedido mais novo).
 3. Gera um token aleatório e guarda só o hash dele, igual ao fluxo de confirmação de e-mail.
 4. Monta a URL de redefinição: `{PublicBaseUrl}/reset-password?token={token}` — hoje aponta pra um caminho sem página própria (não há front-end no projeto ainda); quando o front-end existir, é ele quem coleta a nova senha e chama `POST /api/auth/reset-password`.
-5. Renderiza o template `PasswordResetEmail.html` e enfileira o e-mail (`IEmailQueueService`, mesmo aviso do fluxo de confirmação: só enfileira, não envia de fato ainda).
-6. Cria um `Token` (schema `auth`, tipo `PasswordReset`) associado ao usuário e ao `EmailMessage`, com validade de **1 hora** (mais curta que as 24h da confirmação de e-mail, por ser mais sensível).
+5. Solicita o e-mail via `IOutboxMessageQueue.Add`, com o template `auth.password-reset` (mesmo aviso do fluxo de confirmação: sem mensageria, a solicitação fica pendente e nada é entregue).
+6. Cria um `Token` (schema `auth`, tipo `PasswordReset`) associado ao usuário e à solicitação de notificação (`NotificationRequestId`), com validade de **1 hora** (mais curta que as 24h da confirmação de e-mail, por ser mais sensível).
 
 ### Confirmação — `PasswordResetService.ResetPasswordAsync`
 

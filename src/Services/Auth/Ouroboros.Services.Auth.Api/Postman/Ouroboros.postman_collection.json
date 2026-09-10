@@ -25,8 +25,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/register",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "register"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
 						}
 					}
 				},
@@ -46,8 +52,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/login",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "login"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
 						}
 					}
 				},
@@ -67,8 +79,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/refresh-token",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "refresh-token"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh-token"
+							]
 						}
 					}
 				},
@@ -92,8 +110,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/logout",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "logout"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
 						}
 					}
 				},
@@ -113,8 +137,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/confirm-email",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "confirm-email"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"confirm-email"
+							]
 						}
 					}
 				},
@@ -124,8 +154,14 @@
 						"method": "GET",
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/confirm-email?token=",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "confirm-email"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"confirm-email"
+							],
 							"query": [
 								{
 									"key": "token",
@@ -151,8 +187,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/forgot-password",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "forgot-password"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"forgot-password"
+							]
 						}
 					}
 				},
@@ -172,9 +214,59 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/reset-password",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "auth", "reset-password"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"reset-password"
+							]
 						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Notifications",
+			"item": [
+				{
+					"name": "Health (liveness)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/notifications/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"notifications",
+								"health"
+							]
+						},
+						"description": "Roteado pelo gateway para o serviço de Notificações. O serviço não tem endpoint de negócio: a solicitação de e-mail chega por mensageria, não por HTTP."
+					}
+				},
+				{
+					"name": "Health (readiness)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/notifications/health/ready",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"notifications",
+								"health",
+								"ready"
+							]
+						},
+						"description": "Roteado pelo gateway para o serviço de Notificações. O serviço não tem endpoint de negócio: a solicitação de e-mail chega por mensageria, não por HTTP."
 					}
 				}
 			]

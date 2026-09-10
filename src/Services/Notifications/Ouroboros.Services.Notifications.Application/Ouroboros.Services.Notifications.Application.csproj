@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ouroboros.Services.Notifications.Domain\Ouroboros.Services.Notifications.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Ouroboros.BuildingBlocks.Application\Ouroboros.BuildingBlocks.Application.csproj" />
+    <ProjectReference Include="..\..\..\Contracts\Ouroboros.Contracts.Notifications\Ouroboros.Contracts.Notifications.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

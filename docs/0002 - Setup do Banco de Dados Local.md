@@ -33,6 +33,7 @@ O `.env` tem duas senhas, não uma só — a instância Postgres é compartilhad
 
 - `POSTGRES_PASSWORD`: senha do superusuário administrativo (`postgres`) — usado só pra gestão da instância (DBeaver como admin, scripts de init). A Api nunca conecta com ele.
 - `AUTH_DB_PASSWORD`: senha da role `auth_service`, dona do banco `ouroboros_auth` — é essa que a Api do Auth usa.
+- `NOTIFICATIONS_DB_PASSWORD`: senha da role `notifications_service`, dona do banco `ouroboros_notifications` — é essa que a Api de Notificações usa.
 
 1. Na raiz do projeto, copiar o modelo:
    ```powershell
@@ -50,7 +51,18 @@ Na raiz do projeto:
 docker compose up -d
 ```
 
-Na primeira subida (volume novo), o script em `docker/postgres/init/` roda automaticamente e cria o banco `ouroboros_auth` com a role `auth_service` já dona dele — não precisa criar nada manualmente. Quando outro serviço existir, o mesmo container ganha um banco/role novo, sem precisar de um container a mais.
+Na primeira subida (volume novo), os scripts em `docker/postgres/init/` rodam automaticamente e criam um banco por serviço, cada um com a sua role já dona dele — `ouroboros_auth`/`auth_service` e `ouroboros_notifications`/`notifications_service`. Não precisa criar nada manualmente, e um serviço novo entra como mais um script, sem precisar de um container a mais.
+
+Cada script também revoga `CONNECT` de `PUBLIC` no banco que criou. Sem isso, o PostgreSQL deixaria a role de um serviço se conectar ao banco do outro — o isolamento entre serviços depende disso, não só da convenção.
+
+> **Volume que já existe.** O entrypoint de init só roda em volume novo: um script novo não é executado só porque apareceu no diretório. Como este é um ambiente de desenvolvimento, o caminho mais simples é recriar o volume:
+>
+> ```bash
+> docker compose down -v
+> docker compose up -d
+> ```
+>
+> Isso apaga os dados de todos os bancos. Para preservá-los, rode o SQL do script novo à mão, conectado como superusuário.
 
 Conferir se subiu e está saudável:
 
@@ -74,6 +86,12 @@ A senha também não pode ir pro `appsettings.json` (esse arquivo é versionado)
    ```
 
 Sem isso, a Api lança erro ao iniciar (`Connection string 'Postgres' não configurada`).
+
+O serviço de Notificações tem o seu próprio cofre e a sua própria credencial — ele conecta como `notifications_service`, no banco dele, e não alcança o banco do Auth:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros_notifications;Username=notifications_service;Password=<NOTIFICATIONS_DB_PASSWORD do .env>" --project src/Services/Notifications/Ouroboros.Services.Notifications.Api
+```
 
 Também pelo User Secrets: o par de chaves RSA usado para assinar (JWT) e validar os tokens emitidos no login. É um par assimétrico, não uma senha única — a chave **privada** assina e só o Auth a possui; a chave **pública** só valida, e é o que qualquer outro serviço vai precisar quando existir (ver [docs/0000 - Arquitetura.md](0000%20-%20Arquitetura.md#autenticação-entre-serviços)).
 
@@ -99,10 +117,14 @@ Necessária pra criar/aplicar migrations:
 dotnet tool install --global dotnet-ef
 ```
 
-Comando pra aplicar as migrations do Auth num banco novo/vazio (rodar dentro de `src/Services/Auth/Ouroboros.Services.Auth.Infrastructure`):
+Cada serviço tem as suas, aplicadas separadamente. Rodar dentro da pasta `Infrastructure` do serviço:
 
 ```bash
+# Auth (dentro de src/Services/Auth/Ouroboros.Services.Auth.Infrastructure)
 dotnet ef database update --startup-project ../Ouroboros.Services.Auth.Api --context AuthDbContext
+
+# Notificações (dentro de src/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure)
+dotnet ef database update --startup-project ../Ouroboros.Services.Notifications.Api --context NotificationsDbContext
 ```
 
 ## 7. Instalar o DBeaver e conectar

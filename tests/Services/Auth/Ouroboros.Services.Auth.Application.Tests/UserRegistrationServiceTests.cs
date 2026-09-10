@@ -1,3 +1,4 @@
+using Ouroboros.Contracts.Notifications;
 using Ouroboros.Services.Auth.Domain;
 
 namespace Ouroboros.Services.Auth.Application.Tests;
@@ -34,8 +35,17 @@ public class UserRegistrationServiceTests
 		Assert.False(createdToken.Validated);
 		Assert.True(createdToken.ExpiresAt > DateTime.UtcNow);
 
-		Assert.Equal("joao.silva@example.com", context.EmailQueueService.LastRecipient);
-		Assert.Contains("raw-token", context.EmailQueueService.LastBodyHtml);
+		// O Auth solicita a notificação; ele não monta HTML nem conhece SMTP. O que sai daqui é o
+		// pedido: destinatário, template e dados — o corpo é montado pelo serviço de Notificações.
+		var notificationRequest = Assert.Single(context.OutboxMessageQueue.Requests);
+		Assert.Equal(NotificationMessageTypes.EmailRequested, context.OutboxMessageQueue.LastMessageType);
+		Assert.Equal("joao.silva@example.com", notificationRequest.Recipient);
+		Assert.Equal(EmailTemplateKeys.AuthEmailConfirmation, notificationRequest.TemplateKey);
+		Assert.Contains("raw-token", notificationRequest.Data["ConfirmationUrl"]);
+		Assert.Equal("João Silva", notificationRequest.Data["FullName"]);
+		// Token e solicitação precisam vencer no mesmo instante: calculados em dois lugares, a
+		// notificação poderia continuar sendo tentada depois de o link já ter morrido.
+		Assert.Equal(createdToken.ExpiresAt, notificationRequest.ExpiresAt);
 	}
 
 	[Fact]

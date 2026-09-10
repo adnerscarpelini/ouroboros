@@ -41,7 +41,7 @@ new Token(tokenType: tokenType, user: user, emailMessageId: ..., tokenHash: ...,
 - O caso de uso deixa de depender de um id que só existe depois de gravar — o que é o que permite testá-lo sem banco nenhum.
 - As colunas e chaves estrangeiras são exatamente as mesmas de antes (`token_type_id`, `user_id`). A migration `AddTokenAndRefreshTokenNavigations` é intencionalmente vazia: muda o modelo do EF Core, não o banco.
 - Quem lê do banco precisa trazer a navegação junto (`Include`) — por isso `GetByHashAsync` carrega `TokenType` e `User`.
-- `Token.EmailMessageId` continua sendo um id solto: `email_messages` vive no schema `common` e essa coluna nunca teve chave estrangeira.
+- `Token.NotificationRequestId` é um `Guid` solto de propósito: a entrega vive no banco do serviço de Notificações, e chave estrangeira não atravessa serviço. O token também sobrevive à limpeza da outbox, então nem uma FK local caberia — ver [0007](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
 
 ### Um serviço por assunto
 

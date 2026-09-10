@@ -24,7 +24,7 @@ public class TokenRepositoryTests
 		var token = new Token(
 			tokenType: tokenType,
 			user: user,
-			emailMessageId: 1,
+			notificationRequestId: Guid.NewGuid(),
 			tokenHash: tokenHash,
 			expiresAt: DateTime.UtcNow.AddHours(1)
 		);
@@ -107,7 +107,7 @@ public class TokenRepositoryTests
 			var alreadyUsedToken = new Token(
 				tokenType: passwordResetType,
 				user: user,
-				emailMessageId: 2,
+				notificationRequestId: Guid.NewGuid(),
 				tokenHash: "hashed:used-reset-token",
 				expiresAt: DateTime.UtcNow.AddHours(1)
 			);
@@ -116,7 +116,7 @@ public class TokenRepositoryTests
 			var otherTypeToken = new Token(
 				tokenType: validationType,
 				user: user,
-				emailMessageId: 3,
+				notificationRequestId: Guid.NewGuid(),
 				tokenHash: "hashed:validation-token",
 				expiresAt: DateTime.UtcNow.AddHours(1)
 			);

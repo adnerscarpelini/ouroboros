@@ -79,8 +79,9 @@ Regras:
 | 5082 / 7272 | Api Gateway | Sim — **único** ponto de entrada público |
 | 8080 | Qualquer serviço **dentro** do container | Não |
 | 5081 / 7271 | Auth rodando pela IDE | Sim, só em desenvolvimento |
+| 5083 / 7273 | Notificações rodando pela IDE | Sim, só em desenvolvimento |
 
-Dentro de container **todo serviço escuta em 8080** (`ASPNETCORE_HTTP_PORTS`); o que distingue um do outro é o nome na rede, não a porta. Fora de container, cada serviço novo pega o próximo par livre a partir de `5083`/`7273` no seu `launchSettings.json`.
+Dentro de container **todo serviço escuta em 8080** (`ASPNETCORE_HTTP_PORTS`); o que distingue um do outro é o nome na rede, não a porta. Fora de container, cada serviço novo pega o próximo par livre a partir de `5084`/`7274` no seu `launchSettings.json`.
 
 ## Configuração e segredos
 

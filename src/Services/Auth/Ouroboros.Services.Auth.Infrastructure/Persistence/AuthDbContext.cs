@@ -12,7 +12,7 @@ public sealed class AuthDbContext : AppDbContext
 	public DbSet<Token> Tokens => Set<Token>();
 	public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 	public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
-	public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
+	public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
 	public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options)
 	{

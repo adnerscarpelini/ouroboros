@@ -14,6 +14,10 @@ public sealed class FakeEmailDeliveryRepository : IEmailDeliveryRepository
 		_deliveries.Add(delivery);
 	}
 
+	public void Update(EmailDelivery delivery)
+	{
+	}
+
 	public Task<EmailDelivery?> GetByRequestAsync(
 		string producer,
 		Guid requestId,

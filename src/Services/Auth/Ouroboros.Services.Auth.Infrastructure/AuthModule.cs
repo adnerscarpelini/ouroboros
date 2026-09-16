@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Ouroboros.BuildingBlocks.Application;
+using Ouroboros.BuildingBlocks.Infrastructure;
 using Ouroboros.Services.Auth.Application;
 
 namespace Ouroboros.Services.Auth.Infrastructure;
@@ -16,9 +17,7 @@ public static class AuthModule
 		string jwtAudience
 	)
 	{
-		services.AddDbContext<AuthDbContext>(options => options
-			.UseNpgsql(connectionString)
-			.UseSnakeCaseNamingConvention());
+		services.AddSqlDatabase(connectionString);
 
 		services.AddSingleton(new AuthApplicationOptions(PublicBaseUrl: publicBaseUrl));
 
@@ -29,24 +28,25 @@ public static class AuthModule
 			Audience: jwtAudience
 		));
 
-		// Persistência: os casos de uso na Application só conhecem estas interfaces, nunca o DbContext.
+		// Persistência: os casos de uso na Application só conhecem contratos; as implementações usam SQL.
 		services.AddScoped<IUnitOfWork, UnitOfWork>();
 		services.AddScoped<IUserRepository, UserRepository>();
 		services.AddScoped<ITokenRepository, TokenRepository>();
 		services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 		services.AddScoped<ITokenTypeRepository, TokenTypeRepository>();
+		services.AddScoped<IOutboxMessageQueue, OutboxMessageQueue>();
 
 		// Casos de uso (moram na Application).
 		services.AddScoped<IUserRegistrationService, UserRegistrationService>();
 		services.AddScoped<IAuthenticationService, AuthenticationService>();
 		services.AddScoped<IPasswordResetService, PasswordResetService>();
 
-		services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
-		services.AddScoped<ITokenGenerator, TokenGenerator>();
-		// Singleton: carrega a chave RSA uma única vez e não a descarta — ver comentário em JwtTokenGenerator.
-		services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+		services.AddScoped<IPasswordHasher, Argon2PasswordHasherService>();
+		services.AddScoped<ITokenGenerator, TokenGeneratorService>();
+		// Singleton: carrega a chave RSA uma única vez e não a descarta — ver comentário em JwtTokenGeneratorService.
+		services.AddSingleton<IJwtTokenGenerator, JwtTokenGeneratorService>();
 		// Singleton: o material público da chave é calculado uma vez e não muda em tempo de execução.
-		services.AddSingleton<IJwtKeyProvider, JwtKeyProvider>();
+		services.AddSingleton<IJwtKeyProvider, JwtKeyProviderService>();
 
 		return services;
 	}

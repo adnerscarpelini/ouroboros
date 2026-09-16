@@ -19,14 +19,14 @@ public class EmailDeliveryDispatcherTests
 	private readonly FakeEmailSender _emailSender = new();
 	private readonly FakeUnitOfWork _unitOfWork = new();
 
-	private EmailDeliveryDispatcher CreateDispatcher()
+	private EmailDeliveryDispatcherService CreateDispatcher()
 	{
-		return new EmailDeliveryDispatcher(
+		return new EmailDeliveryDispatcherService(
 			emailDeliveryRepository: _repository,
 			emailSender: _emailSender,
 			unitOfWork: _unitOfWork,
 			options: Options,
-			logger: NullLogger<EmailDeliveryDispatcher>.Instance
+			logger: NullLogger<EmailDeliveryDispatcherService>.Instance
 		);
 	}
 

@@ -24,7 +24,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks()
 	// Marcado como "ready": entra na prontidão (a Api depende do banco para servir),
 	// mas fica fora do liveness — um banco fora do ar não significa processo travado.
-	.AddDbContextCheck<AuthDbContext>(name: "postgres", tags: ["ready"]);
+		.AddCheck<SqlHealthCheck>(name: "postgres", tags: ["ready"]);
 
 // Esta Api fica atrás do Api Gateway. Sem ler os cabeçalhos X-Forwarded-*, ela enxergaria o IP, o scheme
 // e o host do gateway no lugar dos do cliente original — o que estraga log de origem e qualquer decisão
@@ -61,11 +61,11 @@ var jwtAudience = builder.Configuration["Jwt:Audience"]
 var outboxOptions = builder.Configuration.GetSection("Outbox").Get<OutboxOptions>()
 	?? throw new InvalidOperationException("Seção 'Outbox' não configurada.");
 
-builder.Services.AddCommon<AuthDbContext>();
+builder.Services.AddCommon();
 // Outbox transacional: o caso de uso grava a solicitação na mesma transação do dado de negócio e este
 // processo publica depois, fora dela. Enquanto não houver transporte registrado (ver a spec de
 // mensageria), as mensagens ficam pendentes na tabela em vez de serem perdidas.
-builder.Services.AddTransactionalOutbox<AuthDbContext>(
+builder.Services.AddTransactionalOutbox(
 	producer: new OutboxProducer(NotificationProducers.Auth),
 	options: outboxOptions
 );

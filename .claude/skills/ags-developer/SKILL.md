@@ -8,7 +8,7 @@ description: Convenções de desenvolvimento C#/.NET do projeto Ouroboros — br
 ## Specs como histórias de trabalho
 
 - Antes de desenvolver uma nova feature, procure em `specs/` uma spec correspondente e pergunte ao usuário se ela já existe.
-- Se não existir, crie uma spec antes de implementar, usando `YYYY-MM-DD - Titulo.md` e metadados YAML `title` e `state: new`. A spec representa uma história/item de trabalho, no estilo Jira.
+- Se não existir, crie uma spec antes de implementar, usando `AAAAMMDDHHMMSS-Descricao.md` e metadados YAML `title` e `state: new`. A spec representa uma história/item de trabalho, no estilo Jira. Specs históricas mantêm seus nomes originais.
 - Se existir, trabalhe a partir dela e atualize-a sempre que o escopo, decisões, arquivos afetados, critérios de aceite ou estado mudarem. Estados permitidos: `new`, `in progress` e `done`.
 - Ao sugerir uma mensagem de commit, inclua o número/data da spec correspondente (por exemplo, `spec 2026-09-09`) junto do Conventional Commit.
 
@@ -51,6 +51,22 @@ Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regra
 - Todo método que executa uma ação deve ter um verbo explícito indicando o que ele faz (ex.: `Add`, `Get`, `Update`, `Delete`, `Create`, `Remove`), antes ou depois do nome do recurso — nunca um nome vago que exija ler o corpo do método pra saber o que ele faz.
 - Exemplo aplicado: `IErrorLogService.AddAsync(...)` (adiciona um registro de erro), não `LogAsync(...)` (não deixa claro se loga, cria, envia, etc.).
 
+## Nomenclatura de serviços e componentes
+
+- Classes da camada `Application/Services` que representam casos de uso ou serviços de aplicação devem terminar com `Service`, como `AuthenticationService`, `PasswordResetService`, `UserRegistrationService` e `EmailDeliveryIntakeService`.
+- A interface e a implementação devem manter o mesmo conceito no nome: `IAuthenticationService`/`AuthenticationService`.
+- Classes concretas que representam serviços executáveis, inclusive na `Infrastructure`, devem terminar com `Service`. Isso inclui implementações de `Renderer`, `Publisher`, `Processor`, `Sender`, `Accessor`, `Generator`, `Provider` e `Queue`.
+- O nome deve preservar a responsabilidade antes do sufixo: `EmailTemplateRendererService`, `EmailDeliveryProcessorService`, `SmtpEmailSenderService` e `OutboxPublisherService`.
+- Componentes que não são serviços executáveis, como entidades, records de dados, módulos estáticos, mappers e factories, mantêm o sufixo específico da sua responsabilidade (`Entity`, `Options`, `Module`, `Mapper`, `Factory`, etc.).
+- Ao revisar uma padronização, verificar todas as classes da camada correspondente, seus arquivos, referências, registros de DI, construtores, testes e configurações.
+
+## Nomenclatura de repositórios
+
+- Implementações de persistência devem usar o nome do agregado/entidade seguido de `Repository`: `UserRepository`, `TokenRepository`, `RefreshTokenRepository` e `TokenTypeRepository`.
+- Não adicionar prefixos tecnológicos como `Sql` ou nomes de frameworks ao nome da implementação. A tecnologia é detalhe da infraestrutura e não faz parte do contrato nominal do repositório.
+- O arquivo deve ter o mesmo nome da classe concreta e ficar em `Infrastructure/Persistence/Repositories/`.
+- Mesmo que o repositório tenha apenas um método, ele mantém o sufixo `Repository` para preservar um padrão único.
+
 ## Formatação de assinaturas de métodos
 
 - Método/construtor com **0 ou 1 parâmetro**: assinatura em uma única linha.
@@ -88,6 +104,24 @@ userService.Insert(
 	personId: personId
 );
 ```
+
+## Legibilidade e espaçamento do código
+
+- Uma instrução C# deve ocupar sua própria linha. Nunca juntar comandos independentes com `;` na mesma linha.
+- Separar visualmente as etapas lógicas de um método com uma linha em branco: preparar dados, criar o comando, adicionar parâmetros, executar, ler o resultado, mapear e retornar.
+- `if`, `else`, `foreach`, `while`, `for`, `try`, `catch` e `finally` devem sempre usar chaves, mesmo quando o bloco tiver uma única instrução.
+- Nunca colocar `return`, `throw` ou outra instrução na mesma linha da condição. Usar sempre um bloco explícito:
+
+```csharp
+if (condition)
+{
+	return result;
+}
+```
+
+- Chamadas com muitos argumentos, construções de objetos e expressões de mapeamento devem ser quebradas em múltiplas linhas, com um argumento por linha quando isso melhorar a leitura.
+- Em código de persistência, manter separadas as etapas de comando SQL, parâmetros, execução, leitura do `reader` e mapeamento.
+- A prioridade de formatação é a leitura humana: o código deve permitir identificar rapidamente cada etapa sem depender de leitura horizontal extensa.
 
 ## Testes
 

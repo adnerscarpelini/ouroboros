@@ -6,6 +6,7 @@ public interface IEmailDeliveryRepository
 {
 	// Só marca a entrega para inclusão — a gravação acontece no IUnitOfWork do caso de uso.
 	void Add(EmailDelivery delivery);
+	void Update(EmailDelivery delivery);
 
 	Task<EmailDelivery?> GetByRequestAsync(
 		string producer,

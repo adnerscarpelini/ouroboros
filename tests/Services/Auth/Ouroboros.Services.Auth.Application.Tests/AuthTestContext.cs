@@ -2,7 +2,7 @@ using Ouroboros.Services.Auth.Domain;
 
 namespace Ouroboros.Services.Auth.Application.Tests;
 
-// Monta os casos de uso da Application inteiramente com fakes em memória — sem EF Core, sem banco.
+// Monta os casos de uso da Application inteiramente com fakes em memória — sem banco.
 // É o que a separação de camadas comprou: a regra de negócio é testável sem infraestrutura nenhuma.
 internal sealed class AuthTestContext
 {

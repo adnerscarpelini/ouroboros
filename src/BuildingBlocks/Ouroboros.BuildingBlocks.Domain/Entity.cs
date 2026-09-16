@@ -17,4 +17,16 @@ public abstract class Entity
 	{
 		UpdatedAt = DateTime.UtcNow;
 	}
+
+	protected void RestorePersistence(
+		long id,
+		Guid externalId,
+		DateTime createdAt,
+		DateTime? updatedAt)
+	{
+		Id = id;
+		ExternalId = externalId;
+		CreatedAt = createdAt;
+		UpdatedAt = updatedAt;
+	}
 }

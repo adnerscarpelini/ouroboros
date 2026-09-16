@@ -34,11 +34,11 @@ A pasta `docker/secrets/` tem um `.gitignore` que ignora todo o seu conteúdo. N
 
 ### 3. Migrations
 
-O Compose não aplica migrations. O banco continua sendo migrado a partir da máquina, como no [0002](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md) — a porta `5432` é publicada justamente para isso:
+O Compose não aplica migrations. O banco continua sendo migrado a partir da máquina pelo `Ouroboros.DatabaseMigrator`, como no [0002](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md) — a porta `5432` é publicada justamente para isso:
 
 ```bash
-cd src/Services/Auth/Ouroboros.Services.Auth.Infrastructure
-dotnet ef database update --startup-project ../Ouroboros.Services.Auth.Api --context AuthDbContext
+dotnet run --project src/Tools/Ouroboros.DatabaseMigrator -- auth
+dotnet run --project src/Tools/Ouroboros.DatabaseMigrator -- notifications
 ```
 
 ## Comandos do dia a dia

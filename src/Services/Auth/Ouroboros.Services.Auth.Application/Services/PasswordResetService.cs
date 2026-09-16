@@ -108,6 +108,8 @@ public sealed class PasswordResetService : IPasswordResetService
 
 		storedToken.Validate();
 		storedToken.User.ResetPassword(_passwordHasher.Hash(newPassword));
+		_tokenRepository.Update(storedToken);
+		_userRepository.Update(storedToken.User);
 
 		await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -130,6 +132,7 @@ public sealed class PasswordResetService : IPasswordResetService
 			// Reaproveita Validate() pra invalidar: um token de reset não usado
 			// perde a validade assim que um pedido de reset mais novo é feito.
 			pendingToken.Validate();
+			_tokenRepository.Update(pendingToken);
 		}
 	}
 

@@ -30,7 +30,7 @@ public sealed class OutboxMessage : Entity
 	public DateTime? NextAttemptAt { get; private set; }
 	public string? LastError { get; private set; }
 
-	// Construtor sem parâmetros exclusivo para o EF Core materializar a entidade a partir do banco.
+	// Construtor sem parâmetros usado exclusivamente pela fábrica de reidratação SQL.
 	private OutboxMessage()
 	{
 	}
@@ -50,6 +50,37 @@ public sealed class OutboxMessage : Entity
 		CorrelationId = correlationId;
 		Status = OutboxMessageStatus.Pending;
 		AttemptCount = 0;
+	}
+
+	public static OutboxMessage Rehydrate(
+		long id,
+		Guid externalId,
+		DateTime createdAt,
+		DateTime? updatedAt,
+		string messageType,
+		int schemaVersion,
+		string producer,
+		string payload,
+		string? correlationId,
+		OutboxMessageStatus status,
+		DateTime? publishedAt,
+		int attemptCount,
+		DateTime? lastAttemptAt,
+		DateTime? nextAttemptAt,
+		string? lastError)
+	{
+		var message = new OutboxMessage(producer, messageType, schemaVersion, payload, correlationId)
+		{
+			Status = status,
+			PublishedAt = publishedAt,
+			AttemptCount = attemptCount,
+			LastAttemptAt = lastAttemptAt,
+			NextAttemptAt = nextAttemptAt,
+			LastError = lastError
+		};
+
+		message.RestorePersistence(id, externalId, createdAt, updatedAt);
+		return message;
 	}
 
 	public void MarkAsPublished()

@@ -19,7 +19,7 @@ Na prática, cada camada aqui é um projeto `.csproj` separado (não só uma pas
 | No legado 3 camadas | Aqui | Papel |
 |---|---|---|
 | Regra de Negócio (a parte que não muda com a tecnologia) | `Domain` | Entidades e regras de negócio puras. Não sabe o que é banco de dados, HTTP ou qualquer framework. |
-| Regra de Negócio (a parte que orquestra: "faz isso, depois aquilo") | `Application` | Casos de uso (ex.: "criar um usuário"). Usa o `Domain` e fala com o banco só através de contratos (`IUserRepository`, `IUnitOfWork`) que ela mesma declara — não conhece EF Core nem nenhum outro framework de persistência. Ver [docs/0005](0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md). |
+| Regra de Negócio (a parte que orquestra: "faz isso, depois aquilo") | `Application` | Casos de uso (ex.: "criar um usuário"). Usa o `Domain` e fala com o banco só através de contratos (`IUserRepository`, `IUnitOfWork`) que ela mesma declara. Ver [docs/0005](0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md). |
 | Acesso ao banco / integrações externas | `Infrastructure` | Implementação de tudo que fala com o mundo de fora: banco de dados, e-mail, fila de mensagens, API externa, etc. |
 | O "servidor" que a tela chama | `Api` | Ponto de entrada HTTP (controllers) daquele serviço. É quem monta tudo (injeção de dependência) e expõe os endpoints. |
 
@@ -31,7 +31,7 @@ O projeto é dividido em **microsserviços**: cada contexto de negócio (ex.: `A
 
 Isso é diferente de um **monolito modular** (onde o código já é organizado em módulos isolados, mas tudo roda num processo só, compartilhando banco): aqui a fronteira entre serviços é física, não só uma convenção de código — reforçada por rede e banco separados, não só pelo compilador.
 
-Hoje existe só um serviço de negócio real, o `Auth`. A estrutura é a mesma pra qualquer serviço novo (ver [src/Services/README.md](../src/Services/README.md)).
+Hoje existem dois serviços de negócio: `Auth` e `Notifications`. A estrutura é a mesma pra qualquer serviço novo (ver [src/Services/README.md](../src/Services/README.md)).
 
 ### Serviço (bounded context)
 
@@ -41,9 +41,9 @@ Um serviço é um pedaço de negócio isolado — ex.: `Auth`, `Cadastros`. Cada
 
 É código técnico compartilhado entre serviços — coisas que não são regra de negócio de ninguém específico, mas que vários serviços usariam. Fica vazio até que exista uma necessidade real e compartilhada; criar conteúdo ali por antecipação seria adivinhar uma necessidade que ainda não existe.
 
-O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com EF Core. O segundo é a **outbox transacional** (`OutboxMessage`): o caso de uso grava a solicitação dentro da mesma transação do dado de negócio, e um `BackgroundService` publica depois, fora dela. Quem entrega o e-mail é o serviço de Notificações, do outro lado do transporte. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
+O primeiro conteúdo real do `BuildingBlocks` é a captura de erros: a entidade `ErrorLog`, o contrato `IErrorLogService` e sua implementação com SQL explícito. O segundo é a **outbox transacional** (`OutboxMessage`): o caso de uso grava a solicitação dentro da mesma transação do dado de negócio, e um `BackgroundService` publica depois, fora dela. Quem entrega o e-mail é o serviço de Notificações, do outro lado do transporte. Detalhe completo em [docs/0007 - Fila de E-mails (Outbox)](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
 
-**Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`OutboxMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. O mapeamento (schema, nomes de tabela) é um método de extensão reutilizável (`CommonEntityConfiguration.ApplyCommonEntities()`, em `BuildingBlocks.Infrastructure`) que cada `DbContext` de serviço chama no seu `OnModelCreating`, ao lado do que já configura pro schema de negócio dele. Código pode ser compartilhado; dados não.
+**Importante**: `BuildingBlocks` é só código, nunca dado. Cada serviço que usa `ErrorLog`/`OutboxMessage` persiste sua **própria cópia física** dessas tabelas, no schema `common` do **seu próprio banco** — não existe uma tabela `common` central compartilhada entre serviços. Os serviços compartilham apenas componentes SQL e os contratos; código pode ser compartilhado, dados não.
 
 O nome vem de arquiteturas de referência conhecidas (ex.: o eShopOnContainers, da própria Microsoft) — não é uma tecnologia nova, é só uma pasta com esse nome.
 
@@ -91,8 +91,9 @@ Pra evitar que classes de tipos diferentes (interface, DTO/resultado, implementa
 
 - **Domain**: sem subpastas — hoje só tem entidades, não há o que separar.
 - **Application**: `Services/` (os casos de uso em si, ex.: `UserRegistrationService`), `Interfaces/` (contratos que o caso de uso consome, ex.: `IUserRepository`, `IUnitOfWork`), `Models/` (DTOs/resultados, ex.: `AuthenticationResult`, `Result`) e `Options/` (configuração de que o caso de uso precisa, ex.: `AuthApplicationOptions`).
-- **Infrastructure**: `Persistence/` (`DbContext`, mapeamento EF Core, `UnitOfWork` e a subpasta `Repositories/` com as implementações dos contratos de persistência da Application), `Services/` (implementações concretas de contratos técnicos, ex.: `Argon2PasswordHasher`, `JwtTokenGenerator`), `Options/` (records de configuração, ex.: `JwtOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
-- **Testes**: fakes agrupados em `Fakes/`; os arquivos de teste em si ficam na raiz do projeto de teste.
+- **Infrastructure**: `Migrations/` (arquivos SQL versionados) em cada serviço, `Persistence/` (sessão SQL, `UnitOfWork` e a subpasta `Repositories/` com as implementações dos contratos de persistência da Application), `Services/` (implementações concretas de contratos técnicos, sempre com sufixo `Service`, ex.: `Argon2PasswordHasherService`, `JwtTokenGeneratorService`), `Options/` (records de configuração, ex.: `JwtOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
+  - Exceção: em `Ouroboros.BuildingBlocks.Infrastructure`, que não é dono de nenhum schema próprio, `Migrations/` não existe — o código do runner de migration (`MigrationRunner`, `MigrationLoader`, compartilhado entre o `Ouroboros.DatabaseMigrator` e os testes de integração) fica em `Persistence/Migrations/`, junto do resto da infraestrutura de SQL (`DbSession`, `NpgsqlConnectionFactory`). O nome `Migrations/` sozinho, nesse projeto, ficaria ambíguo com "arquivos `.sql`", que esse projeto não tem.
+- **Testes**: fakes agrupados em `Fakes/`. Os demais arquivos de teste ficam na raiz do projeto de teste, exceto os de integração contra Postgres real (`[Trait("Category", "Integration")]`, ver [ags-qa](../.claude/skills/ags-qa/SKILL.md#testes-de-integração-postgres-real)), que vão em `Integration/` — eles rodam sob um filtro de `dotnet test` diferente e têm fixture/container próprios, então ficam separados visualmente dos testes rápidos da mesma classe/arquivo de produção. Quando um projeto de teste cobre uma pasta específica da própria `Infrastructure` compartilhada (ex.: `Ouroboros.BuildingBlocks.Infrastructure.Tests` testando `Persistence/Migrations/` e `Services/`), a pasta de teste pode espelhar esse nome (`Migrations/`, `Services/`) em vez de tudo cair em `Integration/`.
 
 O namespace de cada arquivo continua o mesmo (raiz do projeto) — só a pasta física muda. Isso evita ajustar `using` em cascata pela solution toda vez que um arquivo muda de pasta.
 
@@ -100,7 +101,7 @@ Todo serviço novo (`Cadastros`, etc.) segue essa mesma convenção desde o iní
 
 ### Testes
 
-Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
+Os projetos de domínio, aplicação e infraestrutura têm projetos de testes xUnit correspondentes em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Hosts HTTP e ferramentas administrativas só recebem projeto de testes quando houver comportamento próprio que precise ser validado. Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 
 ## Banco de dados
 
@@ -108,7 +109,7 @@ Um **banco lógico por serviço**, numa **única instância Postgres compartilha
 
 Um container por serviço daria isolamento de recursos (CPU/memória/IO) e permitiria versões de Postgres diferentes, mas custa mais containers rodando à toa numa máquina de desenvolvimento — banco único por serviço dentro de uma instância compartilhada é suficiente pra este projeto; um serviço que precisar de isolamento de recursos de verdade ganha sua própria instância nesse momento.
 
-Passo a passo prático (subir o container, gerar/aplicar migrations) em [docs/0002 - Setup do Banco de Dados Local.md](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
+Passo a passo prático (subir o container, criar/aplicar migrations SQL pelo Database Migrator) em [docs/0002 - Setup do Banco de Dados Local.md](0002%20-%20Setup%20do%20Banco%20de%20Dados%20Local.md).
 
 ## Estrutura de pastas
 
@@ -132,11 +133,17 @@ ouroboros/
 │       │   ├── Ouroboros.Services.Auth.Domain/
 │       │   ├── Ouroboros.Services.Auth.Application/
 │       │   └── Ouroboros.Services.Auth.Infrastructure/
+│       │       ├── Migrations/                       → migrations SQL versionadas
+│       │       ├── Persistence/Repositories/        → repositories SQL
+│       │       └── Services/                         → serviços técnicos
 │       └── Notifications/
 │           ├── Ouroboros.Services.Notifications.Api/ → Dockerfile próprio
 │           ├── Ouroboros.Services.Notifications.Domain/
 │           ├── Ouroboros.Services.Notifications.Application/
 │           └── Ouroboros.Services.Notifications.Infrastructure/
+│               ├── Migrations/                       → migrations SQL versionadas
+│               ├── Persistence/Repositories/        → repositories SQL
+│               └── Services/                         → serviços técnicos
 ├── tests/
 │   ├── BuildingBlocks/
 │   └── Services/

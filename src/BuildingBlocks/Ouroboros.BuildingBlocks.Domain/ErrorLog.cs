@@ -9,7 +9,7 @@ public sealed class ErrorLog : Entity
 	public string? RequestPath { get; private set; }
 	public string? TraceId { get; private set; }
 
-	// Construtor sem parâmetros exclusivo para o EF Core materializar a entidade a partir do banco.
+	// Construtor sem parâmetros usado exclusivamente pela fábrica de reidratação SQL.
 	// Com ele presente, o EF usa "set" privado em cada propriedade em vez do construtor público abaixo.
 	private ErrorLog()
 	{

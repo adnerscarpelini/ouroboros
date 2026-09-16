@@ -1,7 +1,7 @@
 namespace Ouroboros.BuildingBlocks.Application;
 
 // O transporte. Enquanto nenhuma implementação estiver registrada, a outbox continua sendo gravada
-// normalmente e nada é publicado — ver OutboxPublisherProcessor e a spec de mensageria.
+// normalmente e nada é publicado — ver OutboxPublisherProcessorService e a spec de mensageria.
 public interface IMessagePublisher
 {
 	Task PublishAsync(

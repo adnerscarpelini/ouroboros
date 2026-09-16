@@ -6,6 +6,7 @@ public interface IUserRepository
 {
 	// Só marca o usuário para inclusão — a gravação em si acontece no IUnitOfWork do caso de uso.
 	void Add(User user);
+	void Update(User user);
 
 	Task<User?> GetByLoginAsync(
 		string login,

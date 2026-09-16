@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Ouroboros.BuildingBlocks.Infrastructure;
 using Ouroboros.Services.Notifications.Application;
 
 namespace Ouroboros.Services.Notifications.Infrastructure;
@@ -13,26 +13,25 @@ public static class NotificationsModule
 		SmtpOptions smtpOptions
 	)
 	{
-		services.AddDbContext<NotificationsDbContext>(options => options
-			.UseNpgsql(connectionString)
-			.UseSnakeCaseNamingConvention());
+		services.AddSqlDatabase(connectionString);
+
 
 		services.AddSingleton(emailDeliveryOptions);
 		services.AddSingleton(smtpOptions);
 
-		// Persistência: os casos de uso na Application só conhecem estas interfaces, nunca o DbContext.
+		// Persistência: os casos de uso na Application só conhecem contratos; as implementações usam SQL.
 		services.AddScoped<IUnitOfWork, UnitOfWork>();
 		services.AddScoped<IEmailDeliveryRepository, EmailDeliveryRepository>();
 
 		// Caso de uso: a porta de entrada do consumidor (mora na Application).
 		services.AddScoped<IEmailDeliveryIntakeService, EmailDeliveryIntakeService>();
 
-		services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
-		services.AddScoped<IEmailSender, SmtpEmailSender>();
+		services.AddScoped<IEmailTemplateRenderer, EmailTemplateRendererService>();
+		services.AddScoped<IEmailSender, SmtpEmailSenderService>();
 
 		// Entrega: roda em segundo plano, a partir do banco, sem depender do transporte.
-		services.AddScoped<EmailDeliveryDispatcher>();
-		services.AddHostedService<EmailDeliveryProcessor>();
+		services.AddScoped<EmailDeliveryDispatcherService>();
+		services.AddHostedService<EmailDeliveryProcessorService>();
 
 		return services;
 	}

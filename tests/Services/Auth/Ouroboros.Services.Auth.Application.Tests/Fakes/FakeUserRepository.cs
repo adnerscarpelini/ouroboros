@@ -13,6 +13,10 @@ public sealed class FakeUserRepository : IUserRepository
 		_users.Add(user);
 	}
 
+	public void Update(User user)
+	{
+	}
+
 	public Task<User?> GetByLoginAsync(
 		string login,
 		CancellationToken cancellationToken

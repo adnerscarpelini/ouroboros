@@ -6,6 +6,7 @@ public interface ITokenRepository
 {
 	// Só marca o token para inclusão — a gravação em si acontece no IUnitOfWork do caso de uso.
 	void Add(Token token);
+	void Update(Token token);
 
 	// Traz o TokenType e o User junto: o caso de uso precisa dos dois para validar o token,
 	// e sem isso as referências navegáveis viriam nulas.

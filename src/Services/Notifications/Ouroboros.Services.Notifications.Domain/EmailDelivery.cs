@@ -38,7 +38,35 @@ public sealed class EmailDelivery : Entity
 
 	public IReadOnlyCollection<EmailDeliveryAttempt> Attempts => _attempts;
 
-	// Construtor sem parâmetros exclusivo para o EF Core materializar a entidade a partir do banco.
+	public static EmailDelivery Rehydrate(long id, Guid externalId, DateTime createdAt, DateTime? updatedAt, string producer, Guid requestId, string recipient, string templateKey, int templateVersion, string locale, string subject, string bodyHtml, string contentFingerprint, DateTime expiresAt, string? correlationId, EmailDeliveryStatus status, int attemptCount, DateTime? nextAttemptAt, DateTime? sentAt, string? lastError)
+	{
+		var item = new EmailDelivery(
+			producer,
+			requestId,
+			recipient,
+			templateKey,
+			templateVersion,
+			locale,
+			subject,
+			bodyHtml,
+			contentFingerprint,
+			expiresAt,
+			correlationId
+		)
+		{
+			Status = status,
+			AttemptCount = attemptCount,
+			NextAttemptAt = nextAttemptAt,
+			SentAt = sentAt,
+			LastError = lastError
+		};
+
+		item.RestorePersistence(id, externalId, createdAt, updatedAt);
+
+		return item;
+	}
+
+	// Construtor sem parâmetros usado exclusivamente pela fábrica de reidratação SQL.
 	private EmailDelivery()
 	{
 	}

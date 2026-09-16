@@ -4,7 +4,6 @@
     <File Path="docs/0001 - Comandos Git.md" />
     <File Path="docs/0002 - Setup do Banco de Dados Local.md" />
     <File Path="docs/0003 - Autenticação.md" />
-    <File Path="docs/0004 - EF Core e Dapper.md" />
     <File Path="docs/0005 - Repositórios e Unidade de Trabalho.md" />
     <File Path="docs/0006 - Rodando a Stack em Containers.md" />
     <File Path="docs/0007 - Fila de E-mails (Outbox).md" />
@@ -13,6 +12,7 @@
       <File Path="docs/excalidraw/0007 - Fila de E-mails (Outbox).excalidraw" />
     </Folder>
   </Folder>
+  <Folder Name="/src/" />
   <Folder Name="/src/ApiGateways/">
     <Project Path="src/ApiGateways/Ouroboros.ApiGateway/Ouroboros.ApiGateway.csproj" />
   </Folder>
@@ -24,6 +24,7 @@
     <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain/Ouroboros.BuildingBlocks.Domain.csproj" />
     <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure/Ouroboros.BuildingBlocks.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Services/" />
   <Folder Name="/src/Services/Auth/">
     <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Api/Ouroboros.Services.Auth.Api.csproj" />
     <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Application/Ouroboros.Services.Auth.Application.csproj" />
@@ -36,11 +37,16 @@
     <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Domain/Ouroboros.Services.Notifications.Domain.csproj" />
     <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure/Ouroboros.Services.Notifications.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Tools/">
+    <Project Path="src/Tools/Ouroboros.DatabaseMigrator/Ouroboros.DatabaseMigrator.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Application.Tests/Ouroboros.BuildingBlocks.Application.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests/Ouroboros.BuildingBlocks.Domain.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure.Tests/Ouroboros.BuildingBlocks.Infrastructure.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Services/" />
   <Folder Name="/tests/Services/Auth/">
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Api.Tests/Ouroboros.Services.Auth.Api.Tests.csproj" />
     <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Application.Tests/Ouroboros.Services.Auth.Application.Tests.csproj" />
@@ -53,7 +59,6 @@
     <Project Path="tests/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure.Tests/Ouroboros.Services.Notifications.Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/specs/">
-    <File Path="specs/2026-09-10 - Mensageria com RabbitMQ.md" />
     <Folder Name="/specs/archived/">
       <File Path="specs/archived/2026-09-09 - Servico de Notificacoes.md" />
     </Folder>

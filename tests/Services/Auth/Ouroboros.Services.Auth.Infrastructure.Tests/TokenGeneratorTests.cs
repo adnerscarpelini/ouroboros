@@ -5,7 +5,7 @@ public class TokenGeneratorTests
 	[Fact]
 	public void GenerateToken_ReturnsDifferentValuesEachCall()
 	{
-		var tokenGenerator = new TokenGenerator();
+		var tokenGenerator = new TokenGeneratorService();
 
 		var first = tokenGenerator.GenerateToken();
 		var second = tokenGenerator.GenerateToken();
@@ -16,7 +16,7 @@ public class TokenGeneratorTests
 	[Fact]
 	public void Hash_IsDeterministic()
 	{
-		var tokenGenerator = new TokenGenerator();
+		var tokenGenerator = new TokenGeneratorService();
 		var token = tokenGenerator.GenerateToken();
 
 		Assert.Equal(tokenGenerator.Hash(token), tokenGenerator.Hash(token));
@@ -25,7 +25,7 @@ public class TokenGeneratorTests
 	[Fact]
 	public void Hash_NeverReturnsTheRawToken()
 	{
-		var tokenGenerator = new TokenGenerator();
+		var tokenGenerator = new TokenGeneratorService();
 		var token = tokenGenerator.GenerateToken();
 
 		Assert.NotEqual(token, tokenGenerator.Hash(token));

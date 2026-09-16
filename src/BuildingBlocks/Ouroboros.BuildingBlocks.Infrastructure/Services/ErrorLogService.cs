@@ -5,11 +5,11 @@ namespace Ouroboros.BuildingBlocks.Infrastructure;
 
 public sealed class ErrorLogService : IErrorLogService
 {
-	private readonly AppDbContext _dbContext;
+	private readonly DbSession _session;
 
-	public ErrorLogService(AppDbContext dbContext)
+	public ErrorLogService(DbSession session)
 	{
-		_dbContext = dbContext;
+		_session = session;
 	}
 
 	public async Task AddAsync(
@@ -29,8 +29,41 @@ public sealed class ErrorLogService : IErrorLogService
 			traceId: traceId
 		);
 
-		_dbContext.Set<ErrorLog>().Add(errorLog);
-
-		await _dbContext.SaveChangesAsync(cancellationToken);
+		await _session.OpenAsync(cancellationToken);
+		await using var command = new Npgsql.NpgsqlCommand(
+			"""
+			INSERT INTO common.error_logs (
+				external_id,
+				created_at,
+				updated_at,
+				source,
+				exception_type,
+				message,
+				stack_trace,
+				request_path,
+				trace_id
+			)
+			VALUES (
+				@external_id,
+				@created_at,
+				NULL,
+				@source,
+				@exception_type,
+				@message,
+				@stack_trace,
+				@request_path,
+				@trace_id
+			);
+			""",
+			(Npgsql.NpgsqlConnection)_session.Connection);
+		command.Parameters.AddWithValue("external_id", errorLog.ExternalId);
+		command.Parameters.AddWithValue("created_at", errorLog.CreatedAt);
+		command.Parameters.AddWithValue("source", errorLog.Source);
+		command.Parameters.AddWithValue("exception_type", errorLog.ExceptionType);
+		command.Parameters.AddWithValue("message", errorLog.Message);
+		command.Parameters.AddWithValue("stack_trace", (object?)errorLog.StackTrace ?? DBNull.Value);
+		command.Parameters.AddWithValue("request_path", (object?)errorLog.RequestPath ?? DBNull.Value);
+		command.Parameters.AddWithValue("trace_id", (object?)errorLog.TraceId ?? DBNull.Value);
+		await command.ExecuteNonQueryAsync(cancellationToken);
 	}
 }

@@ -5,11 +5,11 @@ using Ouroboros.BuildingBlocks.Infrastructure;
 namespace Ouroboros.Services.Notifications.Api;
 
 // IExceptionHandler é registrado como Singleton pelo framework, mas IErrorLogService é Scoped
-// (depende do DbContext). Por isso resolvemos via IServiceScopeFactory, criando um escopo novo
+// (depende da sessão SQL). Por isso resolvemos via IServiceScopeFactory, criando um escopo novo
 // a cada erro, em vez de injetar IErrorLogService direto no construtor.
 //
 // Cobre só o que chega por HTTP. Os processadores de fundo deste serviço tratam a própria falha e
-// registram o erro no mesmo lugar — ver EmailDeliveryProcessor.
+// registram o erro no mesmo lugar — ver EmailDeliveryProcessorService.
 public sealed class GlobalExceptionHandler : IExceptionHandler
 {
 	private readonly IServiceScopeFactory _serviceScopeFactory;
@@ -60,7 +60,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 	// recurso, quando o serviço é chamado direto (desenvolvimento), sem passar pelo gateway.
 	private static string ResolveTraceId(HttpContext httpContext)
 	{
-		var correlationId = httpContext.Request.Headers[HttpCorrelationIdAccessor.HeaderName].FirstOrDefault();
+		var correlationId = httpContext.Request.Headers[HttpCorrelationIdAccessorService.HeaderName].FirstOrDefault();
 
 		return string.IsNullOrWhiteSpace(correlationId)
 			? httpContext.TraceIdentifier

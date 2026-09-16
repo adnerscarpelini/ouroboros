@@ -13,7 +13,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks()
 	// Marcado como "ready": entra na prontidão (o serviço depende do banco para aceitar e entregar
 	// solicitações), mas fica fora do liveness — um banco fora do ar não significa processo travado.
-	.AddDbContextCheck<NotificationsDbContext>(name: "postgres", tags: ["ready"]);
+		.AddCheck<SqlHealthCheck>(name: "postgres", tags: ["ready"]);
 
 // SMTP fora do ar não entra na prontidão de propósito: as solicitações continuam sendo aceitas e
 // persistidas, e a entrega retoma sozinha depois. Marcar o serviço como não-pronto por causa disso
@@ -40,7 +40,7 @@ var emailDeliveryOptions = builder.Configuration.GetSection("EmailDelivery").Get
 var smtpOptions = builder.Configuration.GetSection("Smtp").Get<SmtpOptions>()
 	?? throw new InvalidOperationException("Seção 'Smtp' não configurada.");
 
-builder.Services.AddCommon<NotificationsDbContext>();
+builder.Services.AddCommon();
 builder.Services.AddNotificationsModule(
 	connectionString: postgresConnectionString,
 	emailDeliveryOptions: emailDeliveryOptions,
@@ -49,7 +49,7 @@ builder.Services.AddNotificationsModule(
 
 // O consumidor de mensageria entra aqui quando o transporte existir: ele lê a fila e chama
 // IEmailDeliveryIntakeService, confirmando o consumo só depois do commit local. Enquanto isso, o
-// serviço já entrega tudo que estiver persistido — ver specs/2026-09-10 - Mensageria com RabbitMQ.md.
+// serviço já entrega tudo que estiver persistido.
 
 var app = builder.Build();
 

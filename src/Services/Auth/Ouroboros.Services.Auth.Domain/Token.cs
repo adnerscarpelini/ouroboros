@@ -20,7 +20,7 @@ public sealed class Token : Entity
 	public TokenType TokenType { get; private set; } = null!;
 	public User User { get; private set; } = null!;
 
-	// Construtor sem parâmetros exclusivo para o EF Core materializar a entidade a partir do banco.
+	// Construtor sem parâmetros usado exclusivamente pela fábrica de reidratação SQL.
 	private Token()
 	{
 	}
@@ -40,6 +40,33 @@ public sealed class Token : Entity
 		ExpiresAt = expiresAt;
 		Validated = false;
 		ValidatedAt = null;
+	}
+
+	public static Token Rehydrate(
+		long id,
+		Guid externalId,
+		DateTime createdAt,
+		DateTime? updatedAt,
+		long tokenTypeId,
+		long userId,
+		TokenType tokenType,
+		User user,
+		Guid notificationRequestId,
+		string tokenHash,
+		DateTime expiresAt,
+		bool validated,
+		DateTime? validatedAt)
+	{
+		var token = new Token(tokenType, user, notificationRequestId, tokenHash, expiresAt)
+		{
+			TokenTypeId = tokenTypeId,
+			UserId = userId,
+			Validated = validated,
+			ValidatedAt = validatedAt
+		};
+
+		token.RestorePersistence(id, externalId, createdAt, updatedAt);
+		return token;
 	}
 
 	public void Validate()

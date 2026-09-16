@@ -29,12 +29,13 @@ public static class AuthModule
 		));
 
 		// Persistência: os casos de uso na Application só conhecem contratos; as implementações usam SQL.
+		// IOutboxMessageQueue não é registrado aqui: é o AddTransactionalOutbox (BuildingBlocks), chamado
+		// antes deste método no Program.cs, quem já registra a implementação compartilhada.
 		services.AddScoped<IUnitOfWork, UnitOfWork>();
 		services.AddScoped<IUserRepository, UserRepository>();
 		services.AddScoped<ITokenRepository, TokenRepository>();
 		services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 		services.AddScoped<ITokenTypeRepository, TokenTypeRepository>();
-		services.AddScoped<IOutboxMessageQueue, OutboxMessageQueue>();
 
 		// Casos de uso (moram na Application).
 		services.AddScoped<IUserRegistrationService, UserRegistrationService>();

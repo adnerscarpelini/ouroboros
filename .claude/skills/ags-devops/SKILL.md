@@ -21,7 +21,7 @@ Se a tarefa mexe em algum desses, siga esta skill — mesmo que o pedido tenha v
 
 ## Regra principal: toda Api nasce containerizada
 
-Não existe serviço que roda só pela IDE. Ao criar um `Ouroboros.Services.<NomeDoServico>.Api`, estes itens entram na **mesma tarefa**, sem virar pendência:
+Não existe serviço que roda só pela IDE. Ao criar um `Ouroboros.<NomeDoServico>Service.Api`, estes itens entram na **mesma tarefa**, sem virar pendência:
 
 1. **`Dockerfile`** dentro do projeto Api (ver seção abaixo).
 2. **Serviço no `docker-compose.yml`**, no profile `apps`.
@@ -46,7 +46,7 @@ Um por projeto executável (Api ou gateway), dentro da pasta do próprio projeto
 - **`curl` instalado no estágio de runtime**, só para servir ao `HEALTHCHECK` — a imagem de runtime não traz cliente HTTP.
 - **`EXPOSE 8080`** e `HEALTHCHECK` apontando para o endpoint de prontidão do serviço.
 
-Referências prontas: [Auth](../../../src/Services/Auth/Ouroboros.Services.Auth.Api/Dockerfile) e [Api Gateway](../../../src/ApiGateways/Ouroboros.ApiGateway/Dockerfile).
+Referências prontas: [Auth](../../../src/Services/AuthService/Ouroboros.AuthService.Api/Dockerfile) e [Api Gateway](../../../src/ApiGateways/Ouroboros.ApiGateway/Dockerfile).
 
 O `.dockerignore` na raiz mantém `bin/`, `obj/`, `.git/`, `.env`, `docker/secrets/`, `*.pem`, `tests/` e `docs/` fora do contexto de build. Ao criar uma pasta nova que não deva entrar na imagem, atualize-o.
 

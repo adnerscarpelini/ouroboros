@@ -22,16 +22,16 @@ var migrationsDirectory = service switch
 		repositoryRoot,
 		"src",
 		"Services",
-		"Auth",
-		"Ouroboros.Services.Auth.Infrastructure",
+		"AuthService",
+		"Ouroboros.AuthService.Infrastructure",
 		"Migrations"),
 
 	"notifications" => Path.Combine(
 		repositoryRoot,
 		"src",
 		"Services",
-		"Notifications",
-		"Ouroboros.Services.Notifications.Infrastructure",
+		"NotificationsService",
+		"Ouroboros.NotificationsService.Infrastructure",
 		"Migrations"),
 	_ => throw new InvalidOperationException(
 		$"Serviço '{service}' inválido. Use 'auth' ou 'notifications'.")

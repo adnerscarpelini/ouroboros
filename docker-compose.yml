@@ -49,7 +49,7 @@ services:
     profiles: ["apps"]
     build:
       context: .
-      dockerfile: src/Services/Auth/Ouroboros.Services.Auth.Api/Dockerfile
+      dockerfile: src/Services/AuthService/Ouroboros.AuthService.Api/Dockerfile
     container_name: ouroboros-auth-api
     restart: unless-stopped
     depends_on:
@@ -76,7 +76,7 @@ services:
     profiles: ["apps"]
     build:
       context: .
-      dockerfile: src/Services/Notifications/Ouroboros.Services.Notifications.Api/Dockerfile
+      dockerfile: src/Services/NotificationsService/Ouroboros.NotificationsService.Api/Dockerfile
     container_name: ouroboros-notifications-api
     restart: unless-stopped
     depends_on:

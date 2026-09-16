@@ -17,10 +17,10 @@ Antes de escrever, revisar ou refatorar qualquer código C#, siga a skill [ags-d
 dotnet build
 
 # rodar a API do Auth (porta interna 5081/7271 — perfil "http" ou "https" em launchSettings.json)
-dotnet run --project src/Services/Auth/Ouroboros.Services.Auth.Api
+dotnet run --project src/Services/AuthService/Ouroboros.AuthService.Api
 
 # rodar a API de Notificações (porta interna 5083/7273)
-dotnet run --project src/Services/Notifications/Ouroboros.Services.Notifications.Api
+dotnet run --project src/Services/NotificationsService/Ouroboros.NotificationsService.Api
 
 # rodar o Api Gateway (porta pública 5082/7272) — precisa do Auth rodando pra ter o que rotear
 dotnet run --project src/ApiGateways/Ouroboros.ApiGateway
@@ -57,7 +57,7 @@ src/BuildingBlocks/Ouroboros.BuildingBlocks.Domain           → tipos-base de d
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Application      → abstrações de aplicação compartilhadas entre serviços. Depende de BuildingBlocks.Domain.
 src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure   → infraestrutura de propósito geral compartilhada entre serviços (código, não dado — cada serviço persiste na própria base). Depende de BuildingBlocks.Application.
 src/Contracts/Ouroboros.Contracts.Notifications           → DTOs versionados do contrato de integração entre produtores e o serviço de Notificações. Só contrato: sem entidade, sem banco, sem SDK de transporte.
-src/Services/<NomeDoServico>/                                → microsserviços (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure + um projeto Api próprio. Hoje: Auth (src/Services/Auth/) e Notifications (src/Services/Notifications/).
+src/Services/<NomeDoServico>Service/                         → microsserviços (bounded contexts), cada um com sua própria trinca Domain/Application/Infrastructure + um projeto Api próprio. Hoje: Auth (src/Services/AuthService/) e Notifications (src/Services/NotificationsService/).
 src/ApiGateways/Ouroboros.ApiGateway                         → ponto de entrada HTTP público (YARP). Só roteia — sem regra de negócio, sem banco, sem referência a projetos de serviço.
 ```
 
@@ -67,11 +67,11 @@ Dentro de cada projeto, classes são agrupadas por tipo em subpastas (`Interface
 
 Os casos de uso ficam na camada `Application` de cada serviço (ex.: `UserRegistrationService`), e falam com o banco só por contratos que ela declara (`IUserRepository`, `IUnitOfWork`) — nunca injetando uma conexão ou sessão diretamente. As implementações desses contratos ficam na `Infrastructure`. Ver [docs/0005 - Repositórios e Unidade de Trabalho.md](docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md).
 
-Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
+Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/AuthService/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 
 ## Tratamento de erros
 
-Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api de um serviço é capturado automaticamente pelo `GlobalExceptionHandler` daquele serviço (ex.: `src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.BuildingBlocks.Domain.ErrorLog` (schema `common`, dentro do próprio banco do serviço) via `IErrorLogService`. Ele cobre só o que chega por HTTP: processador de fundo trata a própria falha e registra no mesmo lugar. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
+Não escreva `try/catch` só para logar uma exceção. Qualquer erro não tratado que chegue à Api de um serviço é capturado automaticamente pelo `GlobalExceptionHandler` daquele serviço (ex.: `src/Services/AuthService/Ouroboros.AuthService.Api/GlobalExceptionHandler.cs`), que registra em `Ouroboros.BuildingBlocks.Domain.ErrorLog` (schema `common`, dentro do próprio banco do serviço) via `IErrorLogService`. Ele cobre só o que chega por HTTP: processador de fundo trata a própria falha e registra no mesmo lugar. Só capture uma exceção quando houver algo real a fazer com ela ali (recuperar, traduzir para um erro de domínio, tentar de novo).
 
 ## Documentação
 
@@ -79,7 +79,7 @@ Ver skill [ags-technical-writer](.claude/skills/ags-technical-writer/SKILL.md).
 
 ## Postman
 
-`src/Services/Auth/Ouroboros.Services.Auth.Api/Postman/Ouroboros.postman_collection.json` é a collection Postman do projeto (schema v2.1). Sempre que um método/endpoint de uma Api for criado ou alterado, revise e ajuste essa collection.
+`src/Services/AuthService/Ouroboros.AuthService.Api/Postman/Ouroboros.postman_collection.json` é a collection Postman do projeto (schema v2.1). Sempre que um método/endpoint de uma Api for criado ou alterado, revise e ajuste essa collection.
 
 ## Git
 

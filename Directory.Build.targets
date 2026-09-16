@@ -12,7 +12,7 @@
   -->
   <Target Name="RunTestsAfterBuild"
           AfterTargets="Build"
-          Condition="'$(MSBuildProjectName)' == 'Ouroboros.Services.Auth.Api' and '$(OUROBOROS_SKIP_AUTOTEST)' != 'true'">
+          Condition="'$(MSBuildProjectName)' == 'Ouroboros.AuthService.Api' and '$(OUROBOROS_SKIP_AUTOTEST)' != 'true'">
     <Exec Command="dotnet test &quot;$(MSBuildThisFileDirectory)Ouroboros.slnx&quot; --filter &quot;Category!=Integration&quot; --nologo"
           EnvironmentVariables="OUROBOROS_SKIP_AUTOTEST=true" />
   </Target>

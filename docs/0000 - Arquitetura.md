@@ -80,8 +80,8 @@ O que existe além deles é a base compartilhada e o ponto de entrada:
 | `Ouroboros.BuildingBlocks.Infrastructure` | Infraestrutura de propósito geral compartilhada entre serviços — código, nunca dado. Depende de `BuildingBlocks.Application`. |
 | `Ouroboros.ApiGateway` | Ponto de entrada HTTP público (YARP). Não referencia nenhum projeto de serviço. |
 | `Ouroboros.Contracts.Notifications` | DTOs versionados do contrato de notificação. Referenciado pela `Application` de quem produz e de quem consome — a única exceção à regra de referência entre serviços. |
-| `Ouroboros.Services.Auth.Api` | Host HTTP do Auth: controllers, injeção de dependência, configuração. Depende do `BuildingBlocks` e do próprio `Auth.Infrastructure`. |
-| `Ouroboros.Services.Notifications.Api` | Host do serviço de Notificações. Sem endpoint de negócio: solicitação chega por mensageria, não por HTTP. Expõe só os health checks e hospeda o processador de entrega. |
+| `Ouroboros.AuthService.Api` | Host HTTP do Auth: controllers, injeção de dependência, configuração. Depende do `BuildingBlocks` e do próprio `AuthService.Infrastructure`. |
+| `Ouroboros.NotificationsService.Api` | Host do serviço de Notificações. Sem endpoint de negócio: solicitação chega por mensageria, não por HTTP. Expõe só os health checks e hospeda o processador de entrega. |
 
 A regra de dependência flui sempre para dentro: `Api` → `Infrastructure` → `Application` → `Domain`.
 
@@ -89,8 +89,8 @@ A regra de dependência flui sempre para dentro: `Api` → `Infrastructure` → 
 
 Pra evitar que classes de tipos diferentes (interface, DTO/resultado, implementação, configuração de banco) fiquem misturadas soltas na raiz, cada camada agrupa por tipo em subpastas:
 
-- **Domain**: sem subpastas — hoje só tem entidades, não há o que separar.
-- **Application**: `Services/` (os casos de uso em si, ex.: `UserRegistrationService`), `Interfaces/` (contratos que o caso de uso consome, ex.: `IUserRepository`, `IUnitOfWork`), `Models/` (DTOs/resultados, ex.: `AuthenticationResult`, `Result`) e `Options/` (configuração de que o caso de uso precisa, ex.: `AuthApplicationOptions`).
+- **Domain**: `Entities/` (as entidades propriamente ditas, ex.: `User`, `Token`), `Enums/` (ex.: `EmailDeliveryStatus`) e `Constants/` quando o serviço precisar de nomes bem conhecidos ligados ao domínio (ex.: `TokenTypeNames`). `ValueObjects/` e `Exceptions/` entram quando existir a primeira necessidade real de cada um — mesmo princípio do `BuildingBlocks` (ver abaixo). Em `Ouroboros.BuildingBlocks.Domain`, a classe-base compartilhada por todas as entidades (`Entity`) fica em `SeedWork/`, separada das entidades concretas — nome usado pelo eShopOnContainers para o mesmo propósito, já citado como inspiração deste projeto.
+- **Application**: `UseCases/` (um caso de uso por operação exposta à Api, ex.: `RegisterUserUseCase`, `LoginUseCase` — cada um implementa uma interface própria de mesmo nome, com o prefixo `I`, em `Interfaces/`), `Interfaces/` (contratos que a Application consome ou expõe, ex.: `IUserRepository`, `IUnitOfWork`, `ILoginUseCase`), `Models/` (DTOs/resultados internos, ex.: `AuthenticationResult`, `Result`) e `Options/` (configuração de que o caso de uso precisa, ex.: `AuthApplicationOptions`). `Services/` continua existindo, mas com um propósito mais estreito: colaboradores internos usados por mais de um caso de uso, que não são, em si, uma operação exposta à Api (ex.: `AuthenticationResultFactory`, compartilhado por `LoginUseCase` e `RefreshTokenUseCase` para emitir o par access+refresh token).
 - **Infrastructure**: `Migrations/` (arquivos SQL versionados) em cada serviço, `Persistence/` (sessão SQL, `UnitOfWork` e a subpasta `Repositories/` com as implementações dos contratos de persistência da Application), `Services/` (implementações concretas de contratos técnicos, sempre com sufixo `Service`, ex.: `Argon2PasswordHasherService`, `JwtTokenGeneratorService`), `Options/` (records de configuração, ex.: `JwtOptions`). O arquivo `Add<NomeDoServico>Module`/`AddCommon` fica na raiz — é a porta de entrada do projeto.
   - Exceção: em `Ouroboros.BuildingBlocks.Infrastructure`, que não é dono de nenhum schema próprio, `Migrations/` não existe — o código do runner de migration (`MigrationRunner`, `MigrationLoader`, compartilhado entre o `Ouroboros.DatabaseMigrator` e os testes de integração) fica em `Persistence/Migrations/`, junto do resto da infraestrutura de SQL (`DbSession`, `NpgsqlConnectionFactory`). O nome `Migrations/` sozinho, nesse projeto, ficaria ambíguo com "arquivos `.sql`", que esse projeto não tem.
 - **Testes**: fakes agrupados em `Fakes/`. Os demais arquivos de teste ficam na raiz do projeto de teste, exceto os de integração contra Postgres real (`[Trait("Category", "Integration")]`, ver [ags-qa](../.claude/skills/ags-qa/SKILL.md#testes-de-integração-postgres-real)), que vão em `Integration/` — eles rodam sob um filtro de `dotnet test` diferente e têm fixture/container próprios, então ficam separados visualmente dos testes rápidos da mesma classe/arquivo de produção. Quando um projeto de teste cobre uma pasta específica da própria `Infrastructure` compartilhada (ex.: `Ouroboros.BuildingBlocks.Infrastructure.Tests` testando `Persistence/Migrations/` e `Services/`), a pasta de teste pode espelhar esse nome (`Migrations/`, `Services/`) em vez de tudo cair em `Integration/`.
@@ -101,7 +101,7 @@ Todo serviço novo (`Cadastros`, etc.) segue essa mesma convenção desde o iní
 
 ### Testes
 
-Os projetos de domínio, aplicação e infraestrutura têm projetos de testes xUnit correspondentes em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Hosts HTTP e ferramentas administrativas só recebem projeto de testes quando houver comportamento próprio que precise ser validado. Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
+Os projetos de domínio, aplicação e infraestrutura têm projetos de testes xUnit correspondentes em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/AuthService/...`). Hosts HTTP e ferramentas administrativas só recebem projeto de testes quando houver comportamento próprio que precise ser validado. Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 
 ## Banco de dados
 
@@ -128,27 +128,30 @@ ouroboros/
 │   ├── Contracts/
 │   │   └── Ouroboros.Contracts.Notifications/   → só DTOs versionados
 │   └── Services/
-│       ├── Auth/
-│       │   ├── Ouroboros.Services.Auth.Api/          → Dockerfile próprio
-│       │   ├── Ouroboros.Services.Auth.Domain/
-│       │   ├── Ouroboros.Services.Auth.Application/
-│       │   └── Ouroboros.Services.Auth.Infrastructure/
+│       ├── AuthService/
+│       │   ├── Ouroboros.AuthService.Api/          → Dockerfile próprio
+│       │   ├── Ouroboros.AuthService.Domain/
+│       │   ├── Ouroboros.AuthService.Application/
+│       │   │   ├── UseCases/                         → um caso de uso por operação exposta à Api
+│       │   │   └── Services/                         → colaboradores internos entre casos de uso
+│       │   └── Ouroboros.AuthService.Infrastructure/
 │       │       ├── Migrations/                       → migrations SQL versionadas
 │       │       ├── Persistence/Repositories/        → repositories SQL
 │       │       └── Services/                         → serviços técnicos
-│       └── Notifications/
-│           ├── Ouroboros.Services.Notifications.Api/ → Dockerfile próprio
-│           ├── Ouroboros.Services.Notifications.Domain/
-│           ├── Ouroboros.Services.Notifications.Application/
-│           └── Ouroboros.Services.Notifications.Infrastructure/
+│       └── NotificationsService/
+│           ├── Ouroboros.NotificationsService.Api/ → Dockerfile próprio
+│           ├── Ouroboros.NotificationsService.Domain/
+│           ├── Ouroboros.NotificationsService.Application/
+│           │   └── UseCases/                         → um caso de uso por operação exposta à Api
+│           └── Ouroboros.NotificationsService.Infrastructure/
 │               ├── Migrations/                       → migrations SQL versionadas
 │               ├── Persistence/Repositories/        → repositories SQL
 │               └── Services/                         → serviços técnicos
 ├── tests/
 │   ├── BuildingBlocks/
 │   └── Services/
-│       ├── Auth/
-│       └── Notifications/
+│       ├── AuthService/
+│       └── NotificationsService/
 ├── docs/
 └── Ouroboros.slnx
 ```

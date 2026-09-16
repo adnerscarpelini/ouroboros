@@ -1,0 +1,27 @@
+using Ouroboros.AuthService.Domain;
+
+namespace Ouroboros.AuthService.Application.Tests;
+
+public sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
+{
+	private readonly List<RefreshToken> _refreshTokens = new();
+
+	public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens;
+
+	public void Add(RefreshToken refreshToken)
+	{
+		_refreshTokens.Add(refreshToken);
+	}
+
+	public void Update(RefreshToken refreshToken)
+	{
+	}
+
+	public Task<RefreshToken?> GetByHashAsync(
+		string tokenHash,
+		CancellationToken cancellationToken
+	)
+	{
+		return Task.FromResult(_refreshTokens.SingleOrDefault(t => t.TokenHash == tokenHash));
+	}
+}

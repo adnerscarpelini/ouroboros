@@ -52,10 +52,10 @@ publisher (background)
 | `OutboxPublisherService` | `BuildingBlocks.Infrastructure` | Uma passada SQL pela outbox: pega um lote, tenta publicar, grava o resultado. |
 | `OutboxPublisherProcessorService` | `BuildingBlocks.Infrastructure` | `BackgroundService` que chama o publisher de tempos em tempos. |
 | `EmailNotificationRequestedV1` | `Contracts.Notifications` | O contrato entre produtor e Notificações. Só DTO, sem dependência de projeto. |
-| `IEmailDeliveryIntakeService` | `Notifications.Application` | A porta de entrada do consumidor: valida, deduplica e persiste. |
-| `EmailDelivery` | `Notifications.Domain` | A entrega em si, com estado, tentativas e conteúdo já renderizado. |
-| `EmailDeliveryDispatcherService` | `Notifications.Infrastructure` | Uma passada pela fila de entregas: pega um lote, entrega, grava o resultado. |
-| `SmtpEmailSenderService` | `Notifications.Infrastructure` | Implementação SMTP (MailKit). Só Notificações conhece servidor de e-mail. |
+| `IAcceptEmailDeliveryUseCase` | `NotificationsService.Application` | A porta de entrada do consumidor: valida, deduplica e persiste. |
+| `EmailDelivery` | `NotificationsService.Domain` | A entrega em si, com estado, tentativas e conteúdo já renderizado. |
+| `EmailDeliveryDispatcherService` | `NotificationsService.Infrastructure` | Uma passada pela fila de entregas: pega um lote, entrega, grava o resultado. |
+| `SmtpEmailSenderService` | `NotificationsService.Infrastructure` | Implementação SMTP (MailKit). Só Notificações conhece servidor de e-mail. |
 
 `Dispatcher`/`Publisher` e `Processor` são separados de propósito: um sabe **o que fazer**, o outro **de quanto em quanto tempo**. É o que permite testar o despacho sem depender de temporizador.
 

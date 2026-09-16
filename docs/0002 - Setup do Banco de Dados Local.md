@@ -78,11 +78,11 @@ A senha também não pode ir pro `appsettings.json` (esse arquivo é versionado)
 
 1. Inicializar (só precisa uma vez, já feito no projeto, mas fica documentado caso o `UserSecretsId` do `.csproj` mude):
    ```bash
-   dotnet user-secrets init --project src/Services/Auth/Ouroboros.Services.Auth.Api
+   dotnet user-secrets init --project src/Services/AuthService/Ouroboros.AuthService.Api
    ```
 2. Definir a connection string, usando a senha de `AUTH_DB_PASSWORD` no `.env` (não a de `POSTGRES_PASSWORD` — a Api conecta como `auth_service`, não como superusuário):
    ```bash
-   dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros_auth;Username=auth_service;Password=<AUTH_DB_PASSWORD do .env>" --project src/Services/Auth/Ouroboros.Services.Auth.Api
+   dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros_auth;Username=auth_service;Password=<AUTH_DB_PASSWORD do .env>" --project src/Services/AuthService/Ouroboros.AuthService.Api
    ```
 
 Sem isso, a Api lança erro ao iniciar (`Connection string 'Postgres' não configurada`).
@@ -90,7 +90,7 @@ Sem isso, a Api lança erro ao iniciar (`Connection string 'Postgres' não confi
 O serviço de Notificações tem o seu próprio cofre e a sua própria credencial — ele conecta como `notifications_service`, no banco dele, e não alcança o banco do Auth:
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros_notifications;Username=notifications_service;Password=<NOTIFICATIONS_DB_PASSWORD do .env>" --project src/Services/Notifications/Ouroboros.Services.Notifications.Api
+dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=ouroboros_notifications;Username=notifications_service;Password=<NOTIFICATIONS_DB_PASSWORD do .env>" --project src/Services/NotificationsService/Ouroboros.NotificationsService.Api
 ```
 
 Também pelo User Secrets: o par de chaves RSA usado para assinar (JWT) e validar os tokens emitidos no login. É um par assimétrico, não uma senha única — a chave **privada** assina e só o Auth a possui; a chave **pública** só valida, e é o que qualquer outro serviço vai precisar quando existir (ver [docs/0000 - Arquitetura.md](0000%20-%20Arquitetura.md#autenticação-entre-serviços)).
@@ -102,8 +102,8 @@ Também pelo User Secrets: o par de chaves RSA usado para assinar (JWT) e valida
    ```
 2. Guardar as duas no User Secrets (o conteúdo do `.pem`, arquivo inteiro, como uma única string):
    ```bash
-   dotnet user-secrets set "Jwt:SigningKeyPem" "$(cat jwt-private.pem)" --project src/Services/Auth/Ouroboros.Services.Auth.Api
-   dotnet user-secrets set "Jwt:PublicKeyPem" "$(cat jwt-public.pem)" --project src/Services/Auth/Ouroboros.Services.Auth.Api
+   dotnet user-secrets set "Jwt:SigningKeyPem" "$(cat jwt-private.pem)" --project src/Services/AuthService/Ouroboros.AuthService.Api
+   dotnet user-secrets set "Jwt:PublicKeyPem" "$(cat jwt-public.pem)" --project src/Services/AuthService/Ouroboros.AuthService.Api
    ```
 3. Apagar os dois arquivos `.pem` da pasta do projeto depois de guardados no User Secrets — eles não devem ficar soltos no disco fora do cofre do User Secrets, e principalmente nunca devem ser commitados.
 

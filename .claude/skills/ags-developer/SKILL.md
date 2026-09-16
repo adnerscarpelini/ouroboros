@@ -53,11 +53,11 @@ Skill base para atuar como desenvolvedor no projeto Ouroboros. Segue estas regra
 
 ## Nomenclatura de serviços e componentes
 
-- Classes da camada `Application/Services` que representam casos de uso ou serviços de aplicação devem terminar com `Service`, como `AuthenticationService`, `PasswordResetService`, `UserRegistrationService` e `EmailDeliveryIntakeService`.
-- A interface e a implementação devem manter o mesmo conceito no nome: `IAuthenticationService`/`AuthenticationService`.
-- Classes concretas que representam serviços executáveis, inclusive na `Infrastructure`, devem terminar com `Service`. Isso inclui implementações de `Renderer`, `Publisher`, `Processor`, `Sender`, `Accessor`, `Generator`, `Provider` e `Queue`.
+- Classes da camada `Application/UseCases` representam uma operação exposta à Api — uma por caso de uso — e terminam com `UseCase`, como `RegisterUserUseCase`, `LoginUseCase`, `ConfirmEmailUseCase` e `RequestPasswordResetUseCase`. A interface correspondente mora em `Application/Interfaces` com o mesmo conceito no nome: `ILoginUseCase`/`LoginUseCase`.
+- Um serviço com múltiplas operações relacionadas (ex.: login, refresh token e logout) vira uma classe `UseCase` por operação, não uma classe só com vários métodos — cada caso de uso é testável e injetável isoladamente. Lógica realmente compartilhada entre duas ou mais `UseCase`s (ex.: emitir o par access+refresh token) vai para um colaborador interno em `Application/Services`, que não implementa nenhuma interface exposta à Api.
+- Classes concretas que representam serviços executáveis — tanto esses colaboradores internos da `Application` quanto qualquer implementação técnica na `Infrastructure` — terminam com `Service`. Isso inclui implementações de `Renderer`, `Publisher`, `Processor`, `Sender`, `Accessor`, `Generator`, `Provider` e `Queue`.
 - O nome deve preservar a responsabilidade antes do sufixo: `EmailTemplateRendererService`, `EmailDeliveryProcessorService`, `SmtpEmailSenderService` e `OutboxPublisherService`.
-- Componentes que não são serviços executáveis, como entidades, records de dados, módulos estáticos, mappers e factories, mantêm o sufixo específico da sua responsabilidade (`Entity`, `Options`, `Module`, `Mapper`, `Factory`, etc.).
+- Componentes que não são serviços executáveis, como entidades, records de dados, módulos estáticos, mappers e factories, mantêm o sufixo específico da sua responsabilidade (`Entity`, `Options`, `Module`, `Mapper`, `Factory`, etc.) — ex.: `AuthenticationResultFactory`, o colaborador citado acima.
 - Ao revisar uma padronização, verificar todas as classes da camada correspondente, seus arquivos, referências, registros de DI, construtores, testes e configurações.
 
 ## Nomenclatura de repositórios
@@ -126,7 +126,7 @@ if (condition)
 ## Testes
 
 - Todo serviço/caso de uso ou regra de negócio novo deve ser coberto por um teste correspondente — para as regras de cobertura e demais convenções de teste, siga a skill [ags-qa](../ags-qa/SKILL.md).
-- `dotnet build` já executa os testes automaticamente ao final (ver `Directory.Build.targets` na raiz do repositório) — não é preciso rodar `dotnet test` manualmente à parte, embora nada impeça. Essa automação só dispara ao buildar a `Ouroboros.Services.Auth.Api` (projeto de entrada); buildar um projeto individual isoladamente não aciona os testes.
+- `dotnet build` já executa os testes automaticamente ao final (ver `Directory.Build.targets` na raiz do repositório) — não é preciso rodar `dotnet test` manualmente à parte, embora nada impeça. Essa automação só dispara ao buildar a `Ouroboros.AuthService.Api` (projeto de entrada); buildar um projeto individual isoladamente não aciona os testes.
 
 ## Banco de dados
 
@@ -139,7 +139,7 @@ if (condition)
 
 ## Tratamento de erros
 
-- Não usar `try/catch` só pra logar e relançar (ou engolir) uma exceção — deixe subir. Qualquer erro não tratado que chegue até a Api de um serviço é capturado automaticamente pelo `GlobalExceptionHandler` daquele serviço (ex.: `src/Services/Auth/Ouroboros.Services.Auth.Api/GlobalExceptionHandler.cs`) e registrado via `IErrorLogService`, sem precisar de código extra em cada método.
+- Não usar `try/catch` só pra logar e relançar (ou engolir) uma exceção — deixe subir. Qualquer erro não tratado que chegue até a Api de um serviço é capturado automaticamente pelo `GlobalExceptionHandler` daquele serviço (ex.: `src/Services/AuthService/Ouroboros.AuthService.Api/GlobalExceptionHandler.cs`) e registrado via `IErrorLogService`, sem precisar de código extra em cada método.
 - Só usar `try/catch` quando houver algo real a fazer com a exceção naquele ponto (recuperar, traduzir para um erro de domínio específico, tentar de novo, etc.) — nunca apenas para logar.
 - Mecanismo completo documentado em [docs/0000 - Arquitetura.md](../../../docs/0000%20-%20Arquitetura.md).
 
@@ -151,7 +151,7 @@ if (condition)
 
 ## Collection do Postman
 
-- Sempre que um método/endpoint novo for criado ou alterado numa Api de serviço, revisar e ajustar a collection Postman daquele serviço (ex.: `src/Services/Auth/Ouroboros.Services.Auth.Api/Postman/Ouroboros.postman_collection.json`) para refletir a mudança (nova requisição, parâmetros, exemplos, etc.). O `baseUrl` da collection aponta pro Api Gateway, não pra porta interna do serviço.
+- Sempre que um método/endpoint novo for criado ou alterado numa Api de serviço, revisar e ajustar a collection Postman daquele serviço (ex.: `src/Services/AuthService/Ouroboros.AuthService.Api/Postman/Ouroboros.postman_collection.json`) para refletir a mudança (nova requisição, parâmetros, exemplos, etc.). O `baseUrl` da collection aponta pro Api Gateway, não pra porta interna do serviço.
 
 ## Documentação
 

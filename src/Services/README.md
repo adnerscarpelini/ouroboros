@@ -5,11 +5,11 @@ Cada serviço aqui dentro é um microsserviço isolado — um contexto de negóc
 ## Convenção de um serviço
 
 ```
-src/Services/<NomeDoServico>/
-├── Ouroboros.Services.<NomeDoServico>.Api/
-├── Ouroboros.Services.<NomeDoServico>.Domain/
-├── Ouroboros.Services.<NomeDoServico>.Application/
-└── Ouroboros.Services.<NomeDoServico>.Infrastructure/
+src/Services/<NomeDoServico>Service/
+├── Ouroboros.<NomeDoServico>Service.Api/
+├── Ouroboros.<NomeDoServico>Service.Domain/
+├── Ouroboros.<NomeDoServico>Service.Application/
+└── Ouroboros.<NomeDoServico>Service.Infrastructure/
 ```
 
 Todo serviço também tem um `Dockerfile` no seu projeto `Api` e um serviço correspondente no `docker-compose.yml` — **uma Api nova nasce containerizada**, e o checklist do que entra junto (health checks, porta, rota no gateway, segredos) está na skill [ags-devops](../../.claude/skills/ags-devops/SKILL.md).
@@ -18,7 +18,7 @@ Cada camada segue as mesmas regras já definidas para o projeto (ver [docs/0000 
 
 Hoje existem dois serviços: o `Auth` (identidade) e o `Notifications` (entrega de e-mail para todos os outros — ver [docs/0007](../../docs/0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md)). Ambos usam SQL explícito via Npgsql, com repositórios por contrato, sessões SQL e migrations versionadas.
 
-Cada camada agrupa suas classes por tipo em subpastas (`Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Persistence/Repositories/`, `Options/`) em vez de deixá-las soltas na raiz — ver [0000 - Arquitetura.md](../../docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
+Cada camada agrupa suas classes por tipo em subpastas (`Entities/`, `Enums/`, `Constants/`, `UseCases/`, `Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Persistence/Repositories/`, `Options/`) em vez de deixá-las soltas na raiz — ver [0000 - Arquitetura.md](../../docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
 
 ## Regra de isolamento entre serviços
 

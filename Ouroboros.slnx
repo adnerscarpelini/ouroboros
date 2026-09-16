@@ -25,17 +25,17 @@
     <Project Path="src/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure/Ouroboros.BuildingBlocks.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Services/" />
-  <Folder Name="/src/Services/Auth/">
-    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Api/Ouroboros.Services.Auth.Api.csproj" />
-    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Application/Ouroboros.Services.Auth.Application.csproj" />
-    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Domain/Ouroboros.Services.Auth.Domain.csproj" />
-    <Project Path="src/Services/Auth/Ouroboros.Services.Auth.Infrastructure/Ouroboros.Services.Auth.Infrastructure.csproj" />
+  <Folder Name="/src/Services/AuthService/">
+    <Project Path="src/Services/AuthService/Ouroboros.AuthService.Api/Ouroboros.AuthService.Api.csproj" />
+    <Project Path="src/Services/AuthService/Ouroboros.AuthService.Application/Ouroboros.AuthService.Application.csproj" />
+    <Project Path="src/Services/AuthService/Ouroboros.AuthService.Domain/Ouroboros.AuthService.Domain.csproj" />
+    <Project Path="src/Services/AuthService/Ouroboros.AuthService.Infrastructure/Ouroboros.AuthService.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/src/Services/Notifications/">
-    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Api/Ouroboros.Services.Notifications.Api.csproj" />
-    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Application/Ouroboros.Services.Notifications.Application.csproj" />
-    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Domain/Ouroboros.Services.Notifications.Domain.csproj" />
-    <Project Path="src/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure/Ouroboros.Services.Notifications.Infrastructure.csproj" />
+  <Folder Name="/src/Services/NotificationsService/">
+    <Project Path="src/Services/NotificationsService/Ouroboros.NotificationsService.Api/Ouroboros.NotificationsService.Api.csproj" />
+    <Project Path="src/Services/NotificationsService/Ouroboros.NotificationsService.Application/Ouroboros.NotificationsService.Application.csproj" />
+    <Project Path="src/Services/NotificationsService/Ouroboros.NotificationsService.Domain/Ouroboros.NotificationsService.Domain.csproj" />
+    <Project Path="src/Services/NotificationsService/Ouroboros.NotificationsService.Infrastructure/Ouroboros.NotificationsService.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Tools/">
     <Project Path="src/Tools/Ouroboros.DatabaseMigrator/Ouroboros.DatabaseMigrator.csproj" />
@@ -47,16 +47,16 @@
     <Project Path="tests/BuildingBlocks/Ouroboros.BuildingBlocks.Infrastructure.Tests/Ouroboros.BuildingBlocks.Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Services/" />
-  <Folder Name="/tests/Services/Auth/">
-    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Api.Tests/Ouroboros.Services.Auth.Api.Tests.csproj" />
-    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Application.Tests/Ouroboros.Services.Auth.Application.Tests.csproj" />
-    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Domain.Tests/Ouroboros.Services.Auth.Domain.Tests.csproj" />
-    <Project Path="tests/Services/Auth/Ouroboros.Services.Auth.Infrastructure.Tests/Ouroboros.Services.Auth.Infrastructure.Tests.csproj" />
+  <Folder Name="/tests/Services/AuthService/">
+    <Project Path="tests/Services/AuthService/Ouroboros.AuthService.Api.Tests/Ouroboros.AuthService.Api.Tests.csproj" />
+    <Project Path="tests/Services/AuthService/Ouroboros.AuthService.Application.Tests/Ouroboros.AuthService.Application.Tests.csproj" />
+    <Project Path="tests/Services/AuthService/Ouroboros.AuthService.Domain.Tests/Ouroboros.AuthService.Domain.Tests.csproj" />
+    <Project Path="tests/Services/AuthService/Ouroboros.AuthService.Infrastructure.Tests/Ouroboros.AuthService.Infrastructure.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/Services/Notifications/">
-    <Project Path="tests/Services/Notifications/Ouroboros.Services.Notifications.Application.Tests/Ouroboros.Services.Notifications.Application.Tests.csproj" />
-    <Project Path="tests/Services/Notifications/Ouroboros.Services.Notifications.Domain.Tests/Ouroboros.Services.Notifications.Domain.Tests.csproj" />
-    <Project Path="tests/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure.Tests/Ouroboros.Services.Notifications.Infrastructure.Tests.csproj" />
+  <Folder Name="/tests/Services/NotificationsService/">
+    <Project Path="tests/Services/NotificationsService/Ouroboros.NotificationsService.Application.Tests/Ouroboros.NotificationsService.Application.Tests.csproj" />
+    <Project Path="tests/Services/NotificationsService/Ouroboros.NotificationsService.Domain.Tests/Ouroboros.NotificationsService.Domain.Tests.csproj" />
+    <Project Path="tests/Services/NotificationsService/Ouroboros.NotificationsService.Infrastructure.Tests/Ouroboros.NotificationsService.Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/specs/">
     <Folder Name="/specs/archived/">

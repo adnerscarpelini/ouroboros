@@ -8,7 +8,7 @@ Isso invertia o objetivo da Clean Architecture na prática:
 
 - A `Application`, que deveria ser a camada independente de framework, só tinha interfaces e DTOs — nenhuma regra.
 - A regra de negócio ficava soldada à infraestrutura, na camada mais externa das três.
-- O sintoma: `Ouroboros.Services.Auth.Application.Tests` não tinha nenhum teste (não havia o que testar ali), e toda a regra era testada em `Infrastructure.Tests`, sempre acoplada à infraestrutura.
+- O sintoma: `Ouroboros.AuthService.Application.Tests` não tinha nenhum teste (não havia o que testar ali), e toda a regra era testada em `Infrastructure.Tests`, sempre acoplada à infraestrutura.
 
 Havia também um problema de consistência: cada caso de uso chamava `SaveChanges` várias vezes, sem transação. Uma falha no meio de `CreateUserAsync` deixava um usuário gravado sem nenhum token de confirmação — ou seja, uma conta impossível de ativar.
 
@@ -49,8 +49,8 @@ new Token(tokenType: tokenType, user: user, emailMessageId: ..., tokenHash: ...,
 
 ## O que isso comprou
 
-- `Auth.Application.Tests` testa toda a regra de negócio com fakes em memória, sem banco — ver `AuthTestContext`.
-- `Auth.Infrastructure.Tests` passa a testar o que só a infraestrutura sabe: se os repositórios trazem as navegações certas e se as consultas filtram o que deveriam.
+- `AuthService.Application.Tests` testa toda a regra de negócio com fakes em memória, sem banco — ver `AuthTestContext`.
+- `AuthService.Infrastructure.Tests` passa a testar o que só a infraestrutura sabe: se os repositórios trazem as navegações certas e se as consultas filtram o que deveriam.
 - A atomicidade é verificável: um teste afirma que `CreateUserAsync` roda tudo numa transação só.
 
 ## Consequências

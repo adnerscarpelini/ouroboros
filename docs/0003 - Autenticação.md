@@ -22,7 +22,7 @@ Request (`RegisterUserRequest`): `Login`, `FullName`, `Email`, `Password`.
 - `Email` validado como e-mail (`[EmailAddress]`).
 - `Password` validado por `StrongPasswordAttribute` (senha forte).
 
-`UserRegistrationService.CreateUserAsync`:
+`RegisterUserUseCase.RegisterAsync`:
 
 1. Rejeita se `Login` já está em uso (`409 Conflict`).
 2. Rejeita se `Email` já está em uso (`409 Conflict`).
@@ -33,7 +33,7 @@ Request (`RegisterUserRequest`): `Login`, `FullName`, `Email`, `Password`.
 
 ### Enfileiramento do e-mail de confirmação
 
-Dentro da mesma operação de cadastro, `EnqueueValidationEmailAsync`:
+Dentro da mesma operação de cadastro, `RequestValidationEmailAsync`:
 
 1. Gera um token aleatório (`ITokenGenerator.GenerateToken`) e guarda só o hash dele (`TokenGenerator.Hash`) — o token bruto nunca é persistido.
 2. Monta a URL de confirmação: `{PublicBaseUrl}/api/auth/confirm-email?token={token}`.
@@ -43,7 +43,7 @@ Dentro da mesma operação de cadastro, `EnqueueValidationEmailAsync`:
 
 ## 2. Confirmação de e-mail
 
-Dois endpoints chamam a mesma regra (`UserRegistrationService.ConfirmEmailAsync`):
+Dois endpoints chamam a mesma regra (`ConfirmEmailUseCase.ConfirmEmailAsync`):
 
 - `GET /api/auth/confirm-email?token=...` — o link clicável dentro do e-mail. Retorna uma página HTML (`ConfirmationSuccess.html` ou `ConfirmationFailure.html`), não JSON.
 - `POST /api/auth/confirm-email` (`ConfirmEmailRequest`) — pensado pra clientes de API (app, frontend próprio). Retorna `204 No Content` em caso de sucesso ou `400 Bad Request`.
@@ -62,7 +62,7 @@ Dois endpoints chamam a mesma regra (`UserRegistrationService.ConfirmEmailAsync`
 
 Request (`LoginRequest`): `Login`, `Password`.
 
-`AuthenticationService.LoginAsync`:
+`LoginUseCase.LoginAsync`:
 
 1. Busca o usuário por `Login`. Se não existir, falha com mensagem genérica **"Login ou senha inválidos."** — não revela se o problema foi o login ou a senha.
 2. Se a conta está bloqueada (`User.IsLockedOut()`), falha com **"Conta temporariamente bloqueada por excesso de tentativas."**.
@@ -72,7 +72,7 @@ Request (`LoginRequest`): `Login`, `Password`.
    - Falha com a mesma mensagem genérica do passo 1.
 4. Se a senha está correta mas o e-mail não foi confirmado (`IsActive == false`), falha com **"Confirme seu e-mail antes de fazer login."**.
 5. Login bem-sucedido: zera tentativas falhas, remove bloqueio, atualiza `LastLoginAt` (`RegisterSuccessfulLogin()`).
-6. Emite o par de tokens (`IssueAuthenticationResult`, ver seção 4) e retorna `AccessToken` + `ExpiresAt` + `RefreshToken` + `RefreshTokenExpiresAt` (`LoginResponse`, `200 OK`).
+6. Emite o par de tokens (`AuthenticationResultFactory.IssueFor`, ver seção 4) e retorna `AccessToken` + `ExpiresAt` + `RefreshToken` + `RefreshTokenExpiresAt` (`LoginResponse`, `200 OK`).
 
 ### Bloqueio por tentativas (regras de `User`, domínio)
 
@@ -91,9 +91,9 @@ Request (`LoginRequest`): `Login`, `Password`.
 
 Sessão representada por uma `RefreshToken` (schema `auth`, entidade própria — não reaproveita `Token`/`TokenType`, que são acoplados ao fluxo de e-mail via `NotificationRequestId`). Guarda só o hash do token (`ITokenGenerator.Hash`), igual aos demais tokens do serviço — o valor bruto nunca é persistido.
 
-### Emissão — `AuthenticationService.IssueAuthenticationResult`
+### Emissão — `AuthenticationResultFactory.IssueFor`
 
-Chamado tanto pelo login quanto pelo refresh:
+Colaborador interno da `Application`, chamado tanto por `LoginUseCase` quanto por `RefreshTokenUseCase`:
 
 1. Gera o `AccessToken` (JWT, `IJwtTokenGenerator.GenerateToken`).
 2. Gera um refresh token aleatório e persiste um `RefreshToken` com o hash dele, validade de **30 dias** (`RevokedAt = null`).
@@ -101,17 +101,17 @@ Chamado tanto pelo login quanto pelo refresh:
 
 ### Renovação — `POST /api/auth/refresh-token` (`RefreshTokenRequest`: `RefreshToken`)
 
-`AuthenticationService.RefreshTokenAsync`, com **rotação**: cada uso do refresh token o revoga e emite um par novo — um token roubado só funciona até a próxima renovação legítima.
+`RefreshTokenUseCase.RefreshTokenAsync`, com **rotação**: cada uso do refresh token o revoga e emite um par novo — um token roubado só funciona até a próxima renovação legítima.
 
 1. Faz hash do token recebido e busca o `RefreshToken` correspondente pelo hash.
 2. Falha (`"Token inválido."`) se não encontrar ou se já estiver revogado (`RevokedAt` setado).
 3. Falha (`"Token expirado."`) se passou dos 30 dias.
-4. Revoga o token usado (`RefreshToken.Revoke()`) e emite um par novo (`IssueAuthenticationResult`).
+4. Revoga o token usado (`RefreshToken.Revoke()`) e emite um par novo (`AuthenticationResultFactory.IssueFor`).
 5. Retorna `200 OK` (`LoginResponse`) ou `401 Unauthorized` em caso de falha.
 
 ### Logout — `POST /api/auth/logout` (`LogoutRequest`: `RefreshToken`)
 
-`AuthenticationService.LogoutAsync`: revoga o refresh token recebido (`RefreshToken.Revoke()`), impedindo renovações futuras com ele. Não precisa cruzar com o usuário do `AccessToken` — a posse do refresh token bruto já prova o direito de encerrar aquela sessão, mesmo modelo de confiança usado em `ConfirmEmailAsync`/`ResetPasswordAsync`.
+`LogoutUseCase.LogoutAsync`: revoga o refresh token recebido (`RefreshToken.Revoke()`), impedindo renovações futuras com ele. Não precisa cruzar com o usuário do `AccessToken` — a posse do refresh token bruto já prova o direito de encerrar aquela sessão, mesmo modelo de confiança usado em `ConfirmEmailAsync`/`ResetPasswordAsync`.
 
 1. Falha (`"Token inválido."`) se não encontrar o token pelo hash, ou se já estiver revogado.
 2. Revoga e retorna `204 No Content`, ou `400 Bad Request` em caso de falha.
@@ -123,7 +123,7 @@ Dois endpoints:
 - `POST /api/auth/forgot-password` (`ForgotPasswordRequest`: `Email`) — solicita a redefinição. Sempre retorna `204 No Content`, exista ou não o e-mail — não revela se a conta existe (evita enumeração de contas).
 - `POST /api/auth/reset-password` (`ResetPasswordRequest`: `Token`, `NewPassword`) — confirma a redefinição com o token recebido por e-mail. Retorna `204 No Content` em caso de sucesso ou `400 Bad Request`.
 
-### Solicitação — `PasswordResetService.RequestPasswordResetAsync`
+### Solicitação — `RequestPasswordResetUseCase.RequestPasswordResetAsync`
 
 1. Busca o usuário pelo `Email`. Se não encontrar, não faz mais nada (resposta continua `204`).
 2. Se encontrar, invalida qualquer token de redefinição pendente e ainda não usado desse usuário (`Token.Validate()` reaproveitado como invalidação — impede que um link antigo continue valendo depois de um pedido mais novo).
@@ -132,7 +132,7 @@ Dois endpoints:
 5. Solicita o e-mail via `IOutboxMessageQueue.Add`, com o template `auth.password-reset` (mesmo aviso do fluxo de confirmação: sem mensageria, a solicitação fica pendente e nada é entregue).
 6. Cria um `Token` (schema `auth`, tipo `PasswordReset`) associado ao usuário e à solicitação de notificação (`NotificationRequestId`), com validade de **1 hora** (mais curta que as 24h da confirmação de e-mail, por ser mais sensível).
 
-### Confirmação — `PasswordResetService.ResetPasswordAsync`
+### Confirmação — `ResetPasswordUseCase.ResetPasswordAsync`
 
 1. Faz hash do token recebido e busca o `Token` correspondente pelo hash.
 2. Falha (`"Token inválido."`) se não encontrar, ou se o tipo do token não for `PasswordReset`.

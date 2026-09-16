@@ -65,7 +65,7 @@ A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Applicat
 
 Dentro de cada projeto, classes são agrupadas por tipo em subpastas (`Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Persistence/Repositories/`, `Options/`) — ver "Organização de pastas dentro de um projeto" em [docs/0000](docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
 
-Os casos de uso ficam na camada `Application` de cada serviço (ex.: `UserRegistrationService`), e falam com o banco só por contratos que ela declara (`IUserRepository`, `IUnitOfWork`) — nunca injetando uma conexão ou sessão diretamente. As implementações desses contratos ficam na `Infrastructure`. Ver [docs/0005 - Repositórios e Unidade de Trabalho.md](docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md).
+Os casos de uso ficam na camada `Application` de cada serviço, um por operação, em `UseCases/` (ex.: `RegisterUserUseCase`), e falam com o banco só por contratos que a Application declara (`IUserRepository`, `IUnitOfWork`) — nunca injetando uma conexão ou sessão diretamente. As implementações desses contratos ficam na `Infrastructure`. Ver [docs/0005 - Repositórios e Unidade de Trabalho.md](docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md).
 
 Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/AuthService/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 

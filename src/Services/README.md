@@ -16,7 +16,7 @@ Todo serviço também tem um `Dockerfile` no seu projeto `Api` e um serviço cor
 
 Cada camada segue as mesmas regras já definidas para o projeto (ver [docs/0000 - Arquitetura.md](../../docs/0000%20-%20Arquitetura.md) e a skill `ags-developer`). O projeto `Infrastructure` só é criado quando o serviço realmente tiver algo pra colocar lá (ex.: persistência) — não é criado vazio por antecipação.
 
-Hoje existem dois serviços: o `Auth` (identidade) e o `Notifications` (entrega de e-mail para todos os outros — ver [docs/0007](../../docs/0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md)). O `Auth` é o primeiro exemplo dessa convenção em prática, com `Domain` (entidades `User`, `Token`, `RefreshToken` e `TokenType` — esta última já nasce com os tipos `UserCreationValidation` e `PasswordReset` via seed de migration), `Application` (os casos de uso `UserRegistrationService`, `AuthenticationService` e `PasswordResetService`, mais os contratos de que eles dependem — `IUserRepository`, `IUnitOfWork`, `IPasswordHasher` — sem nenhuma dependência de infraestrutura) e `Infrastructure` (as implementações desses contratos: repositórios EF Core, `UnitOfWork`, `AuthDbContext` e `AuthModule.AddAuthModule` — ver [ags-dba](../../.claude/skills/ags-dba/SKILL.md) e [docs/0005](../../docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md)).
+Hoje existem dois serviços: o `Auth` (identidade) e o `Notifications` (entrega de e-mail para todos os outros — ver [docs/0007](../../docs/0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md)). Ambos usam SQL explícito via Npgsql, com repositórios por contrato, sessões SQL e migrations versionadas.
 
 Cada camada agrupa suas classes por tipo em subpastas (`Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Persistence/Repositories/`, `Options/`) em vez de deixá-las soltas na raiz — ver [0000 - Arquitetura.md](../../docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
 
@@ -24,8 +24,8 @@ Cada camada agrupa suas classes por tipo em subpastas (`Interfaces/`, `Models/`,
 
 Um serviço **nunca** referencia o `Domain` ou `Application` de outro serviço diretamente — nem por `ProjectReference`, nem lendo o banco de dados do outro. Se um serviço precisar de algo de outro, isso passa por um contrato explícito (HTTP, evento), nunca por acoplamento direto de código ou de dados.
 
-**A única exceção são os projetos de contrato**, em `src/Contracts/` (ex.: `Ouroboros.Contracts.Notifications`). Eles contêm somente DTOs versionados e constantes, e podem ser referenciados pela `Application` tanto de quem produz quanto de quem consome. Um projeto de contrato não tem banco, não tem entidade EF Core e não tem SDK de transporte — se precisar de alguma dessas coisas, virou serviço e não é mais contrato.
+**A única exceção são os projetos de contrato**, em `src/Contracts/` (ex.: `Ouroboros.Contracts.Notifications`). Eles contêm somente DTOs versionados e constantes, e podem ser referenciados pela `Application` tanto de quem produz quanto de quem consome. Um projeto de contrato não tem banco, não tem entidades de domínio nem SDK de transporte — se precisar de alguma dessas coisas, virou serviço e não é mais contrato.
 
 Todos os serviços podem depender de `src/BuildingBlocks/` (código técnico compartilhado entre serviços), mas nunca uns dos outros. `BuildingBlocks` é só código: cada serviço persiste seus próprios dados no seu próprio banco, mesmo usando um tipo compartilhado (ex.: `ErrorLog`, `OutboxMessage`).
 
-Diferente de um monolito modular, aqui essa regra não é só convenção de código — ela é reforçada por processo e banco separados: não tem como um serviço acidentalmente ler o `DbContext` do outro, porque eles nem compartilham o mesmo processo.
+Diferente de um monolito modular, aqui essa regra não é só convenção de código — ela é reforçada por processo e banco separados: um serviço não acessa a sessão SQL ou o banco do outro.

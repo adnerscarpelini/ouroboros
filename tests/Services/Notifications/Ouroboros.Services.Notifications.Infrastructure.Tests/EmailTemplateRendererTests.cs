@@ -20,7 +20,7 @@ public class EmailTemplateRendererTests
 	{
 		var template = ConfirmationTemplate();
 
-		var rendered = await new EmailTemplateRenderer().RenderAsync(
+		var rendered = await new EmailTemplateRendererService().RenderAsync(
 			template: template,
 			data: new Dictionary<string, string>
 			{
@@ -44,7 +44,7 @@ public class EmailTemplateRendererTests
 	[Fact]
 	public async Task RenderAsync_EscapesValuesThatCameFromUserInput()
 	{
-		var rendered = await new EmailTemplateRenderer().RenderAsync(
+		var rendered = await new EmailTemplateRendererService().RenderAsync(
 			template: ConfirmationTemplate(),
 			data: new Dictionary<string, string>
 			{
@@ -62,7 +62,7 @@ public class EmailTemplateRendererTests
 	[Fact]
 	public async Task RenderAsync_WithMissingPlaceholder_Fails()
 	{
-		var renderer = new EmailTemplateRenderer();
+		var renderer = new EmailTemplateRendererService();
 
 		await Assert.ThrowsAsync<InvalidOperationException>(() => renderer.RenderAsync(
 			template: ConfirmationTemplate(),

@@ -55,6 +55,7 @@ public sealed class AuthenticationService : IAuthenticationService
 		if (!_passwordHasher.Verify(passwordHash: user.PasswordHash, password: password))
 		{
 			user.RegisterFailedLoginAttempt();
+			_userRepository.Update(user);
 
 			await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -67,6 +68,7 @@ public sealed class AuthenticationService : IAuthenticationService
 		}
 
 		user.RegisterSuccessfulLogin();
+		_userRepository.Update(user);
 
 		var authenticationResult = IssueAuthenticationResult(user);
 
@@ -97,6 +99,7 @@ public sealed class AuthenticationService : IAuthenticationService
 
 		// Rotação: o refresh token usado é revogado e um novo par access+refresh é emitido.
 		storedRefreshToken.Revoke();
+		_refreshTokenRepository.Update(storedRefreshToken);
 
 		var authenticationResult = IssueAuthenticationResult(storedRefreshToken.User);
 
@@ -121,6 +124,7 @@ public sealed class AuthenticationService : IAuthenticationService
 		}
 
 		storedRefreshToken.Revoke();
+		_refreshTokenRepository.Update(storedRefreshToken);
 
 		await _unitOfWork.SaveChangesAsync(cancellationToken);
 

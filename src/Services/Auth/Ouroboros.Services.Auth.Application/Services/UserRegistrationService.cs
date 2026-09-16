@@ -125,6 +125,8 @@ public sealed class UserRegistrationService : IUserRegistrationService
 
 		storedToken.Validate();
 		storedToken.User.ConfirmEmail();
+		_tokenRepository.Update(storedToken);
+		_userRepository.Update(storedToken.User);
 
 		await _unitOfWork.SaveChangesAsync(cancellationToken);
 

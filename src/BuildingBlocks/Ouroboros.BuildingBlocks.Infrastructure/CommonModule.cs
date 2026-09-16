@@ -6,20 +6,24 @@ namespace Ouroboros.BuildingBlocks.Infrastructure;
 
 public static class CommonModule
 {
-	// TDbContext é o DbContext concreto do serviço chamador (ex.: AuthDbContext), exposto aqui também
-	// como AppDbContext — o tipo base que ErrorLogService/OutboxMessageQueue conhecem. É assim que cada
-	// serviço persiste ErrorLog/OutboxMessage na própria base sem que BuildingBlocks conheça serviço algum.
-	// O parâmetro de tipo é obrigatório de propósito: antes esse registro era escrito à mão no
-	// Add<NomeDoServico>Module de cada serviço e, se esquecido, o projeto compilava e só quebrava em
-	// runtime dentro do GlobalExceptionHandler — mascarando o erro original. Agora é o compilador que cobra.
-	// Ver docs/0000 - Arquitetura.md, seção "BuildingBlocks".
-	public static IServiceCollection AddCommon<TDbContext>(this IServiceCollection services)
-		where TDbContext : AppDbContext
+	public static IServiceCollection AddSqlDatabase(
+		this IServiceCollection services,
+		string connectionString)
 	{
-		services.AddScoped<AppDbContext>(serviceProvider => serviceProvider.GetRequiredService<TDbContext>());
+		services.AddSingleton<IDbConnectionFactory>(
+			new NpgsqlConnectionFactory(connectionString));
+		services.AddScoped<DbSession>();
 
+		return services;
+	}
+
+	// Cada serviço persiste seus registros comuns no próprio banco. O BuildingBlocks conhece somente
+	// a conexão SQL e os nomes físicos das tabelas, nunca modelos de persistência de outro serviço.
+	// Ver docs/0000 - Arquitetura.md, seção "BuildingBlocks".
+	public static IServiceCollection AddCommon(this IServiceCollection services)
+	{
 		services.AddHttpContextAccessor();
-		services.AddScoped<ICorrelationIdAccessor, HttpCorrelationIdAccessor>();
+		services.AddScoped<ICorrelationIdAccessor, HttpCorrelationIdAccessorService>();
 
 		services.AddScoped<IErrorLogService, ErrorLogService>();
 
@@ -31,28 +35,27 @@ public static class CommonModule
 	// registrar erro sem produzir mensagem nenhuma.
 	//
 	// O transporte em si (IMessagePublisher) é registrado à parte, pela mensageria. Sem ele, as
-	// mensagens continuam sendo gravadas e ficam pendentes — ver OutboxPublisherProcessor.
-	public static IServiceCollection AddTransactionalOutbox<TDbContext>(
+	// mensagens continuam sendo gravadas e ficam pendentes — ver OutboxPublisherProcessorService.
+	public static IServiceCollection AddTransactionalOutbox(
 		this IServiceCollection services,
 		OutboxProducer producer,
 		OutboxOptions options
 	)
-		where TDbContext : AppDbContext
 	{
 		services.AddSingleton(producer);
 		services.AddSingleton(options);
-		services.AddScoped<IOutboxMessageQueue, OutboxMessageQueue>();
+	services.AddScoped<IOutboxMessageQueue, OutboxMessageQueueService>();
 		// Registrado por fábrica de propósito: o transporte só passa a existir quando a mensageria for
 		// configurada, e a validação de serviços que o contêiner faz na subida recusaria um construtor
 		// que exige IMessagePublisher antes disso — derrubando a Api inteira por causa de um
-		// componente que ainda nem deveria rodar. Quem decide se roda é o OutboxPublisherProcessor.
-		services.AddScoped(serviceProvider => new OutboxPublisher<TDbContext>(
-			dbContext: serviceProvider.GetRequiredService<TDbContext>(),
-			messagePublisher: serviceProvider.GetRequiredService<IMessagePublisher>(),
+		// componente que ainda nem deveria rodar. Quem decide se roda é o OutboxPublisherProcessorService.
+		services.AddScoped(serviceProvider => new OutboxPublisherService(
+			session: serviceProvider.GetRequiredService<DbSession>(),
+			publisher: serviceProvider.GetRequiredService<IMessagePublisher>(),
 			options: serviceProvider.GetRequiredService<OutboxOptions>(),
-			logger: serviceProvider.GetRequiredService<ILogger<OutboxPublisher<TDbContext>>>()
+			logger: serviceProvider.GetRequiredService<ILogger<OutboxPublisherService>>()
 		));
-		services.AddHostedService<OutboxPublisherProcessor<TDbContext>>();
+		services.AddHostedService<OutboxPublisherProcessorService>();
 
 		return services;
 	}

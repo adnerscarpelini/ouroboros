@@ -1,18 +1,33 @@
+using Ouroboros.BuildingBlocks.Infrastructure;
 using Ouroboros.Services.Notifications.Application;
 
 namespace Ouroboros.Services.Notifications.Infrastructure;
 
 public sealed class UnitOfWork : IUnitOfWork
 {
-	private readonly NotificationsDbContext _dbContext;
+	private readonly DbSession _session;
 
-	public UnitOfWork(NotificationsDbContext dbContext)
+	public UnitOfWork(DbSession session)
 	{
-		_dbContext = dbContext;
+		_session = session;
 	}
 
-	public Task SaveChangesAsync(CancellationToken cancellationToken)
+	public async Task SaveChangesAsync(CancellationToken cancellationToken)
 	{
-		return _dbContext.SaveChangesAsync(cancellationToken);
+		if (_session.Transaction is null)
+		{
+			await _session.BeginTransactionAsync(cancellationToken);
+		}
+
+		try
+		{
+			await _session.FlushAsync(cancellationToken);
+			await _session.CommitAsync(cancellationToken);
+		}
+		catch
+		{
+			await _session.RollbackAsync(cancellationToken);
+			throw;
+		}
 	}
 }

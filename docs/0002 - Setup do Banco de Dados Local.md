@@ -41,7 +41,7 @@ O `.env` tem duas senhas, não uma só — a instância Postgres é compartilhad
    ```
 2. Abrir o `.env` e trocar os dois `change-me` por senhas de verdade (quaisquer uma, é ambiente local).
 
-Se a máquina foi formatada e o `.env` antigo se perdeu, isso é esperado — é só criar um novo `.env` com senhas novas. Como os dados do banco ficam num volume Docker (não no `.env`), só o container em si precisa ser recriado; se o volume também tiver sido perdido (ex.: reinstalou o Docker do zero), o banco sobe vazio de novo — nesse caso é preciso reaplicar as migrations (`dotnet ef database update`, ver seção 6) e atualizar a connection string no User Secrets com a nova senha.
+Se a máquina foi formatada e o `.env` antigo se perdeu, isso é esperado — é só criar um novo `.env` com senhas novas. Como os dados do banco ficam num volume Docker (não no `.env`), só o container em si precisa ser recriado; se o volume também tiver sido perdido (ex.: reinstalou o Docker do zero), o banco sobe vazio de novo — nesse caso é preciso reaplicar as migrations SQL com o runner (ver seção 6) e atualizar a connection string no runner com a nova senha.
 
 ## 4. Subir o banco
 
@@ -109,23 +109,32 @@ Também pelo User Secrets: o par de chaves RSA usado para assinar (JWT) e valida
 
 Sem isso, a Api lança erro ao iniciar (`Configuração 'Jwt:SigningKeyPem' não definida` ou `'Jwt:PublicKeyPem' não definida`).
 
-## 6. Instalar a ferramenta `dotnet-ef`
+## 6. Aplicar migrations SQL
 
-Necessária pra criar/aplicar migrations:
+As migrations ficam em cada `Infrastructure/Migrations` e são aplicadas pelo projeto administrativo `Ouroboros.DatabaseMigrator`. O runner usa a tabela `public.schema_migrations`, valida checksum e executa cada arquivo em uma transação. O Compose não aplica migrations automaticamente.
 
-```bash
-dotnet tool install --global dotnet-ef
+Defina a connection string fora do repositório. No PowerShell, por exemplo:
+
+```powershell
+$env:OUROBOROS_AUTH_CONNECTION_STRING = "Host=localhost;Port=5432;Database=ouroboros_auth;Username=auth_service;Password=<AUTH_DB_PASSWORD do .env>"
+$env:OUROBOROS_NOTIFICATIONS_CONNECTION_STRING = "Host=localhost;Port=5432;Database=ouroboros_notifications;Username=notifications_service;Password=<NOTIFICATIONS_DB_PASSWORD do .env>"
 ```
 
-Cada serviço tem as suas, aplicadas separadamente. Rodar dentro da pasta `Infrastructure` do serviço:
+Confira primeiro o que será executado:
 
-```bash
-# Auth (dentro de src/Services/Auth/Ouroboros.Services.Auth.Infrastructure)
-dotnet ef database update --startup-project ../Ouroboros.Services.Auth.Api --context AuthDbContext
-
-# Notificações (dentro de src/Services/Notifications/Ouroboros.Services.Notifications.Infrastructure)
-dotnet ef database update --startup-project ../Ouroboros.Services.Notifications.Api --context NotificationsDbContext
+```powershell
+dotnet run --project src/Tools/Ouroboros.DatabaseMigrator -- auth --dry-run
+dotnet run --project src/Tools/Ouroboros.DatabaseMigrator -- notifications --dry-run
 ```
+
+Depois aplique cada banco separadamente:
+
+```powershell
+dotnet run --project src/Tools/Ouroboros.DatabaseMigrator -- auth
+dotnet run --project src/Tools/Ouroboros.DatabaseMigrator -- notifications
+```
+
+O runner não deve ser executado com a senha do superusuário `postgres`: cada serviço aplica suas próprias migrations usando sua role (`auth_service` ou `notifications_service`).
 
 ## 7. Instalar o DBeaver e conectar
 

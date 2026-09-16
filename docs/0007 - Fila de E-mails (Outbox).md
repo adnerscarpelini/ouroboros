@@ -49,17 +49,17 @@ publisher (background)
 | `OutboxMessage` | `BuildingBlocks.Domain` | A linha da outbox: tipo, versão, payload, correlação e estado da publicação. |
 | `IOutboxMessageQueue` | `BuildingBlocks.Application` | Enfileira. Chamado pelo caso de uso, dentro da transação dele. |
 | `IMessagePublisher` | `BuildingBlocks.Application` | O transporte. Sem implementação registrada, nada é publicado. |
-| `OutboxPublisher<TDbContext>` | `BuildingBlocks.Infrastructure` | Uma passada pela outbox: pega um lote, tenta publicar, grava o resultado. |
-| `OutboxPublisherProcessor<TDbContext>` | `BuildingBlocks.Infrastructure` | `BackgroundService` que chama o publisher de tempos em tempos. |
+| `OutboxPublisherService` | `BuildingBlocks.Infrastructure` | Uma passada SQL pela outbox: pega um lote, tenta publicar, grava o resultado. |
+| `OutboxPublisherProcessorService` | `BuildingBlocks.Infrastructure` | `BackgroundService` que chama o publisher de tempos em tempos. |
 | `EmailNotificationRequestedV1` | `Contracts.Notifications` | O contrato entre produtor e Notificações. Só DTO, sem dependência de projeto. |
 | `IEmailDeliveryIntakeService` | `Notifications.Application` | A porta de entrada do consumidor: valida, deduplica e persiste. |
 | `EmailDelivery` | `Notifications.Domain` | A entrega em si, com estado, tentativas e conteúdo já renderizado. |
-| `EmailDeliveryDispatcher` | `Notifications.Infrastructure` | Uma passada pela fila de entregas: pega um lote, entrega, grava o resultado. |
-| `SmtpEmailSender` | `Notifications.Infrastructure` | Implementação SMTP (MailKit). Só Notificações conhece servidor de e-mail. |
+| `EmailDeliveryDispatcherService` | `Notifications.Infrastructure` | Uma passada pela fila de entregas: pega um lote, entrega, grava o resultado. |
+| `SmtpEmailSenderService` | `Notifications.Infrastructure` | Implementação SMTP (MailKit). Só Notificações conhece servidor de e-mail. |
 
 `Dispatcher`/`Publisher` e `Processor` são separados de propósito: um sabe **o que fazer**, o outro **de quanto em quanto tempo**. É o que permite testar o despacho sem depender de temporizador.
 
-O parâmetro de tipo `TDbContext` mantém a regra de isolamento: cada produtor publica a própria outbox, na própria base. `BuildingBlocks` continua sendo só código.
+Cada produtor publica a própria outbox, na própria base, usando sua própria conexão SQL. `BuildingBlocks` continua sendo só código.
 
 ## Quem decide o quê
 
@@ -99,12 +99,12 @@ O `X-Correlation-Id` posto pelo Api Gateway é persistido na outbox, viaja no en
 
 ## Estado atual: sem transporte
 
-**O transporte ainda não existe.** RabbitMQ é uma entrega própria — ver `specs/2026-09-10 - Mensageria com RabbitMQ.md`.
+**O transporte ainda não existe.** A escolha e a implementação de um broker (RabbitMQ ou outro) são uma entrega própria, ainda não iniciada.
 
 Enquanto isso:
 
 - O Auth grava normalmente em `common.outbox_messages`, dentro da transação. Nada se perde.
-- Nenhum `IMessagePublisher` está registrado, então o `OutboxPublisherProcessor` avisa uma vez na subida e não roda. É melhor do que falhar de 15 em 15 segundos contra um transporte que ninguém registrou.
+- Nenhum `IMessagePublisher` está registrado, então o `OutboxPublisherProcessorService` avisa uma vez na subida e não roda. É melhor do que falhar de 15 em 15 segundos contra um transporte que ninguém registrou.
 - Notificações está de pé e entrega tudo que estiver persistido no banco dele — só não chega nada novo.
 
 Ou seja: **e-mail não é entregue em desenvolvimento até a mensageria existir**. As solicitações ficam visíveis em `common.outbox_messages`, com `status = 0` (`Pending`).
@@ -134,8 +134,8 @@ Produtor (`appsettings.json` do serviço), seção `Outbox`:
 Ligada no `Program.cs`, ao lado do `AddCommon`:
 
 ```csharp
-builder.Services.AddCommon<AuthDbContext>();
-builder.Services.AddTransactionalOutbox<AuthDbContext>(
+builder.Services.AddCommon();
+builder.Services.AddTransactionalOutbox(
 	producer: new OutboxProducer(NotificationProducers.Auth),
 	options: outboxOptions
 );

@@ -11,7 +11,9 @@ Skill base pra tudo relacionado a documentação no projeto Ouroboros. Complemen
 
 - Todo documento fica em `docs/`, em **Markdown**, numerado sequencialmente: `0000 - Arquitetura.md`, `0001 - Comandos Git.md`, `0002 - Setup do Banco de Dados Local.md`, etc.
 - `docs/` contém somente documentação permanente do projeto: arquitetura, processos, funcionamento e decisões consolidadas.
-- Especificações de trabalho ficam em `specs/` na raiz do repositório. Elas representam histórias/items de trabalho no estilo Jira e usam o nome `YYYY-MM-DD - Titulo.md`.
+- Especificações de trabalho ficam em `specs/` na raiz do repositório. Elas representam histórias/items de trabalho no estilo Jira e usam o nome `AAAAMMDDHHMMSS-Descricao.md`.
+- O prefixo tem 14 dígitos, na ordem ano, mês, dia, hora, minuto e segundo. A descrição usa PascalCase ou palavras separadas por hífen, sem espaços. Exemplo: `20260915153000-MigrateLegacyPersistenceToSql.md`.
+- Specs históricas mantêm seus nomes originais; o padrão novo vale para specs criadas a partir de agora.
 - Toda spec deve começar com front matter YAML contendo `title` e `state`. Os estados permitidos são `new`, `in progress` e `done`.
 - Antes de desenvolver uma nova feature, procure uma spec correspondente e pergunte ao usuário se ela já existe. Se não existir, crie-a antes da implementação; se existir, trabalhe sobre ela e atualize-a conforme o escopo, decisões, arquivos afetados e critérios de aceite evoluírem.
 - Ao sugerir uma mensagem de commit, inclua a data/número da spec correspondente.

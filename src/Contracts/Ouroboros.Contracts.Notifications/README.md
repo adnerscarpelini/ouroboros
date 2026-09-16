@@ -6,7 +6,7 @@ projeto de outro — ver [src/Services/README.md](../../Services/README.md).
 
 Regras deste projeto:
 
-- Só DTOs versionados e constantes. Sem entidade EF Core, sem SDK de broker, sem dependência de projeto.
+- Só DTOs versionados e constantes. Sem entidades de domínio, sem SDK de broker, sem dependência de projeto.
 - Mudança compatível adiciona campo opcional. Mudança semântica cria uma versão nova (`...V2`), com o
   consumidor implantado antes do produtor.
 - O nome da classe CLR não é o contrato de rede: quem identifica a mensagem é `MessageType` +

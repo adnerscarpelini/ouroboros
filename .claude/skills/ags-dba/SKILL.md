@@ -8,7 +8,7 @@ description: Convenções de banco de dados do projeto Ouroboros — PostgreSQL,
 ## Specs como histórias de trabalho
 
 - Antes de criar ou alterar persistência para uma nova feature, procure em `specs/` a spec correspondente e pergunte ao usuário se ela já existe.
-- Se não existir, crie a spec antes da implementação; se existir, use-a como fonte de escopo e atualize-a durante o trabalho. Specs são histórias/items de trabalho no estilo Jira e usam `YYYY-MM-DD - Titulo.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML.
+- Se não existir, crie a spec antes da implementação; se existir, use-a como fonte de escopo e atualize-a durante o trabalho. Specs são histórias/items de trabalho no estilo Jira e usam `AAAAMMDDHHMMSS-Descricao.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML. Specs históricas mantêm seus nomes originais.
 - Ao sugerir a mensagem de commit de uma alteração de banco, inclua a data/número da spec correspondente.
 
 Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código), a [ags-qa](../ags-qa/SKILL.md) (testes) e a [ags-devops](../ags-devops/SKILL.md) — esta cuida do **container** que hospeda o Postgres, das portas e do Compose; aqui ficam banco, schema, migrations e nomenclatura.
@@ -26,18 +26,29 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 
 ## Migrations
 
-- Ferramenta: **EF Core Migrations**.
-- Cada serviço com persistência tem seu próprio `DbContext` (na camada `Infrastructure` do serviço, nomeado `<NomeDoServico>DbContext`, ex.: `AuthDbContext`), configurado para usar o schema daquele serviço via `modelBuilder.HasDefaultSchema("<schema>")` em `OnModelCreating`, mais o mapeamento de `BuildingBlocks` (`ApplyCommonEntities()`) pro schema `common` — e suas próprias migrations, únicas pro banco daquele serviço. Todo `DbContext` de serviço herda de `AppDbContext` (`Ouroboros.BuildingBlocks.Infrastructure`) em vez de `DbContext` diretamente — ver seção "Entidade base" abaixo.
-- Pacotes usados no `Infrastructure` de cada serviço com persistência: `Npgsql.EntityFrameworkCore.PostgreSQL` e `EFCore.NamingConventions`. O `Microsoft.EntityFrameworkCore.Design` (necessário pra ferramenta `dotnet ef`) fica só no projeto `Api` daquele serviço (projeto de entrada).
-- Comando pra criar/aplicar uma migration de um serviço (rodar dentro da pasta `Infrastructure` do serviço — o `Api` é irmão dela, `--startup-project` sobe só um nível):
-  ```bash
-  dotnet ef migrations add NomeDaMigration --startup-project ../Ouroboros.Services.<NomeDoServico>.Api --context <NomeDoServico>DbContext
-  dotnet ef database update --startup-project ../Ouroboros.Services.<NomeDoServico>.Api --context <NomeDoServico>DbContext
+- A estratégia adotada é **SQL-first**: migrations novas são arquivos `.sql` escritos manualmente, sem gerar o schema a partir de modelos de ORM.
+- Cada serviço com persistência mantém suas migrations na própria camada `Infrastructure`, em `Migrations/`, e aplica somente migrations do seu próprio banco lógico.
+- O nome de toda migration nova deve seguir exatamente:
+  ```text
+  AAAAMMDDHHMMSS-Descricao.sql
   ```
+  O prefixo tem 14 dígitos, usando a data e hora local de criação da migration: ano, mês, dia, hora, minuto e segundo. A descrição usa PascalCase ou palavras separadas por hífen, sem espaços. Exemplos:
+  ```text
+  20260915143000-CreateUsersTable.sql
+  20260915143112-AddEmailConfirmedAtToUsers.sql
+  ```
+- O prefixo temporal é a ordenação oficial. Duas migrations não podem ter o mesmo prefixo; se necessário, aguardar o próximo segundo ou ajustar manualmente o timestamp antes do commit.
+- Depois que uma migration for aplicada em qualquer ambiente compartilhado, seu arquivo é imutável. Correções devem ser feitas em uma nova migration posterior; não reescrever o histórico.
+- O executor deve manter uma tabela de histórico por banco, por exemplo `public.schema_migrations`, registrando o nome/versionamento, checksum e data de aplicação. Uma migration já registrada com checksum diferente deve interromper a execução.
+- Cada migration deve ser transacional quando o PostgreSQL permitir. DDL destrutivo exige revisão explícita e, para mudanças incompatíveis, deve-se preferir o padrão expandir/migrar/contrair.
+- Seeds e dados de referência pertencem a migrations SQL idempotentes ou versionadas, nunca a código de inicialização da API. A migration deve declarar o schema explicitamente e respeitar `snake_case`.
+- Todas as migrations do projeto devem ser arquivos `.sql` manuais. O histórico legado que não estiver em SQL deve ser convertido para SQL antes de permanecer no repositório; não manter arquivos de migration de ORM.
+- A aplicação das migrations será feita por uma ferramenta administrativa/runner própria do projeto, fora do startup normal da API. O Compose não aplica migrations automaticamente.
+- Palavras-chave SQL em maiúsculo (`CREATE TABLE`, `ALTER TABLE`, `NOT NULL`, `PRIMARY KEY`, `CONSTRAINT`, `FOREIGN KEY`, `REFERENCES`, `ON DELETE CASCADE`, `GENERATED BY DEFAULT AS IDENTITY`, `CREATE UNIQUE INDEX`, etc.) — mesma convenção do SQL escrito nos repositórios (ver "Persistência com SQL explícito" abaixo). Nomes de schema/tabela/coluna continuam em `snake_case`; nomes de tipo (`bigint`, `uuid`, `text`, `timestamp with time zone`, `boolean`, `integer`) ficam em minúsculo, como identificadores.
 
 ## Registro do serviço (DI)
 
-- Cada serviço com persistência expõe um único método de extensão em `Infrastructure`, no padrão `Add<NomeDoServico>Module(this IServiceCollection services, string connectionString, ...)`, que registra o `DbContext` do serviço (com `UseNpgsql` + `UseSnakeCaseNamingConvention`) e os serviços de `Application` daquele serviço. A `Api` do serviço só chama esse método — não registra `DbContext`/serviços diretamente no `Program.cs`.
+- Cada serviço com persistência expõe um único método de extensão em `Infrastructure`, no padrão `Add<NomeDoServico>Module(this IServiceCollection services, string connectionString, ...)`, que registra `IDbConnectionFactory`, `DbSession`, repositórios e serviços de `Application` daquele serviço. A `Api` do serviço só chama esse método — não registra repositórios/conexões diretamente no `Program.cs`.
 
 ## Segredos e connection string
 
@@ -46,12 +57,12 @@ Skill base para tudo relacionado a banco de dados no projeto Ouroboros. Compleme
 
 ## Entidade base
 
-Toda entidade persistida herda de `Entity` (`Ouroboros.BuildingBlocks.Domain`), que carrega quatro colunas presentes em **todas** as tabelas do sistema, sempre nessa ordem física (garantida por `HasColumnOrder` em `AppDbContext`):
+Toda entidade persistida herda de `Entity` (`Ouroboros.BuildingBlocks.Domain`), que carrega quatro colunas presentes em **todas** as tabelas do sistema, sempre nessa ordem física (definida nas migrations SQL):
 
 1. `id` (`long` / `bigint`, identity) — chave primária interna, usada em joins e FKs. Nunca exposta pela Api.
 2. `external_id` (`Guid` / `uuid`, único, gerado em `Guid.NewGuid()` na criação) — identificador público, usado em rotas/DTOs da Api. Enumeration-safe: não revela volume nem ordem de criação como um `id` sequencial exposto revelaria.
 3. `created_at` (`timestamptz`, UTC) — carimbado automaticamente na criação, dentro do construtor de `Entity`.
-4. `updated_at` (`timestamptz`, UTC, nullable) — `null` até a primeira alteração; carimbado **automaticamente** pelo `AppDbContext.SaveChanges`/`SaveChangesAsync` (via `ChangeTracker`, chamando `Entity.MarkAsUpdated()` em toda entidade rastreada como `Modified`). Nenhum código de domínio precisa lembrar de tocar nesse campo.
+4. `updated_at` (`timestamptz`, UTC, nullable) — `null` até a primeira alteração; atualizado explicitamente pelo repositório no mesmo comando SQL que persiste a alteração.
 
 ```csharp
 public abstract class Entity
@@ -74,16 +85,14 @@ public abstract class Entity
 }
 ```
 
-`AppDbContext` (também em `Ouroboros.BuildingBlocks.Infrastructure`) é a base de todo `<NomeDoServico>DbContext`: aplica o índice único em `external_id` e o `HasColumnOrder` pra qualquer entidade que herde de `Entity`, e faz o auto-stamp de `updated_at` no `SaveChanges`. Um `DbContext` de serviço só precisa herdar dele (em vez de `DbContext` puro) — o resto (schema do serviço, índices específicos como `login`/`email` do `User`, e o `ApplyCommonEntities()` do `BuildingBlocks`) continua configurado no próprio `OnModelCreating` do serviço, chamando `base.OnModelCreating(modelBuilder)` no final.
+Os índices, FKs, ordem das colunas e carimbos de atualização são definidos diretamente nas migrations SQL. Os repositórios devem atualizar `updated_at` de forma explícita quando alterarem uma entidade.
 
-## Entidades persistidas (padrão de construtor para o EF Core)
+## Entidades persistidas (reidratação SQL)
 
-Toda entidade que vai ser persistida (tem um `DbSet<T>` em algum `DbContext`) precisa, além do construtor público "de verdade" (com as regras de negócio) e de herdar de `Entity`, de:
+Toda entidade persistida precisa, além do construtor público "de verdade" (com as regras de negócio) e de herdar de `Entity`, de uma fábrica `Rehydrate(...)` usada pelo mapper SQL:
 
-- Um **construtor privado sem parâmetros**, exclusivo para o EF Core materializar a entidade a partir do banco. Como `Entity` já inicializa `ExternalId`/`CreatedAt` no seu próprio construtor sem parâmetros, esse construtor privado da entidade concreta não precisa (e não deve) repetir essa inicialização — o EF sobrescreve todas as propriedades com os valores da linha do banco logo em seguida.
-- **`private set`** em toda propriedade (em vez de só `get`).
-
-Sem isso, o EF Core não consegue reconstruir a entidade a partir de uma linha do banco — na prática, ele passa a ignorar silenciosamente as propriedades sem `set`, e elas somem da migration gerada (ou, no caso do `Id`, o erro é explícito: "requires a primary key to be defined"). Isso já aconteceu com `ErrorLog` e `User` na prática — ver os dois como referência.
+- A fábrica deve receber os valores persistidos e restaurar `Id`, `ExternalId`, `CreatedAt` e `UpdatedAt` por meio de `Entity.RestorePersistence`.
+- **`private set`** em toda propriedade de domínio, preservando invariantes fora do mapper.
 
 ```csharp
 public sealed class ErrorLog : Entity
@@ -103,23 +112,81 @@ public sealed class ErrorLog : Entity
 }
 ```
 
-Propriedades de referência não-nulas (`string`, não `string?`) precisam do `= null!;` no construtor privado, pra não gerar aviso de nullable reference type — o construtor público sempre sobrescreve esse valor de verdade.
+Propriedades de referência não-nulas (`string`, não `string?`) devem ser inicializadas no construtor público ou na fábrica de reidratação.
 
 ## Nomenclatura (casing)
 
 - Tabelas e colunas no Postgres: **snake_case** (ex.: tabela `users`, coluna `created_at`), seguindo a convenção idiomática do Postgres.
-- Entidades e propriedades em C# continuam em PascalCase (ver `ags-developer`); a conversão para snake_case no banco é automática via pacote `EFCore.NamingConventions`, não manual.
+- Entidades, repositórios e propriedades em C# continuam em PascalCase (ver `ags-developer`); nomes SQL devem ser escritos explicitamente em `snake_case`.
 
-## Leitura pesada: Query Objects com Dapper
+## Persistência com SQL explícito
 
-- Padrão default pra qualquer leitura continua sendo **EF Core** (LINQ contra o `DbContext` do serviço) — o mesmo usado pra escrita.
-- Só se cria um **Query Object** com **Dapper** quando uma leitura específica for pesada de verdade (relatório/dashboard com múltiplos joins e agregações, ou uma consulta que já ficou difícil/ineficiente em LINQ). Não criar por antecipação — decisão completa em [docs/0004 - EF Core e Dapper.md](../../../docs/0004%20-%20EF%20Core%20e%20Dapper.md).
-- Convenção, quando existir a necessidade:
-  - Contrato em `Application/Queries/I<Nome>Query.cs`: interface com um único método `ExecuteAsync(...)`, retornando um DTO (`record`) — nunca uma entidade de `Domain`.
-  - Implementação em `Infrastructure/Queries/<Nome>Query.cs`: usa Dapper, SQL escrito à mão, com o schema do serviço explícito na query (Dapper não conhece o `HasDefaultSchema` do `DbContext`).
-  - Registro no mesmo `Add<NomeDoServico>Module` onde já entram os serviços: `services.AddScoped<I<Nome>Query, <Nome>Query>();`.
-  - Conexão vem de `IDbConnectionFactory` (contrato em `Ouroboros.BuildingBlocks.Application`, implementação Npgsql em `Ouroboros.BuildingBlocks.Infrastructure`), reaproveitando a mesma connection string do EF Core.
-  - Pacote `Dapper` entra só no `Infrastructure` do serviço que tiver o primeiro Query Object — mesma regra de "`Infrastructure` só nasce quando há algo real pra colocar lá".
+- Toda leitura e escrita usa **SQL explícito via Npgsql**. Não usar ORM, micro-ORM ou LINQ de persistência para acessar o banco.
+- O SQL deve ser parametrizado, ter o schema explícito e ficar próximo do repositório/query que o utiliza. Nunca concatenar valores recebidos da aplicação no texto SQL.
+- Ao definir ou alterar um padrão de SQL, revisar retroativamente todas as migrations, repositories, serviços e ferramentas do projeto que contenham SQL; a convenção não vale apenas para arquivos novos.
+- O SQL deve ser formatado para leitura visual: nunca concentrar uma instrução inteira em uma única linha.
+- Em `INSERT`, `SELECT`, `UPDATE` e `DELETE`, cada coluna/campo deve ficar em sua própria linha, com indentação consistente.
+- Em `SELECT`, cada expressão selecionada deve ocupar sua própria linha e ser qualificada pelo alias da tabela quando houver mais de uma tabela envolvida.
+- Aliases devem ser claros e representar o conteúdo da tabela, como `refreshTokens`, `users`, `tokenTypes` e `outboxMessages`. Não usar aliases genéricos de uma letra, como `r`, `u`, `t` ou `x`.
+- As cláusulas (`FROM`, `JOIN`, `WHERE`, `VALUES`, `SET`, `ORDER BY`, `GROUP BY`, `RETURNING` e semelhantes) devem começar em linhas próprias.
+- `FROM` e cada `JOIN` devem ficar em uma linha própria, com a tabela e o alias na linha seguinte. A condição `ON` deve ficar em linha própria e suas condições adicionais devem começar com `AND` em nova linha.
+- `WHERE` deve ficar em uma linha própria, com a primeira condição na linha seguinte. Toda condição adicional deve começar com `AND` em nova linha, nunca ficar colada na condição anterior.
+- Listas de colunas e valores devem manter a mesma ordem visual sempre que houver correspondência entre elas.
+- Quando uma instrução SQL for usada como string multilinha no C#, preservar o mesmo formato legível do SQL executado no banco; não compactar a string para economizar linhas.
+- No código C# que executa SQL, separar visualmente as etapas de criação do comando, configuração dos parâmetros, execução, leitura do resultado e mapeamento com linhas em branco. Não colar essas etapas em uma única linha.
+- Blocos condicionais da persistência devem sempre usar chaves e linhas próprias; `return` e `throw` nunca devem aparecer na mesma linha do `if`.
+- Contratos específicos ficam em `Application`; implementações ficam em `Infrastructure`.
+- A infraestrutura compartilhada fornece `IDbConnectionFactory`, `DbSession` e o controle de `DbTransaction`.
+- Cada método retorna tipos fortes (`Domain`, DTO ou `record`), nunca `DataTable`, `DataSet`, `object` ou `byte[]` para transportar registros.
+- O mapeamento de linhas deve ser explícito e testável, tratando `NULL` conscientemente.
+- Todos os métodos de banco são assíncronos e recebem `CancellationToken`.
+- A camada de persistência não traduz exceções para HTTP/WCF; essa tradução pertence à borda da aplicação.
+- Não criar uma classe universal com estado mutável de parâmetros. Parâmetros pertencem ao comando atual e conexão/transação pertencem à sessão atual.
+- Nenhum ORM ou micro-ORM faz parte da arquitetura. Consultas complexas continuam sendo SQL explícito com Npgsql.
+
+Exemplo obrigatório de formatação:
+
+```sql
+INSERT INTO auth.refresh_tokens (
+    external_id,
+    created_at,
+    updated_at,
+    user_id,
+    token_hash,
+    expires_at,
+    revoked_at
+)
+SELECT
+    @external_id,
+    @created_at,
+    @updated_at,
+    id,
+    @token_hash,
+    @expires_at,
+    @revoked_at
+FROM auth.users
+WHERE external_id = @user_external_id;
+```
+
+Formato obrigatório para `SELECT` com `JOIN`:
+
+```sql
+SELECT
+    refreshTokens.id,
+    refreshTokens.external_id,
+    refreshTokens.user_id,
+    users.id AS user_id,
+    users.external_id AS user_external_id
+FROM
+    auth.refresh_tokens AS refreshTokens
+INNER JOIN
+    auth.users AS users
+    ON users.id = refreshTokens.user_id
+WHERE
+    refreshTokens.token_hash = @token_hash
+    AND refreshTokens.revoked_at IS NULL
+LIMIT 1;
+```
 
 ```csharp
 // Application/Queries/IUserLoginAttemptsReportQuery.cs

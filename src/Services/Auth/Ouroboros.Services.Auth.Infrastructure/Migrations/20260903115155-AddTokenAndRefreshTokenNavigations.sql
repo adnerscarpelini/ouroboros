@@ -1,0 +1,1 @@
+-- No schema change. The EF migration only synchronized model navigation metadata.

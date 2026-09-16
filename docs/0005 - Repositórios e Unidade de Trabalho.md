@@ -2,32 +2,32 @@
 
 ## Contexto
 
-Os casos de uso do Auth (registrar usuário, confirmar e-mail, login, refresh, logout, redefinir senha) nasceram em `UserService`, dentro da camada `Infrastructure`, dependendo direto do `AuthDbContext`.
+Os casos de uso do Auth (registrar usuário, confirmar e-mail, login, refresh, logout, redefinir senha) usam contratos da `Application` e implementações SQL na `Infrastructure`.
 
 Isso invertia o objetivo da Clean Architecture na prática:
 
 - A `Application`, que deveria ser a camada independente de framework, só tinha interfaces e DTOs — nenhuma regra.
-- A regra de negócio ficava soldada ao EF Core, na camada mais externa das três.
-- O sintoma: `Ouroboros.Services.Auth.Application.Tests` não tinha nenhum teste (não havia o que testar ali), e toda a regra era testada em `Infrastructure.Tests`, sempre com um `DbContext` em memória.
+- A regra de negócio ficava soldada à infraestrutura, na camada mais externa das três.
+- O sintoma: `Ouroboros.Services.Auth.Application.Tests` não tinha nenhum teste (não havia o que testar ali), e toda a regra era testada em `Infrastructure.Tests`, sempre acoplada à infraestrutura.
 
 Havia também um problema de consistência: cada caso de uso chamava `SaveChanges` várias vezes, sem transação. Uma falha no meio de `CreateUserAsync` deixava um usuário gravado sem nenhum token de confirmação — ou seja, uma conta impossível de ativar.
 
 ## Decisão
 
-Os casos de uso moram na `Application`. A `Application` fala com o banco apenas por contratos que ela mesma declara; a `Infrastructure` implementa esses contratos com EF Core.
+Os casos de uso moram na `Application`. A `Application` fala com o banco apenas por contratos que ela mesma declara; a `Infrastructure` implementa esses contratos com SQL explícito via Npgsql.
 
 ### Repositórios
 
 - Um contrato por agregado, em `Application/Interfaces/`: `IUserRepository`, `ITokenRepository`, `IRefreshTokenRepository`, `ITokenTypeRepository`.
-- Implementação em `Infrastructure/Persistence/Repositories/`, usando o `DbContext` do serviço.
-- Os métodos são específicos da intenção (`GetByHashAsync`, `ExistsByLoginAsync`), não genéricos (`GetAll`, `Find`). Um repositório genérico só devolveria o `IQueryable` do EF com outro nome, e o acoplamento voltaria pela porta dos fundos.
+- Implementação em `Infrastructure/Persistence/Repositories/`, usando `DbSession` e SQL parametrizado.
+- Os métodos são específicos da intenção (`GetByHashAsync`, `ExistsByLoginAsync`), não genéricos (`GetAll`, `Find`). Um repositório genérico esconderia a intenção da consulta e dificultaria a revisão do SQL.
 - `Add` só marca a entidade para inclusão. Quem grava é o `IUnitOfWork`.
 
 ### Unidade de trabalho
 
 - `IUnitOfWork` (em `Application/Interfaces/`) expõe `SaveChangesAsync` e `ExecuteInTransactionAsync`.
-- A implementação (`Infrastructure/Persistence/UnitOfWork.cs`) delega ao mesmo `DbContext` que os repositórios usam — por isso tudo cai na mesma transação.
-- `ExecuteInTransactionAsync` roda a operação dentro da estratégia de execução do provider (`CreateExecutionStrategy`), não o contrário: é ela que sabe repetir a operação em falha transitória, e um retry precisa refazer a transação inteira.
+- A implementação (`Infrastructure/Persistence/UnitOfWork.cs`) coordena a mesma `DbSession` que os repositórios usam — por isso tudo cai na mesma transação.
+- `ExecuteInTransactionAsync` mantém a transação explícita e os comandos SQL pendentes no mesmo contexto de execução.
 - Um caso de uso que precise de mais de um `SaveChanges` usa `ExecuteInTransactionAsync`. É o caso de `CreateUserAsync`, que precisa gravar a mensagem de e-mail antes de criar o `Token` que aponta pra ela (o id da mensagem só existe depois de gravada).
 
 ### Referências navegáveis no Domain
@@ -39,8 +39,8 @@ new Token(tokenType: tokenType, user: user, emailMessageId: ..., tokenHash: ...,
 ```
 
 - O caso de uso deixa de depender de um id que só existe depois de gravar — o que é o que permite testá-lo sem banco nenhum.
-- As colunas e chaves estrangeiras são exatamente as mesmas de antes (`token_type_id`, `user_id`). A migration `AddTokenAndRefreshTokenNavigations` é intencionalmente vazia: muda o modelo do EF Core, não o banco.
-- Quem lê do banco precisa trazer a navegação junto (`Include`) — por isso `GetByHashAsync` carrega `TokenType` e `User`.
+- As colunas e chaves estrangeiras são exatamente as mesmas de antes (`token_type_id`, `user_id`). A migration correspondente é registrada como SQL versionado; alterações de modelo que não mudam o banco não geram migration.
+- Quem lê do banco precisa trazer os dados relacionados explicitamente no `SELECT` — por isso `GetByHashAsync` carrega `TokenType` e `User`.
 - `Token.NotificationRequestId` é um `Guid` solto de propósito: a entrega vive no banco do serviço de Notificações, e chave estrangeira não atravessa serviço. O token também sobrevive à limpeza da outbox, então nem uma FK local caberia — ver [0007](0007%20-%20Fila%20de%20E-mails%20%28Outbox%29.md).
 
 ### Um serviço por assunto
@@ -49,13 +49,13 @@ new Token(tokenType: tokenType, user: user, emailMessageId: ..., tokenHash: ...,
 
 ## O que isso comprou
 
-- `Auth.Application.Tests` testa toda a regra de negócio com fakes em memória, sem EF Core e sem banco — ver `AuthTestContext`.
+- `Auth.Application.Tests` testa toda a regra de negócio com fakes em memória, sem banco — ver `AuthTestContext`.
 - `Auth.Infrastructure.Tests` passa a testar o que só a infraestrutura sabe: se os repositórios trazem as navegações certas e se as consultas filtram o que deveriam.
 - A atomicidade é verificável: um teste afirma que `CreateUserAsync` roda tudo numa transação só.
 
 ## Consequências
 
-- Mais arquivos por caso de uso: um contrato na `Application` e uma implementação na `Infrastructure`, em vez de um `DbContext` injetado direto.
-- Repositório sobre EF Core é uma crítica conhecida (o `DbSet` já é um repositório). O que se ganha aqui não é trocar de ORM um dia — é manter a regra de negócio testável e livre de framework, que é o objetivo de estudo do projeto.
-- Consultas pesadas de leitura não passam por repositório: continuam seguindo o padrão de Query Object com Dapper descrito em [0004 - EF Core e Dapper](0004%20-%20EF%20Core%20e%20Dapper.md).
-- `ExecuteInTransactionAsync` não é exercitado por teste automatizado: o provider em memória usado nos testes não suporta transação. A garantia vem do teste manual contra o Postgres real.
+- Mais arquivos por caso de uso: um contrato na `Application` e uma implementação na `Infrastructure`, em vez de uma sessão SQL injetada diretamente no caso de uso.
+- Repositórios usam SQL explícito e mapeamento manual; não há ORM ou micro-ORM na persistência.
+- Consultas pesadas de leitura continuam seguindo o padrão de Query Object com SQL e Npgsql descrito em [0004 - SQL explícito e persistência](0004%20-%20SQL%20explícito%20e%20persistência.md).
+- `ExecuteInTransactionAsync` deve ser exercitado em testes de integração contra o Postgres real.

@@ -12,7 +12,7 @@ public sealed class RefreshToken : Entity
 	// Referência navegável para a mesma coluna user_id — ver comentário equivalente em Token.
 	public User User { get; private set; } = null!;
 
-	// Construtor sem parâmetros exclusivo para o EF Core materializar a entidade a partir do banco.
+	// Construtor sem parâmetros usado exclusivamente pela fábrica de reidratação SQL.
 	private RefreshToken()
 	{
 	}
@@ -27,6 +27,27 @@ public sealed class RefreshToken : Entity
 		TokenHash = tokenHash;
 		ExpiresAt = expiresAt;
 		RevokedAt = null;
+	}
+
+	public static RefreshToken Rehydrate(
+		long id,
+		Guid externalId,
+		DateTime createdAt,
+		DateTime? updatedAt,
+		long userId,
+		User user,
+		string tokenHash,
+		DateTime expiresAt,
+		DateTime? revokedAt)
+	{
+		var refreshToken = new RefreshToken(user, tokenHash, expiresAt)
+		{
+			UserId = userId,
+			RevokedAt = revokedAt
+		};
+
+		refreshToken.RestorePersistence(id, externalId, createdAt, updatedAt);
+		return refreshToken;
 	}
 
 	public void Revoke()

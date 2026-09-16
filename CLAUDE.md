@@ -25,8 +25,12 @@ dotnet run --project src/Services/Notifications/Ouroboros.Services.Notifications
 # rodar o Api Gateway (porta pública 5082/7272) — precisa do Auth rodando pra ter o que rotear
 dotnet run --project src/ApiGateways/Ouroboros.ApiGateway
 
-# rodar todos os testes
-dotnet test
+# rodar todos os testes (o build já roda isso sozinho, ver Directory.Build.targets — exclui os de integração)
+dotnet test --filter "Category!=Integration"
+
+# rodar os testes de integração (repositórios, UnitOfWork, migrator) — sobem Postgres efêmero via
+# Testcontainers, exigem Docker rodando e não entram no dotnet build automático por serem mais lentos
+dotnet test --filter "Category=Integration"
 
 # rodar os testes de um único projeto
 dotnet test tests/BuildingBlocks/Ouroboros.BuildingBlocks.Domain.Tests
@@ -61,7 +65,7 @@ A dependência flui sempre para dentro: `Api` → `Infrastructure` → `Applicat
 
 Dentro de cada projeto, classes são agrupadas por tipo em subpastas (`Interfaces/`, `Models/`, `Services/`, `Persistence/`, `Persistence/Repositories/`, `Options/`) — ver "Organização de pastas dentro de um projeto" em [docs/0000](docs/0000%20-%20Arquitetura.md#organização-de-pastas-dentro-de-um-projeto).
 
-Os casos de uso ficam na camada `Application` de cada serviço (ex.: `UserRegistrationService`), e falam com o banco só por contratos que ela declara (`IUserRepository`, `IUnitOfWork`) — nunca injetando um `DbContext`. As implementações desses contratos ficam na `Infrastructure`. Ver [docs/0005 - Repositórios e Unidade de Trabalho.md](docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md).
+Os casos de uso ficam na camada `Application` de cada serviço (ex.: `UserRegistrationService`), e falam com o banco só por contratos que ela declara (`IUserRepository`, `IUnitOfWork`) — nunca injetando uma conexão ou sessão diretamente. As implementações desses contratos ficam na `Infrastructure`. Ver [docs/0005 - Repositórios e Unidade de Trabalho.md](docs/0005%20-%20Repositórios%20e%20Unidade%20de%20Trabalho.md).
 
 Cada projeto em `src/` tem um projeto de testes xUnit correspondente em `tests/`, no mesmo agrupamento (`tests/BuildingBlocks/...`, `tests/Services/Auth/...`). Todo serviço/caso de uso ou regra de negócio novo deve vir acompanhado do teste correspondente no projeto da mesma camada.
 

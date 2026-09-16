@@ -4,7 +4,7 @@ using Ouroboros.BuildingBlocks.Application;
 namespace Ouroboros.Services.Auth.Api;
 
 // IExceptionHandler é registrado como Singleton pelo framework, mas IErrorLogService é Scoped
-// (depende do DbContext). Por isso resolvemos via IServiceScopeFactory, criando um escopo novo
+// (depende da sessão SQL). Por isso resolvemos via IServiceScopeFactory, criando um escopo novo
 // a cada erro, em vez de injetar IErrorLogService direto no construtor.
 public sealed class GlobalExceptionHandler : IExceptionHandler
 {

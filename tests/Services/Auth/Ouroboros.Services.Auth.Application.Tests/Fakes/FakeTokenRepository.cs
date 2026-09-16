@@ -13,6 +13,10 @@ public sealed class FakeTokenRepository : ITokenRepository
 		_tokens.Add(token);
 	}
 
+	public void Update(Token token)
+	{
+	}
+
 	public Task<Token?> GetByHashAsync(
 		string tokenHash,
 		CancellationToken cancellationToken

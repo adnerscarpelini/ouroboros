@@ -8,7 +8,7 @@ description: Convenções de infraestrutura, containers e deploy do projeto Ouro
 ## Specs como histórias de trabalho
 
 - Antes de criar ou alterar infraestrutura para uma nova feature, procure em `specs/` a spec correspondente e pergunte ao usuário se ela já existe.
-- Se não existir, crie a spec antes de implementar; se existir, trabalhe sobre ela e mantenha-a atualizada com decisões, impactos e critérios de aceite. Specs são histórias/items de trabalho no estilo Jira, nomeadas `YYYY-MM-DD - Titulo.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML.
+- Se não existir, crie a spec antes de implementar; se existir, trabalhe sobre ela e mantenha-a atualizada com decisões, impactos e critérios de aceite. Specs são histórias/items de trabalho no estilo Jira, nomeadas `AAAAMMDDHHMMSS-Descricao.md`, com `title` e `state` (`new`, `in progress` ou `done`) no cabeçalho YAML. Specs históricas mantêm seus nomes originais.
 - Ao sugerir uma mensagem de commit, inclua a data/número da spec correspondente.
 
 Skill base para infraestrutura, containers e deploy no projeto Ouroboros. Complementa a [ags-developer](../ags-developer/SKILL.md) (convenções gerais de código) e a [ags-dba](../ags-dba/SKILL.md) (banco, role e migrations — aqui fica só o container que hospeda o Postgres).
@@ -121,7 +121,7 @@ O gateway só roteia: sem regra de negócio, sem banco, sem `ProjectReference` a
 
 ## Migrations
 
-O Compose **não** aplica migrations. Elas são aplicadas a partir da máquina (`dotnet ef database update`), e é por isso que o Postgres publica a porta 5432. Conteúdo e nomenclatura das migrations seguem a [ags-dba](../ags-dba/SKILL.md).
+O Compose **não** aplica migrations. Elas são aplicadas a partir da máquina pelo `Ouroboros.DatabaseMigrator`, e é por isso que o Postgres publica a porta 5432. Conteúdo e nomenclatura das migrations seguem a [ags-dba](../ags-dba/SKILL.md).
 
 ## Comandos do dia a dia
 

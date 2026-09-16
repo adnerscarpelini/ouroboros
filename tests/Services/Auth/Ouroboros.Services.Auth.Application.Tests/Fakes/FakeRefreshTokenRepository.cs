@@ -13,6 +13,10 @@ public sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
 		_refreshTokens.Add(refreshToken);
 	}
 
+	public void Update(RefreshToken refreshToken)
+	{
+	}
+
 	public Task<RefreshToken?> GetByHashAsync(
 		string tokenHash,
 		CancellationToken cancellationToken

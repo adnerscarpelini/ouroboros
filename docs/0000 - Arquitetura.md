@@ -65,6 +65,10 @@ A assinatura usa um **par de chaves RSA assimétrico (RS256)**, não uma chave s
 
 Adotar **Clean Architecture** com **microsserviços**, cada camada/serviço como um projeto `.csproj` separado.
 
+![Arquitetura do Ouroboros por serviço](resources/project-architecture.svg)
+
+Cada serviço replica a mesma pilha de quatro camadas (`Api` → `Infrastructure` → `Application` → `Domain`), com banco e processo próprios. `BuildingBlocks` é código compartilhado (nunca dado); `Ouroboros.Contracts.Notifications` é a única exceção à regra de isolamento entre serviços, referenciado pela `Application` de quem produz e de quem consome.
+
 ### Serviços hoje
 
 O primeiro serviço de negócio é o `Auth`, com as quatro camadas (`Domain`/`Application`/`Infrastructure`/`Api`) e os casos de uso de identidade: registro, confirmação de e-mail, login, refresh token, logout e redefinição de senha (ver [docs/0003](0003%20-%20Autenticação.md)).

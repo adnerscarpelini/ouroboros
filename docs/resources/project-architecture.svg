@@ -1,0 +1,163 @@
+<svg viewBox="0 0 1600 1220" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowDashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="1220" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="800" y="46" text-anchor="middle" font-size="30" font-weight="700" fill="#0f172a">Ouroboros — Arquitetura por Serviço</text>
+  <text x="800" y="74" text-anchor="middle" font-size="16" fill="#475569">Clean Architecture aplicada a cada microsserviço — a fronteira entre serviços é física (processo e banco próprios), não só de código</text>
+
+  <!-- Client -->
+  <rect x="700" y="100" width="200" height="46" rx="8" fill="#0f172a"/>
+  <text x="800" y="128" text-anchor="middle" font-size="15" fill="#ffffff" font-weight="600">Cliente (HTTP)</text>
+  <line x1="800" y1="146" x2="800" y2="176" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Api Gateway -->
+  <rect x="600" y="178" width="400" height="60" rx="10" fill="#1e293b"/>
+  <text x="800" y="203" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Ouroboros.ApiGateway (YARP)</text>
+  <text x="800" y="223" text-anchor="middle" font-size="12.5" fill="#cbd5e1">Só roteia — sem regra de negócio, sem banco, sem ProjectReference a serviço</text>
+
+  <!-- Arrows gateway -> each service Api -->
+  <line x1="700" y1="238" x2="420" y2="288" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="900" y1="238" x2="1180" y2="288" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===================== AUTH SERVICE STACK ===================== -->
+  <text x="420" y="272" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">AuthService</text>
+
+  <!-- Api layer -->
+  <rect x="150" y="288" width="540" height="118" rx="10" fill="#FDE68A" stroke="#D97706" stroke-width="1.5"/>
+  <text x="170" y="312" font-size="14.5" font-weight="700" fill="#78350F">Ouroboros.AuthService.Api</text>
+  <text x="170" y="332" font-size="12" fill="#78350F">Controllers/ (AuthController) · Contracts/ (Request/Response) · Program.cs</text>
+  <text x="170" y="349" font-size="12" fill="#78350F">GlobalExceptionHandler · FallbackPolicy exige AccessToken por padrão</text>
+  <text x="170" y="366" font-size="12" fill="#78350F">Injeta os UseCases da Application via DI (AuthModule)</text>
+  <text x="670" y="399" text-anchor="end" font-size="11" font-style="italic" fill="#92400E">Dockerfile próprio · porta 5081/7271 (dev)</text>
+
+  <line x1="420" y1="406" x2="420" y2="424" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Infrastructure layer -->
+  <rect x="150" y="426" width="540" height="118" rx="10" fill="#BFDBFE" stroke="#2563EB" stroke-width="1.5"/>
+  <text x="170" y="450" font-size="14.5" font-weight="700" fill="#1E3A8A">Ouroboros.AuthService.Infrastructure</text>
+  <text x="170" y="470" font-size="12" fill="#1E3A8A">Persistence/Repositories/ (UserRepository, TokenRepository...) · UnitOfWork</text>
+  <text x="170" y="487" font-size="12" fill="#1E3A8A">Services/ (Argon2PasswordHasherService, JwtTokenGeneratorService...)</text>
+  <text x="170" y="504" font-size="12" fill="#1E3A8A">Migrations/*.sql (schema auth) · implementa os contratos da Application</text>
+
+  <line x1="420" y1="544" x2="420" y2="562" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Application layer -->
+  <rect x="150" y="564" width="540" height="118" rx="10" fill="#BBF7D0" stroke="#16A34A" stroke-width="1.5"/>
+  <text x="170" y="588" font-size="14.5" font-weight="700" fill="#14532D">Ouroboros.AuthService.Application</text>
+  <text x="170" y="608" font-size="12" fill="#14532D">UseCases/ — um por operação: LoginUseCase, RegisterUserUseCase,</text>
+  <text x="170" y="625" font-size="12" fill="#14532D">ConfirmEmailUseCase, RequestPasswordResetUseCase, ResetPasswordUseCase...</text>
+  <text x="170" y="642" font-size="12" fill="#14532D">Interfaces/ (IUserRepository, IUnitOfWork) · Models/ · Services/ (AuthenticationResultFactory)</text>
+  <text x="670" y="675" text-anchor="end" font-size="11" font-style="italic" fill="#166534">Interfaces moram aqui — nunca em Domain</text>
+
+  <line x1="420" y1="682" x2="420" y2="700" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Domain layer -->
+  <rect x="150" y="702" width="540" height="100" rx="10" fill="#FECACA" stroke="#DC2626" stroke-width="1.5"/>
+  <text x="170" y="726" font-size="14.5" font-weight="700" fill="#7F1D1D">Ouroboros.AuthService.Domain</text>
+  <text x="170" y="746" font-size="12" fill="#7F1D1D">Entities/ (User, Token, RefreshToken, TokenType) · Constants/ (TokenTypeNames)</text>
+  <text x="170" y="763" font-size="12" fill="#7F1D1D">Regra de negócio pura — não depende de nenhuma outra camada</text>
+  <text x="670" y="789" text-anchor="end" font-size="11" font-style="italic" fill="#991B1B">herda SeedWork.Entity de BuildingBlocks.Domain</text>
+
+  <!-- DB -->
+  <line x1="420" y1="802" x2="420" y2="828" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <ellipse cx="420" cy="850" rx="70" ry="14" fill="#e2e8f0" stroke="#475569"/>
+  <rect x="350" y="850" width="140" height="34" fill="#e2e8f0" stroke="none"/>
+  <ellipse cx="420" cy="884" rx="70" ry="14" fill="#e2e8f0" stroke="#475569"/>
+  <line x1="350" y1="850" x2="350" y2="884" stroke="#475569"/>
+  <line x1="490" y1="850" x2="490" y2="884" stroke="#475569"/>
+  <text x="420" y="871" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">ouroboros_auth</text>
+  <text x="420" y="908" text-anchor="middle" font-size="11" fill="#475569">role auth_service · sem CONNECT de PUBLIC</text>
+
+  <!-- ===================== NOTIFICATIONS SERVICE STACK ===================== -->
+  <text x="1180" y="272" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">NotificationsService</text>
+
+  <rect x="910" y="288" width="540" height="118" rx="10" fill="#FDE68A" stroke="#D97706" stroke-width="1.5"/>
+  <text x="930" y="312" font-size="14.5" font-weight="700" fill="#78350F">Ouroboros.NotificationsService.Api</text>
+  <text x="930" y="332" font-size="12" fill="#78350F">Sem controller de negócio — a solicitação chega por mensageria</text>
+  <text x="930" y="349" font-size="12" fill="#78350F">Expõe só /health e /health/ready · hospeda o EmailDeliveryProcessorService</text>
+  <text x="930" y="366" font-size="12" fill="#78350F">Program.cs registra o módulo via NotificationsModule</text>
+  <text x="1430" y="399" text-anchor="end" font-size="11" font-style="italic" fill="#92400E">Dockerfile próprio · porta 5083/7273 (dev)</text>
+
+  <line x1="1180" y1="406" x2="1180" y2="424" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="910" y="426" width="540" height="118" rx="10" fill="#BFDBFE" stroke="#2563EB" stroke-width="1.5"/>
+  <text x="930" y="450" font-size="14.5" font-weight="700" fill="#1E3A8A">Ouroboros.NotificationsService.Infrastructure</text>
+  <text x="930" y="470" font-size="12" fill="#1E3A8A">Persistence/Repositories/ (EmailDeliveryRepository) · UnitOfWork</text>
+  <text x="930" y="487" font-size="12" fill="#1E3A8A">Services/ (SmtpEmailSenderService, EmailDeliveryDispatcherService,</text>
+  <text x="930" y="504" font-size="12" fill="#1E3A8A">EmailTemplateRendererService) · Migrations/*.sql (schema notifications)</text>
+
+  <line x1="1180" y1="544" x2="1180" y2="562" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="910" y="564" width="540" height="118" rx="10" fill="#BBF7D0" stroke="#16A34A" stroke-width="1.5"/>
+  <text x="930" y="588" font-size="14.5" font-weight="700" fill="#14532D">Ouroboros.NotificationsService.Application</text>
+  <text x="930" y="608" font-size="12" fill="#14532D">UseCases/ — AcceptEmailDeliveryUseCase (porta de entrada do consumidor:</text>
+  <text x="930" y="625" font-size="12" fill="#14532D">valida, deduplica, persiste)</text>
+  <text x="930" y="642" font-size="12" fill="#14532D">Interfaces/ (IEmailDeliveryRepository, IEmailSender, IUnitOfWork) · Models/</text>
+  <text x="1430" y="675" text-anchor="end" font-size="11" font-style="italic" fill="#166534">Interfaces moram aqui — nunca em Domain</text>
+
+  <line x1="1180" y1="682" x2="1180" y2="700" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="910" y="702" width="540" height="100" rx="10" fill="#FECACA" stroke="#DC2626" stroke-width="1.5"/>
+  <text x="930" y="726" font-size="14.5" font-weight="700" fill="#7F1D1D">Ouroboros.NotificationsService.Domain</text>
+  <text x="930" y="746" font-size="12" fill="#7F1D1D">Entities/ (EmailDelivery, EmailDeliveryAttempt) · Enums/ (EmailDeliveryStatus)</text>
+  <text x="930" y="763" font-size="12" fill="#7F1D1D">Regra de negócio pura — não depende de nenhuma outra camada</text>
+  <text x="1430" y="789" text-anchor="end" font-size="11" font-style="italic" fill="#991B1B">herda SeedWork.Entity de BuildingBlocks.Domain</text>
+
+  <line x1="1180" y1="802" x2="1180" y2="828" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="1110" y="850" width="140" height="34" fill="#e2e8f0" stroke="none"/>
+  <ellipse cx="1180" cy="850" rx="70" ry="14" fill="#e2e8f0" stroke="#475569"/>
+  <ellipse cx="1180" cy="884" rx="70" ry="14" fill="#e2e8f0" stroke="#475569"/>
+  <line x1="1110" y1="850" x2="1110" y2="884" stroke="#475569"/>
+  <line x1="1250" y1="850" x2="1250" y2="884" stroke="#475569"/>
+  <text x="1180" y="871" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">ouroboros_notifications</text>
+  <text x="1180" y="908" text-anchor="middle" font-size="11" fill="#475569">role notifications_service · sem CONNECT de PUBLIC</text>
+
+  <!-- Same Postgres instance note -->
+  <line x1="490" y1="867" x2="1110" y2="867" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <text x="800" y="944" text-anchor="middle" font-size="11.5" fill="#64748b" font-style="italic">bancos lógicos separados numa única instância Postgres compartilhada — nenhum serviço tem credencial que alcance o banco do outro</text>
+
+  <!-- Contracts (cross-service exception) -->
+  <rect x="700" y="590" width="200" height="66" rx="8" fill="#FEF08A" stroke="#CA8A04" stroke-width="1.5"/>
+  <text x="800" y="611" text-anchor="middle" font-size="12.5" font-weight="700" fill="#713F12">Ouroboros.Contracts</text>
+  <text x="800" y="626" text-anchor="middle" font-size="12.5" font-weight="700" fill="#713F12">.Notifications</text>
+  <text x="800" y="644" text-anchor="middle" font-size="10.5" fill="#713F12">única exceção entre serviços</text>
+  <line x1="700" y1="615" x2="450" y2="615" stroke="#CA8A04" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#arrowDashed)"/>
+  <line x1="900" y1="615" x2="1150" y2="615" stroke="#CA8A04" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#arrowDashed)"/>
+  <text x="800" y="586" text-anchor="middle" font-size="10.5" fill="#713F12">referenciado pela Application de quem produz (Auth) e de quem consome (Notifications)</text>
+
+  <!-- BuildingBlocks band -->
+  <rect x="150" y="970" width="1300" height="94" rx="10" fill="#E2E8F0" stroke="#475569" stroke-width="1.5"/>
+  <text x="800" y="994" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">BuildingBlocks — código técnico compartilhado entre serviços (nunca dado)</text>
+  <text x="330" y="1018" text-anchor="middle" font-size="12" fill="#334155">.Domain</text>
+  <text x="330" y="1035" text-anchor="middle" font-size="11" fill="#334155">SeedWork.Entity · ErrorLog · OutboxMessage</text>
+  <text x="800" y="1018" text-anchor="middle" font-size="12" fill="#334155">.Application</text>
+  <text x="800" y="1035" text-anchor="middle" font-size="11" fill="#334155">IErrorLogService · IOutboxMessageQueue · IMessagePublisher</text>
+  <text x="1270" y="1018" text-anchor="middle" font-size="12" fill="#334155">.Infrastructure</text>
+  <text x="1270" y="1035" text-anchor="middle" font-size="11" fill="#334155">DbSession · MigrationRunner · OutboxPublisherService</text>
+  <text x="800" y="1055" text-anchor="middle" font-size="10.5" font-style="italic" fill="#475569">cada serviço persiste sua própria cópia de ErrorLog/OutboxMessage, no schema "common" do seu próprio banco</text>
+
+  <line x1="420" y1="884" x2="420" y2="970" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#arrowDashed)"/>
+  <line x1="1180" y1="884" x2="1180" y2="970" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#arrowDashed)"/>
+
+  <!-- Legend -->
+  <rect x="150" y="1084" width="1300" height="120" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+  <text x="170" y="1108" font-size="13" font-weight="700" fill="#0f172a">Legenda</text>
+
+  <line x1="170" y1="1128" x2="210" y2="1128" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="220" y="1132" font-size="11.5" fill="#334155">ProjectReference (compila) — Api → Infrastructure → Application → Domain, nunca o inverso</text>
+
+  <line x1="170" y1="1150" x2="210" y2="1150" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#arrowDashed)"/>
+  <text x="220" y="1154" font-size="11.5" fill="#334155">Dependência de código compartilhado (BuildingBlocks) ou contrato de mensageria (Contracts) — não é acesso a dado do outro serviço</text>
+
+  <text x="170" y="1178" font-size="11.5" fill="#334155">• Cada serviço tem processo, banco e deploy próprios — a fronteira é física, reforçada por rede e credencial, não só por convenção de código.</text>
+  <text x="170" y="1196" font-size="11.5" fill="#334155">• Um serviço nunca lê o banco nem referencia o Domain/Application de outro diretamente — só BuildingBlocks e, no caso do Contracts, o DTO versionado.</text>
+</svg>

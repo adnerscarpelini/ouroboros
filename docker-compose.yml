@@ -29,6 +29,7 @@ services:
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD}
     ports:
       - "${SEQ_UI_PORT}:80"
       - "${SEQ_INGESTION_PORT}:5341"

@@ -19,6 +19,8 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
 
     public async Task<RegisterUserResponse> ExecuteAsync(RegisterUserRequest request)
     {
+        ValidatePasswordStrength(request.Password);
+
         var passwordHash = _passwordHasher.Hash(request.Password);
         var user = User.Create(request.Login, request.FullName, request.Email, passwordHash);
 
@@ -32,5 +34,33 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
         await _userRepository.AddAsync(user);
 
         return new RegisterUserResponse(user.ExternalId, user.Login, user.FullName, user.Email);
+    }
+
+    private static void ValidatePasswordStrength(string password)
+    {
+        if (string.IsNullOrEmpty(password) || password.Length < 8)
+        {
+            throw new DomainException("Password must be at least 8 characters long");
+        }
+
+        if (!password.Any(char.IsUpper))
+        {
+            throw new DomainException("Password must contain at least one uppercase letter");
+        }
+
+        if (!password.Any(char.IsLower))
+        {
+            throw new DomainException("Password must contain at least one lowercase letter");
+        }
+
+        if (!password.Any(char.IsDigit))
+        {
+            throw new DomainException("Password must contain at least one digit");
+        }
+
+        if (password.All(char.IsLetterOrDigit))
+        {
+            throw new DomainException("Password must contain at least one special character");
+        }
     }
 }

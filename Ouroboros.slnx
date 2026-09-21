@@ -20,10 +20,13 @@
 
   <Folder Name="/auth-service/">
     <Project Path="auth-service/Auth.Api/Auth.Api.csproj" />
-    <Project Path="auth-service/Auth.Application.Tests/Auth.Application.Tests.csproj" />
     <Project Path="auth-service/Auth.Application/Auth.Application.csproj" />
-    <Project Path="auth-service/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
     <Project Path="auth-service/Auth.Domain/Auth.Domain.csproj" />
     <Project Path="auth-service/Auth.Infrastructure/Auth.Infrastructure.csproj" />
+  </Folder>
+
+  <Folder Name="/test/auth-service/">
+    <Project Path="test/auth-service/Auth.Application.Tests/Auth.Application.Tests.csproj" />
+    <Project Path="test/auth-service/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
   </Folder>
 </Solution>

@@ -12,14 +12,15 @@ Todos os exemplos abaixo sao baseados no `auth-service`, trocando `Auth`/`User`/
 
 ## 1. `Ouroboros.slnx` — adicionar os projetos do novo servico
 
-Nao ha "pom pai" por servico como na versao Java — o `.slnx` unico na raiz do monorepo referencia diretamente os `.csproj` de todos os servicos (`.slnx` e o novo formato de solution do .NET 10, XML e sem GUIDs; o comando `dotnet sln` funciona igual ao `.sln` classico). Depois de criar os 4 projetos (passos 2-5), adicione-os ao solution a partir da raiz:
+Nao ha "pom pai" por servico como na versao Java — o `.slnx` unico na raiz do monorepo referencia diretamente os `.csproj` de todos os servicos (`.slnx` e o novo formato de solution do .NET 10, XML e sem GUIDs; o comando `dotnet sln` funciona igual ao `.sln` classico). Os projetos de producao moram em `{servico}-service/`; os projetos de teste moram numa pasta paralela, `test/{servico}-service/` (ver `ouroboros-tester`). Depois de criar os projetos (passos 2-5 e os de teste correspondentes), adicione todos ao solution a partir da raiz:
 
 ```bash
 dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Domain/{Servico}.Domain.csproj
 dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Application/{Servico}.Application.csproj
-dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Application.Tests/{Servico}.Application.Tests.csproj
 dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Infrastructure/{Servico}.Infrastructure.csproj
 dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Api/{Servico}.Api.csproj
+dotnet sln Ouroboros.slnx add test/{servico}-service/{Servico}.Domain.Tests/{Servico}.Domain.Tests.csproj
+dotnet sln Ouroboros.slnx add test/{servico}-service/{Servico}.Application.Tests/{Servico}.Application.Tests.csproj
 ```
 
 ## 2. `{servico}-service/{Servico}.Domain/{Servico}.Domain.csproj`
@@ -37,6 +38,31 @@ dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Api/{Servico}.Api.cspr
 ```
 
 Sem `<PackageReference>` nenhuma — zero dependencias, nem de framework de teste (o projeto de teste e separado, ver passo 3).
+
+`test/{servico}-service/{Servico}.Domain.Tests/{Servico}.Domain.Tests.csproj` (projeto de teste separado, na pasta `test/` paralela — ver `ouroboros-tester`):
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../{servico}-service/{Servico}.Domain/{Servico}.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
+```
 
 ## 3. `{servico}-service/{Servico}.Application/{Servico}.Application.csproj`
 
@@ -56,7 +82,7 @@ Sem `<PackageReference>` nenhuma — zero dependencias, nem de framework de test
 </Project>
 ```
 
-`{servico}-service/{Servico}.Application.Tests/{Servico}.Application.Tests.csproj` (projeto de teste separado — xUnit nunca entra no projeto principal):
+`test/{servico}-service/{Servico}.Application.Tests/{Servico}.Application.Tests.csproj` (projeto de teste separado, na pasta `test/` paralela — xUnit nunca entra no projeto principal):
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -75,7 +101,7 @@ Sem `<PackageReference>` nenhuma — zero dependencias, nem de framework de test
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../{Servico}.Application/{Servico}.Application.csproj" />
+    <ProjectReference Include="../../../{servico}-service/{Servico}.Application/{Servico}.Application.csproj" />
   </ItemGroup>
 
 </Project>
@@ -302,7 +328,7 @@ public sealed class {CasoDeUso}Interactor : I{CasoDeUso}UseCase
 
 ## 9. Teste do Interactor (repositorio fake, sem Moq/NSubstitute)
 
-`{servico}-service/{Servico}.Application.Tests/UseCases/{casodeuso}/{CasoDeUso}InteractorTests.cs`
+`test/{servico}-service/{Servico}.Application.Tests/UseCases/{casodeuso}/{CasoDeUso}InteractorTests.cs`
 
 ```csharp
 namespace Ouroboros.{Servico}.Application.UseCases.{CasoDeUso};

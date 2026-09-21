@@ -30,6 +30,8 @@ Sempre que for decidir "em que projeto essa classe entra?", pergunte: *do que es
 
 Todo microsservico do Ouroboros — o `auth-service` e qualquer um que vier depois — segue esta divisao. Nomeie os projetos como `{Servico}.Domain`, `{Servico}.Application`, `{Servico}.Infrastructure`, `{Servico}.Api` (PascalCase, e o padrao idiomatico de nome de assembly/projeto em .NET), namespace raiz `Ouroboros.{Servico}`, dentro da pasta `<servico>-service/` (kebab-case, minusculo, consistente com o nome do servico no docker-compose). Cada servico e um conjunto de `.csproj` referenciados entre si via `ProjectReference` — nao existe um `.sln`/`.slnx` por servico; todos os projetos de todos os servicos entram no `Ouroboros.slnx` na raiz do monorepo, que e so um agregador (ver regra 5 abaixo).
 
+Os projetos de teste (`{Servico}.Domain.Tests`, `{Servico}.Application.Tests`, etc.) **nao** ficam dentro de `<servico>-service/` junto com o codigo de producao — moram em `test/<servico>-service/`, uma pasta paralela na raiz do monorepo que espelha o nome de cada servico. Isso mantem `<servico>-service/` só com o que roda em producao/imagem Docker, e `test/` como o lugar único onde procurar toda a cobertura de testes do monorepo. Ver a skill `ouroboros-tester` para o padrao de cada projeto de teste.
+
 ### 1. `{Servico}.Domain` — regras de negocio puras
 - **Zero dependencias** de outros projetos ou de qualquer framework (nem xUnit no projeto principal, so no projeto de teste).
 - Contem `Entities/` e `Exceptions/`.
@@ -178,7 +180,7 @@ Depois de criar ou alterar qualquer entidade, caso de uso, gateway ou repositori
 
 1. Escolha o nome do servico (ex.: `orders`) e a porta HTTP que ele vai usar (proxima livre depois da 8082).
 2. Crie `<servico>-service/` na raiz do monorepo, com os 4 projetos (`Domain`, `Application`, `Infrastructure`, `Api`), espelhando exatamente os `.csproj` do `auth-service` (troque `Auth` por `{Servico}` em namespace, nome de assembly e nomes de classe). Veja `references/templates.md` para os `.csproj` e classes prontos para copiar e adaptar.
-3. Adicione os 4 novos projetos ao `Ouroboros.slnx` na raiz (`dotnet sln Ouroboros.slnx add <servico>-service/{Servico}.Domain/{Servico}.Domain.csproj` e assim por diante).
+3. Adicione os 4 novos projetos ao `Ouroboros.slnx` na raiz (`dotnet sln Ouroboros.slnx add <servico>-service/{Servico}.Domain/{Servico}.Domain.csproj` e assim por diante). Os projetos de teste (criados no passo 5, via `ouroboros-tester`) entram em `test/<servico>-service/` e sao adicionados ao `.slnx` do mesmo jeito.
 4. Implemente a primeira entidade de dominio e o primeiro caso de uso seguindo exatamente a estrutura descrita acima.
 5. Chame a `ouroboros-tester` para escrever o teste do Interactor antes de considerar o caso de uso pronto.
 6. Configure `UseCaseConfiguration` e o controller no projeto `Api`, com a porta escolhida em `appsettings.json`.
@@ -195,6 +197,6 @@ Depois de criar ou alterar qualquer entidade, caso de uso, gateway ou repositori
 
 ## Referencia canonica
 
-O `auth-service` e o servico de referencia pra tudo isso: a entidade `User` (com `Create` e validacao de nome), o caso de uso `RegisterUser` (Request/Response/UseCase/Interactor completo), o gateway `IUserRepository` implementado por `DapperUserRepository` com o `ConcurrentDictionary` temporario, e `UserController` + `UseCaseConfiguration` na API. Sempre que estiver em duvida sobre como estruturar algo novo, releia esses arquivos antes de inventar um padrao diferente.
+O `auth-service` e o servico de referencia pra tudo isso: a entidade `User` (com `Create`/`Rehydrate` e validacao de cada campo), o caso de uso `RegisterUser` (Request/Response/UseCase/Interactor completo), o gateway `IUserRepository` implementado por `DapperUserRepository` sobre Postgres real (ver [ouroboros-dba](../ouroboros-dba/SKILL.md)), e `UserController` + `UseCaseConfiguration` na API. Os testes correspondentes ficam em `test/auth-service/`. Sempre que estiver em duvida sobre como estruturar algo novo, releia esses arquivos antes de inventar um padrao diferente.
 
 Para trechos de codigo prontos para copiar (`.csproj` dos 4 projetos, entidade, caso de uso, gateway, controller, configuracao de DI), veja [references/templates.md](references/templates.md).

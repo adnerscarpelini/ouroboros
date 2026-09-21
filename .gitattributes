@@ -1,0 +1,3 @@
+# Scripts executados dentro de containers Linux (ex.: docker/postgres/init/*.sh)
+# precisam de final de linha LF, independente do OS de quem commita.
+*.sh text eol=lf

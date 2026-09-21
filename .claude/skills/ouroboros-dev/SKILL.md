@@ -59,6 +59,7 @@ Todo microsservico do Ouroboros — o `auth-service` e qualquer um que vier depo
 - Controllers dependem so das interfaces de caso de uso (`I{CasoDeUso}UseCase`), nunca dos Interactors diretamente, e nunca da camada de dominio.
 - Padrao de resposta HTTP: criacao de recurso devolve `201 Created` com header `Location` apontando para o recurso criado e corpo = Response Model (`return Created(location, response);` ou `CreatedAtAction`); `DomainException` capturada na action do controller vira `400 Bad Request` com corpo `{"error": "mensagem"}` (`return BadRequest(new { error = ex.Message });`).
 - Configuracao fica em `appsettings.json` (equivalente do `application.yml`) em `{Servico}.Api/`. Cada servico novo recebe sua **propria porta** (nao reutilize a porta de outro servico). `auth-service` usa `8082` — ao criar um servico novo, escolha a proxima porta livre e documente isso quando entregar o trabalho. A porta e configurada em `Kestrel:Endpoints:Http:Url` no `appsettings.json` (`http://+:8082`), nao via `launchSettings.json` (que e so pro Visual Studio/`dotnet run` local) — assim o comportamento e identico local e em container.
+- **Toda API de microsservico roda como imagem Docker propria.** `{Servico}.Api/Dockerfile` builda uma imagem que roda sozinha (`docker run`), sem depender do SDK/ambiente de dev instalado — so a imagem publicada e variaveis de ambiente de configuracao (connection string, porta). O servico entra no `docker-compose.yml` da raiz como um novo `service`, do mesmo jeito que `postgres` ja entra. Detalhes de uso do Docker no projeto (comandos, banco por servico) ficam em `docs/0002 - Docker.md`, nao aqui.
 - Ambiente e Swagger: o Swagger (`Swashbuckle.AspNetCore`) e habilitado condicionalmente em `Program.cs` via `if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }` — equivalente ao par `application.yml`/`application-dev.yml` da versao Java, so que resolvido em codigo em vez de config, porque e assim que o ASP.NET Core idiomaticamente distingue ambiente (`ASPNETCORE_ENVIRONMENT=Development`, que o `docker-compose.yml` da raiz ja usa por padrao pro ambiente local). Todo servico novo com API HTTP replica isso: pacote NuGet `Swashbuckle.AspNetCore` + o mesmo bloco condicional. UI fica em `/swagger/index.html`, o JSON da spec em `/swagger/v1/swagger.json`.
 
 ## Vinculacao a solution (Visual Studio)
@@ -181,7 +182,8 @@ Depois de criar ou alterar qualquer entidade, caso de uso, gateway ou repositori
 4. Implemente a primeira entidade de dominio e o primeiro caso de uso seguindo exatamente a estrutura descrita acima.
 5. Chame a `ouroboros-tester` para escrever o teste do Interactor antes de considerar o caso de uso pronto.
 6. Configure `UseCaseConfiguration` e o controller no projeto `Api`, com a porta escolhida em `appsettings.json`.
-7. Rode `dotnet build Ouroboros.slnx` e `dotnet test Ouroboros.slnx` a partir da raiz para confirmar que o novo projeto compila e os testes passam, e que os servicos existentes (ex. `auth-service`) continuam intactos.
+7. Crie `{Servico}.Api/Dockerfile` e adicione o servico como um novo `service` no `docker-compose.yml` da raiz (ver `docs/0002 - Docker.md`).
+8. Rode `dotnet build Ouroboros.slnx` e `dotnet test Ouroboros.slnx` a partir da raiz para confirmar que o novo projeto compila e os testes passam, e que os servicos existentes (ex. `auth-service`) continuam intactos.
 
 ## Checklist — adicionando um caso de uso a um servico existente
 

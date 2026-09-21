@@ -1,4 +1,5 @@
 using Ouroboros.Auth.Api.Configuration;
+using Ouroboros.Auth.Api.Middleware;
 using Ouroboros.Auth.Infrastructure.Migrations;
 using Serilog;
 
@@ -28,6 +29,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddUseCases(connectionString);
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
@@ -37,6 +40,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 app.MapControllers();
 app.Run();

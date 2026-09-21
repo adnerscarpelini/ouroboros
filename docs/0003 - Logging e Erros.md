@@ -18,6 +18,7 @@ O serviço `seq` já está no `docker-compose.yml` da raiz, ao lado do `postgres
 - UI web na porta `${SEQ_UI_PORT}` do host (padrão `8081`), mapeada pra porta `80` do container.
 - Ingestão de log (onde o Serilog vai apontar via sink HTTP) na porta `${SEQ_INGESTION_PORT}` do host (padrão `5341`), mesma porta dentro e fora do container.
 - Dados persistidos no volume nomeado `ouroboros-seq-data`, sobrevive a `docker compose down` (mesma regra do `ouroboros-postgres-data`, ver `docs/0002 - Docker.md`).
+- O Seq exige senha de admin no primeiro start do volume — vem de `SEQ_FIRSTRUN_ADMINPASSWORD`, preenchida a partir de `SEQ_ADMIN_PASSWORD` no `.env`. Só vale pro bootstrap inicial: se você trocar a senha pela UI depois, o valor real passa a ser o que você definiu lá, não mais o do `.env` (só volta a valer se o volume `ouroboros-seq-data` for recriado do zero).
 
 Setup local:
 
@@ -25,10 +26,15 @@ Setup local:
 docker compose up -d seq
 ```
 
-UI acessível em `http://localhost:8081` (ou a porta escolhida em `SEQ_UI_PORT`).
+UI acessível em `http://localhost:8081` (ou a porta escolhida em `SEQ_UI_PORT`), login `admin`.
 
-## O que falta
+## Como está configurado no `auth-service`
 
-Serilog em si ainda não está configurado em nenhum serviço, porque nenhum serviço existe no repositório ainda (`auth-service` é só o banco, criado via `docker/postgres/init/01-create-auth-db.sh` — os 4 projetos `.csproj` ainda não foram criados).
+Serviço de referência pra replicar em qualquer serviço novo (`Auth.Api/Program.cs`):
 
-A fiação do Serilog (pacotes NuGet, sink apontando pro Seq, nível de log por ambiente) entra em `Program.cs` do projeto `Api` de cada serviço, seguindo a mesma regra de que só a `Api` conhece detalhes de infraestrutura de logging — `Domain`/`Application`/`Infrastructure` só dependem de `ILogger<T>` quando precisarem logar algo, nunca do Serilog diretamente. Isso fica pra quando o `auth-service` for criado (checklist de novo microsserviço na skill `ouroboros-dev`).
+- `builder.Host.UseSerilog(...)` lê `Serilog:MinimumLevel` do `appsettings.json`/`appsettings.Development.json`, escreve sempre no console, e adiciona o sink do Seq só se `Seq:ServerUrl` estiver configurado (`Seq__ServerUrl` no `environment` do `docker-compose.yml`, apontando pro serviço `seq`).
+- `app.UseSerilogRequestLogging()` loga toda requisição (`HTTP {Method} {Path} responded {Status}`) — isso sozinho já captura qualquer exceção não tratada que suba até o host, com stack trace completo, sem precisar de nenhum middleware extra.
+- `GlobalExceptionHandler` (`Auth.Api/Middleware/GlobalExceptionHandler.cs`, implementa `IExceptionHandler`, registrado com `AddExceptionHandler<T>()` + `AddProblemDetails()` + `app.UseExceptionHandler()`) intercepta qualquer exceção não tratada antes dela vazar pro cliente: loga em `Error` com o path/método da requisição e devolve `500` com `{"error": "An unexpected error occurred."}` — nunca stack trace ou detalhe interno no corpo da resposta.
+- `DomainException` continua tratada no próprio controller (`catch (DomainException e)`), mas agora loga em `Warning` com o motivo antes de devolver `400 {"error": e.Message}` — assim dá pra ver no Seq *por que* uma requisição foi rejeitada, não só que foi.
+
+Convenção pra endpoints novos: sempre logar o `catch (DomainException e)` em `Warning` com a mensagem antes de devolver o `400`. O `GlobalExceptionHandler` é único por serviço (registrado uma vez em `Program.cs`) e cobre qualquer exceção não tratada automaticamente — não precisa repetir isso por controller.

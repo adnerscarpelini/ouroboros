@@ -140,6 +140,8 @@ Sem `<PackageReference>` nenhuma — zero dependencias, nem de framework de test
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.*" />
+    <PackageReference Include="Serilog.Sinks.Seq" Version="9.*" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.*" />
   </ItemGroup>
 
@@ -408,13 +410,32 @@ public class Dapper{Entidade}Repository : I{Entidade}Repository
 
 ```csharp
 using Ouroboros.{Servico}.Api.Configuration;
+using Ouroboros.{Servico}.Api.Middleware;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .WriteTo.Console();
+
+    var seqServerUrl = context.Configuration["Seq:ServerUrl"];
+
+    if (!string.IsNullOrWhiteSpace(seqServerUrl))
+    {
+        configuration.WriteTo.Seq(seqServerUrl);
+    }
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddUseCases();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
@@ -424,8 +445,49 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseExceptionHandler();
+app.UseSerilogRequestLogging();
 app.MapControllers();
 app.Run();
+```
+
+`{servico}-service/{Servico}.Api/Middleware/GlobalExceptionHandler.cs` — intercepta qualquer exception nao tratada que escape dos controllers, loga em `Error` e devolve sempre `500 {"error": "..."}`, nunca stack trace pro cliente:
+
+```csharp
+namespace Ouroboros.{Servico}.Api.Middleware;
+
+using Microsoft.AspNetCore.Diagnostics;
+
+public sealed class GlobalExceptionHandler : IExceptionHandler
+{
+    private readonly ILogger<GlobalExceptionHandler> _logger;
+
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    {
+        _logger = logger;
+    }
+
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogError(
+            exception,
+            "Unhandled exception while processing {Method} {Path}",
+            httpContext.Request.Method,
+            httpContext.Request.Path);
+
+        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        httpContext.Response.ContentType = "application/json";
+
+        await httpContext.Response.WriteAsJsonAsync(
+            new { error = "An unexpected error occurred." },
+            cancellationToken);
+
+        return true;
+    }
+}
 ```
 
 `{servico}-service/{Servico}.Api/Configuration/UseCaseConfiguration.cs`
@@ -463,10 +525,14 @@ using Ouroboros.{Servico}.Domain.Exceptions;
 public sealed class {Entidade}Controller : ControllerBase
 {
     private readonly I{CasoDeUso}UseCase _{casodeuso}UseCase;
+    private readonly ILogger<{Entidade}Controller> _logger;
 
-    public {Entidade}Controller(I{CasoDeUso}UseCase {casodeuso}UseCase)
+    public {Entidade}Controller(
+        I{CasoDeUso}UseCase {casodeuso}UseCase,
+        ILogger<{Entidade}Controller> logger)
     {
         _{casodeuso}UseCase = {casodeuso}UseCase;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -479,6 +545,7 @@ public sealed class {Entidade}Controller : ControllerBase
         }
         catch (DomainException e)
         {
+            _logger.LogWarning(e, "{Entidade} rejected: {Reason}", e.Message);
             return BadRequest(new { error = e.Message });
         }
     }
@@ -499,26 +566,33 @@ public sealed class {Entidade}Controller : ControllerBase
   "ConnectionStrings": {
     "Default": ""
   },
-  "Logging": {
-    "LogLevel": {
+  "Seq": {
+    "ServerUrl": ""
+  },
+  "Serilog": {
+    "MinimumLevel": {
       "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
+      "Override": {
+        "Microsoft.AspNetCore": "Warning"
+      }
     }
   }
 }
 ```
 
-`{servico}-service/{Servico}.Api/appsettings.Development.json` — a config comum ja liga o Swagger em `Program.cs` via `IsDevelopment()`, entao este arquivo so precisa existir para elevar o nivel de log local se necessario (o padrao do template do ASP.NET Core ja cobre isso):
+`{servico}-service/{Servico}.Api/appsettings.Development.json` — a config comum ja liga o Swagger em `Program.cs` via `IsDevelopment()`, entao este arquivo so precisa existir para elevar o nivel de log local se necessario:
 
 ```json
 {
-  "Logging": {
-    "LogLevel": {
+  "Serilog": {
+    "MinimumLevel": {
       "Default": "Debug",
-      "Microsoft.AspNetCore": "Information"
+      "Override": {
+        "Microsoft.AspNetCore": "Information"
+      }
     }
   }
 }
 ```
 
-Ambiente ativado via `ASPNETCORE_ENVIRONMENT=Development` (o `docker-compose.yml` da raiz ja usa isso por padrao pro ambiente local, equivalente ao antigo `SPRING_PROFILES_ACTIVE=dev`).
+Ambiente ativado via `ASPNETCORE_ENVIRONMENT=Development` (o `docker-compose.yml` da raiz ja usa isso por padrao pro ambiente local, equivalente ao antigo `SPRING_PROFILES_ACTIVE=dev`). `ConnectionStrings:Default` e `Seq:ServerUrl` ficam vazios aqui e sao preenchidos via variavel de ambiente no `docker-compose.yml` (`ConnectionStrings__Default` e `Seq__ServerUrl: http://seq:5341`, ver `docs/0002 - Docker.md` e `docs/0003 - Logging e Erros.md`).

@@ -9,10 +9,14 @@ using Ouroboros.Auth.Domain.Exceptions;
 public sealed class UserController : ControllerBase
 {
     private readonly IRegisterUserUseCase _registerUserUseCase;
+    private readonly ILogger<UserController> _logger;
 
-    public UserController(IRegisterUserUseCase registerUserUseCase)
+    public UserController(
+        IRegisterUserUseCase registerUserUseCase,
+        ILogger<UserController> logger)
     {
         _registerUserUseCase = registerUserUseCase;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -25,6 +29,7 @@ public sealed class UserController : ControllerBase
         }
         catch (DomainException e)
         {
+            _logger.LogWarning(e, "User registration rejected: {Reason}", e.Message);
             return BadRequest(new { error = e.Message });
         }
     }

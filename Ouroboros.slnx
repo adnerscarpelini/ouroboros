@@ -11,6 +11,7 @@
   <Folder Name="/docs/">
     <File Path="docs/0001 - Arquitetura.md" />
     <File Path="docs/0002 - Docker.md" />
+    <File Path="docs/0003 - Logging e Erros.md" />
   </Folder>
 
   <Folder Name="/docker/postgres/init/">

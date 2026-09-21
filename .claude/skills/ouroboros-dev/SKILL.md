@@ -63,10 +63,12 @@ Todo microsservico do Ouroboros — o `auth-service` e qualquer um que vier depo
 
 ## Vinculacao a solution (Visual Studio)
 
-Tudo que for criado no monorepo — projeto novo ou arquivo solto na raiz — precisa estar vinculado ao `Ouroboros.slnx` no mesmo passo em que e criado, pra abrir corretamente no Visual Studio. Um arquivo que existe no disco mas nao esta no `.slnx` e invisivel pra quem abre a solution pelo VS (mesmo que o Git rastreie ele normalmente), entao isso nao e um passo de "arrumacao" posterior — e parte de considerar a criacao do arquivo/projeto concluida.
+Tudo que for criado no monorepo — projeto novo, arquivo solto na raiz ou arquivo dentro de uma pasta que nao e projeto (ex.: `docs/`) — precisa estar vinculado ao `Ouroboros.slnx` no mesmo passo em que e criado, pra abrir corretamente no Visual Studio. Um arquivo que existe no disco mas nao esta no `.slnx` e invisivel pra quem abre a solution pelo VS (mesmo que o Git rastreie ele normalmente), entao isso nao e um passo de "arrumacao" posterior — e parte de considerar a criacao do arquivo/projeto concluida.
 
 - **Todo `.csproj` novo** entra na solution assim que e criado, com `dotnet sln Ouroboros.slnx add <caminho>/<Projeto>.csproj` (isso ja aparece no checklist de novo microsservico abaixo — a regra aqui e generica, vale pra qualquer projeto novo, nao so na criacao de um microsservico inteiro).
-- **Todo arquivo solto na raiz do monorepo** que nao pertenca a um projeto (`README.md`, `docker-compose.yml`, `.env.example`, `.gitignore`, imagens, etc.) entra na pasta virtual `Solution Items` — a mesma pasta que o Visual Studio cria quando voce arrasta um arquivo pro no da solution no Solution Explorer. Como o `.slnx` e XML puro, isso e uma edicao direta do arquivo (nao precisa abrir o VS pra isso):
+- **Todo arquivo solto na raiz do monorepo** que nao pertenca a um projeto (`README.md`, `docker-compose.yml`, `.env.example`, `.gitignore`, imagens, etc.) entra na pasta virtual `Solution Items` — a mesma pasta que o Visual Studio cria quando voce arrasta um arquivo pro no da solution no Solution Explorer.
+- **Toda pasta que nao e um projeto mas guarda arquivos versionados** (ex.: `docs/`, com a documentacao escrita pela `ouroboros-tech-writer`) ganha sua propria pasta virtual no `.slnx`, com o mesmo nome da pasta fisica, listando os arquivos que ela contem. Isso mantem o Solution Explorer espelhando a estrutura real do repositorio em vez de empilhar tudo dentro de `Solution Items`.
+- Como o `.slnx` e XML puro, essas edicoes sao diretas no arquivo (nao precisa abrir o VS pra isso):
 
   ```xml
   <Solution>
@@ -74,6 +76,10 @@ Tudo que for criado no monorepo — projeto novo ou arquivo solto na raiz — pr
       <File Path="README.md" />
       <File Path="docker-compose.yml" />
       <File Path=".gitignore" />
+    </Folder>
+
+    <Folder Name="/docs/">
+      <File Path="docs/0001 - Arquitetura.md" />
     </Folder>
 
     <Project Path="auth-service/Auth.Domain/Auth.Domain.csproj" />

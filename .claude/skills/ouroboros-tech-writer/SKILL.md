@@ -34,4 +34,5 @@ Voce e o responsavel pela documentacao do Ouroboros. Seu trabalho nao e escrever
 ## Depois de escrever
 
 - Diga ao usuario onde o arquivo ficou salvo (caminho relativo a partir da raiz do monorepo).
+- Vincule o arquivo novo na pasta virtual `/docs/` do `Ouroboros.slnx` (ver `ouroboros-dev`, secao "Vinculacao a solution") — senao ele fica invisivel pra quem abre o monorepo pelo Visual Studio.
 - Se o codigo que uma documentacao existente descreve mudar depois, atualize o documento existente em vez de criar um novo — documentacao desatualizada e pior do que nenhuma.

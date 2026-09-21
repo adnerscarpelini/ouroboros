@@ -4,4 +4,8 @@
     <File Path="README.md" />
     <File Path="project-logo.png" />
   </Folder>
+
+  <Folder Name="/docs/">
+    <File Path="docs/0001 - Arquitetura.md" />
+  </Folder>
 </Solution>

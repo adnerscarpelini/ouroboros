@@ -10,16 +10,16 @@ Modelos prontos para copiar e adaptar ao criar um novo microsservico ou um novo 
 
 Todos os exemplos abaixo sao baseados no `auth-service`, trocando `Auth`/`User`/`RegisterUser` pelos placeholders acima. Alvo de framework: `net10.0` (ajuste pra LTS em uso se for diferente no ambiente).
 
-## 1. `Ouroboros.sln` — adicionar os projetos do novo servico
+## 1. `Ouroboros.slnx` — adicionar os projetos do novo servico
 
-Nao ha "pom pai" por servico como na versao Java — o `.sln` unico na raiz do monorepo referencia diretamente os `.csproj` de todos os servicos. Depois de criar os 4 projetos (passos 2-5), adicione-os ao solution a partir da raiz:
+Nao ha "pom pai" por servico como na versao Java — o `.slnx` unico na raiz do monorepo referencia diretamente os `.csproj` de todos os servicos (`.slnx` e o novo formato de solution do .NET 10, XML e sem GUIDs; o comando `dotnet sln` funciona igual ao `.sln` classico). Depois de criar os 4 projetos (passos 2-5), adicione-os ao solution a partir da raiz:
 
 ```bash
-dotnet sln Ouroboros.sln add {servico}-service/{Servico}.Domain/{Servico}.Domain.csproj
-dotnet sln Ouroboros.sln add {servico}-service/{Servico}.Application/{Servico}.Application.csproj
-dotnet sln Ouroboros.sln add {servico}-service/{Servico}.Application.Tests/{Servico}.Application.Tests.csproj
-dotnet sln Ouroboros.sln add {servico}-service/{Servico}.Infrastructure/{Servico}.Infrastructure.csproj
-dotnet sln Ouroboros.sln add {servico}-service/{Servico}.Api/{Servico}.Api.csproj
+dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Domain/{Servico}.Domain.csproj
+dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Application/{Servico}.Application.csproj
+dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Application.Tests/{Servico}.Application.Tests.csproj
+dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Infrastructure/{Servico}.Infrastructure.csproj
+dotnet sln Ouroboros.slnx add {servico}-service/{Servico}.Api/{Servico}.Api.csproj
 ```
 
 ## 2. `{servico}-service/{Servico}.Domain/{Servico}.Domain.csproj`

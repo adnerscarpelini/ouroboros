@@ -28,7 +28,7 @@ Sempre que for decidir "em que projeto essa classe entra?", pergunte: *do que es
 
 ## Anatomia de um servico (sempre 4 projetos .NET)
 
-Todo microsservico do Ouroboros — o `auth-service` e qualquer um que vier depois — segue esta divisao. Nomeie os projetos como `{Servico}.Domain`, `{Servico}.Application`, `{Servico}.Infrastructure`, `{Servico}.Api` (PascalCase, e o padrao idiomatico de nome de assembly/projeto em .NET), namespace raiz `Ouroboros.{Servico}`, dentro da pasta `<servico>-service/` (kebab-case, minusculo, consistente com o nome do servico no docker-compose). Cada servico e um conjunto de `.csproj` referenciados entre si via `ProjectReference` — nao existe um `.sln` por servico; todos os projetos de todos os servicos entram no `Ouroboros.sln` na raiz do monorepo, que e so um agregador (ver regra 5 abaixo).
+Todo microsservico do Ouroboros — o `auth-service` e qualquer um que vier depois — segue esta divisao. Nomeie os projetos como `{Servico}.Domain`, `{Servico}.Application`, `{Servico}.Infrastructure`, `{Servico}.Api` (PascalCase, e o padrao idiomatico de nome de assembly/projeto em .NET), namespace raiz `Ouroboros.{Servico}`, dentro da pasta `<servico>-service/` (kebab-case, minusculo, consistente com o nome do servico no docker-compose). Cada servico e um conjunto de `.csproj` referenciados entre si via `ProjectReference` — nao existe um `.sln`/`.slnx` por servico; todos os projetos de todos os servicos entram no `Ouroboros.slnx` na raiz do monorepo, que e so um agregador (ver regra 5 abaixo).
 
 ### 1. `{Servico}.Domain` — regras de negocio puras
 - **Zero dependencias** de outros projetos ou de qualquer framework (nem xUnit no projeto principal, so no projeto de teste).
@@ -61,6 +61,28 @@ Todo microsservico do Ouroboros — o `auth-service` e qualquer um que vier depo
 - Configuracao fica em `appsettings.json` (equivalente do `application.yml`) em `{Servico}.Api/`. Cada servico novo recebe sua **propria porta** (nao reutilize a porta de outro servico). `auth-service` usa `8082` — ao criar um servico novo, escolha a proxima porta livre e documente isso quando entregar o trabalho. A porta e configurada em `Kestrel:Endpoints:Http:Url` no `appsettings.json` (`http://+:8082`), nao via `launchSettings.json` (que e so pro Visual Studio/`dotnet run` local) — assim o comportamento e identico local e em container.
 - Ambiente e Swagger: o Swagger (`Swashbuckle.AspNetCore`) e habilitado condicionalmente em `Program.cs` via `if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }` — equivalente ao par `application.yml`/`application-dev.yml` da versao Java, so que resolvido em codigo em vez de config, porque e assim que o ASP.NET Core idiomaticamente distingue ambiente (`ASPNETCORE_ENVIRONMENT=Development`, que o `docker-compose.yml` da raiz ja usa por padrao pro ambiente local). Todo servico novo com API HTTP replica isso: pacote NuGet `Swashbuckle.AspNetCore` + o mesmo bloco condicional. UI fica em `/swagger/index.html`, o JSON da spec em `/swagger/v1/swagger.json`.
 
+## Vinculacao a solution (Visual Studio)
+
+Tudo que for criado no monorepo — projeto novo ou arquivo solto na raiz — precisa estar vinculado ao `Ouroboros.slnx` no mesmo passo em que e criado, pra abrir corretamente no Visual Studio. Um arquivo que existe no disco mas nao esta no `.slnx` e invisivel pra quem abre a solution pelo VS (mesmo que o Git rastreie ele normalmente), entao isso nao e um passo de "arrumacao" posterior — e parte de considerar a criacao do arquivo/projeto concluida.
+
+- **Todo `.csproj` novo** entra na solution assim que e criado, com `dotnet sln Ouroboros.slnx add <caminho>/<Projeto>.csproj` (isso ja aparece no checklist de novo microsservico abaixo — a regra aqui e generica, vale pra qualquer projeto novo, nao so na criacao de um microsservico inteiro).
+- **Todo arquivo solto na raiz do monorepo** que nao pertenca a um projeto (`README.md`, `docker-compose.yml`, `.env.example`, `.gitignore`, imagens, etc.) entra na pasta virtual `Solution Items` — a mesma pasta que o Visual Studio cria quando voce arrasta um arquivo pro no da solution no Solution Explorer. Como o `.slnx` e XML puro, isso e uma edicao direta do arquivo (nao precisa abrir o VS pra isso):
+
+  ```xml
+  <Solution>
+    <Folder Name="/Solution Items/">
+      <File Path="README.md" />
+      <File Path="docker-compose.yml" />
+      <File Path=".gitignore" />
+    </Folder>
+
+    <Project Path="auth-service/Auth.Domain/Auth.Domain.csproj" />
+    <!-- demais projetos -->
+  </Solution>
+  ```
+
+  Nao crie uma pasta virtual por tipo de arquivo (`Docs/`, `Config/`) sem necessidade — `Solution Items` e suficiente pro tamanho atual do projeto; se a raiz crescer muito, reavalie.
+
 ## Regras que nunca podem ser quebradas
 
 Estas nao sao preferencias de estilo — sao a razao do projeto existir. Se voce perceber que uma tarefa pedida vai violar uma delas, avise o usuario antes de implementar, em vez de simplesmente seguir em frente:
@@ -69,7 +91,7 @@ Estas nao sao preferencias de estilo — sao a razao do projeto existir. Se voce
 2. **Sem ORM completo.** Nada de Entity Framework Core com change tracking/migrations automaticas geradas de modelo, nem NHibernate, em nenhum projeto. Dapper conta como "SQL explicito" (e o equivalente direto do `JdbcTemplate` da versao Java), nao como o ORM proibido por esta regra — ver [ouroboros-dba](../ouroboros-dba/SKILL.md).
 3. **A entidade de dominio nunca atravessa a fronteira da application.** Controllers e clientes externos so veem Request/Response records.
 4. **Servicos nunca dependem uns dos outros via `ProjectReference`.** Cada `<servico>-service/` e um conjunto de projetos isolado; comunicacao entre servicos (quando existir) sera via API HTTP ou mensageria, nunca referenciando o projeto/assembly de outro servico.
-5. **O `Ouroboros.sln` raiz e so um agregador**, sem `Directory.Build.props`/`Directory.Packages.props` compartilhado definindo dependencias entre servicos. Cada servico gerencia os pacotes NuGet dos seus proprios `.csproj`.
+5. **O `Ouroboros.slnx` raiz e so um agregador**, sem `Directory.Build.props`/`Directory.Packages.props` compartilhado definindo dependencias entre servicos. Cada servico gerencia os pacotes NuGet dos seus proprios `.csproj`.
 6. **`{Servico}.Domain`/`{Servico}.Application`/`{Servico}.Infrastructure` nao ganham dependencia do ASP.NET Core mesmo que "seria mais facil".** Se uma tarefa parecer exigir isso, o design provavelmente esta errado — pare e reavalie antes de adicionar o pacote.
 
 ## Documentacao
@@ -149,11 +171,11 @@ Depois de criar ou alterar qualquer entidade, caso de uso, gateway ou repositori
 
 1. Escolha o nome do servico (ex.: `orders`) e a porta HTTP que ele vai usar (proxima livre depois da 8082).
 2. Crie `<servico>-service/` na raiz do monorepo, com os 4 projetos (`Domain`, `Application`, `Infrastructure`, `Api`), espelhando exatamente os `.csproj` do `auth-service` (troque `Auth` por `{Servico}` em namespace, nome de assembly e nomes de classe). Veja `references/templates.md` para os `.csproj` e classes prontos para copiar e adaptar.
-3. Adicione os 4 novos projetos ao `Ouroboros.sln` na raiz (`dotnet sln Ouroboros.sln add <servico>-service/{Servico}.Domain/{Servico}.Domain.csproj` e assim por diante).
+3. Adicione os 4 novos projetos ao `Ouroboros.slnx` na raiz (`dotnet sln Ouroboros.slnx add <servico>-service/{Servico}.Domain/{Servico}.Domain.csproj` e assim por diante).
 4. Implemente a primeira entidade de dominio e o primeiro caso de uso seguindo exatamente a estrutura descrita acima.
 5. Chame a `ouroboros-tester` para escrever o teste do Interactor antes de considerar o caso de uso pronto.
 6. Configure `UseCaseConfiguration` e o controller no projeto `Api`, com a porta escolhida em `appsettings.json`.
-7. Rode `dotnet build Ouroboros.sln` e `dotnet test Ouroboros.sln` a partir da raiz para confirmar que o novo projeto compila e os testes passam, e que os servicos existentes (ex. `auth-service`) continuam intactos.
+7. Rode `dotnet build Ouroboros.slnx` e `dotnet test Ouroboros.slnx` a partir da raiz para confirmar que o novo projeto compila e os testes passam, e que os servicos existentes (ex. `auth-service`) continuam intactos.
 
 ## Checklist — adicionando um caso de uso a um servico existente
 

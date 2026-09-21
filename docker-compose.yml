@@ -36,6 +36,24 @@ services:
     volumes:
       - ouroboros-seq-data:/data
 
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Auth.Api/Dockerfile
+    container_name: ouroboros-auth-service
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${AUTH_DB_NAME};Username=${AUTH_DB_USER};Password=${AUTH_DB_PASSWORD}
+      Seq__ServerUrl: http://seq:5341
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seq:
+        condition: service_started
+
 volumes:
   ouroboros-postgres-data:
     name: ouroboros-postgres-data

@@ -214,6 +214,10 @@ Parametros Dapper usam `@NomeDoParametro` (PascalCase, casando com a propriedade
 - A connection string com a senha real nunca vai pro `appsettings.json` versionado.
 - Localmente e em container, ela chega por variavel de ambiente `ConnectionStrings__Default` (duplo underscore — e a convencao do `IConfiguration` do .NET pra mapear pra uma chave aninhada `ConnectionStrings:Default`), sem precisar de arquivo adicional. Se for conveniente carregar essa variavel de um arquivo local, ele nunca e versionado (o `.env` ja esta no `.gitignore` da raiz).
 
+## Specs
+
+Trabalho de persistencia normalmente vem de uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md), salva em `specs/{ano}/{mes}/{codigo}-{Titulo}.md`. Ao concluir uma tarefa sua listada la (`**DBA** — ...`), marque a caixa correspondente (`- [ ]` → `- [x]`) direto no arquivo da spec.
+
 ## Evolucao
 
-Esta skill acumula, com o tempo, convencoes mais especificas de banco (nome de FKs/indices, tipos especificos do Postgres, estrategia de seed) a medida que forem sendo definidas. O fluxo de "specs" antes de mexer em persistencia (usado num projeto anterior) nao foi adotado aqui — se o projeto crescer a ponto de precisar disso, e uma decisao separada.
+Esta skill acumula, com o tempo, convencoes mais especificas de banco (nome de FKs/indices, tipos especificos do Postgres, estrategia de seed) a medida que forem sendo definidas.

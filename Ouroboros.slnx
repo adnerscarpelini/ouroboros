@@ -18,6 +18,10 @@
     <File Path="docker/postgres/init/01-create-auth-db.sh" />
   </Folder>
 
+  <Folder Name="/specs/2026/">
+    <File Path="specs/2026/.gitkeep" />
+  </Folder>
+
   <Folder Name="/auth-service/">
     <Project Path="auth-service/Auth.Api/Auth.Api.csproj" />
     <Project Path="auth-service/Auth.Application/Auth.Application.csproj" />

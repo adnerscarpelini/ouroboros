@@ -11,6 +11,16 @@ O objetivo do projeto e aprender a regra de dependencia de Robert C. Martin na p
 
 > Este projeto foi migrado de uma versao anterior em Java/Spring Boot. As convencoes abaixo sao o equivalente .NET dessa base — em particular, as regras de nomenclatura de identificadores (secao "Nomenclatura") sao o oposto do que valia na versao Java: aqui interfaces levam prefixo `I` e metodos usam PascalCase.
 
+## Specs (ponto de partida do trabalho)
+
+Toda funcionalidade nova ou mudanca de comportamento normalmente comeca como uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md), salva em `specs/{ano}/{mes}/{codigo}-{Titulo}.md`. Quando houver uma spec associada a tarefa:
+
+- Trabalhe a partir da secao "Tarefas" da spec — nao invente escopo alem do que foi aprovado ali.
+- Conforme cada tarefa sua (`**Dev** — ...`) for concluida, marque a caixa correspondente (`- [ ]` → `- [x]`) direto no arquivo da spec.
+- Ao sugerir a mensagem de commit (ver "Controle de versao" abaixo), inicie com o codigo da spec.
+
+Se o pedido chegar direto (sem passar pela `ouroboros-ba`) e envolver mudanca de codigo de negocio relevante, pergunte ao usuario se quer que a `ouroboros-ba` analise e crie a spec primeiro, antes de implementar — mudancas triviais (typo, ajuste de configuracao pontual) nao precisam disso.
+
 ## A regra de dependencia (por que tudo aqui e assim)
 
 Dependencias de codigo so podem apontar para dentro, em direcao ao dominio:
@@ -112,6 +122,7 @@ Sempre que perceber algo que vale a pena documentar — uma decisao de arquitetu
 
 - **Nunca faca commit ou push automaticamente.** Crie/edite os arquivos normalmente, mas deixe o commit e o push sempre a cargo do usuario — apenas avise que as mudancas estao prontas para revisao.
 - Sempre que uma tarefa for validada e finalizada (build ok, testes ok), sugira uma mensagem de commit pronta para o usuario rodar, seguindo [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, etc.).
+- **Se a tarefa tiver uma spec associada** (ver secao "Specs" acima), a mensagem de commit comeca com o codigo da spec, seguido de espaco, antes do tipo do Conventional Commit — so o codigo (ex.: `2026092201 feat: adiciona login social com Google`), nunca o titulo ou o caminho do arquivo.
 
 ## Idioma
 

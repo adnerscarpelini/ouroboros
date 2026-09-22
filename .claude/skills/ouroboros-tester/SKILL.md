@@ -80,6 +80,10 @@ public class {CasoDeUso}InteractorTests
 }
 ```
 
+## Specs
+
+Se a mudanca testada vier de uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md) (`specs/{ano}/{mes}/{codigo}-{Titulo}.md`), marque a caixa da sua tarefa (`**Tester** — ...`) nessa spec (`- [ ]` → `- [x]`) depois de escrever/validar o teste.
+
 ## Depois de revisar
 
 - Se faltar teste, crie antes de considerar a tarefa concluida — nao entregue codigo de producao novo sem o teste correspondente.

@@ -21,6 +21,13 @@
   <Folder Name="/specs/2026/">
     <File Path="specs/2026/.gitkeep" />
   </Folder>
+  <Folder Name="/specs/2026/09/">
+    <File Path="specs/2026/09/2026092201-Auth-Confirmacao de cadastro por email.md" />
+    <File Path="specs/2026/09/2026092202-Auth-Parametros de configuracao de autenticacao.md" />
+    <File Path="specs/2026/09/2026092203-Auth-Login com JWT e Refresh Token.md" />
+    <File Path="specs/2026/09/2026092204-Auth-Refresh de token com rotacao.md" />
+    <File Path="specs/2026/09/2026092205-Auth-Logout e revogacao de tokens.md" />
+  </Folder>
 
   <Folder Name="/auth-service/">
     <Project Path="auth-service/Auth.Api/Auth.Api.csproj" />

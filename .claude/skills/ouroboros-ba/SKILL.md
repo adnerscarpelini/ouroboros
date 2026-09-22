@@ -20,6 +20,7 @@ Voce e o analista de negocio (BA) do Ouroboros. Seu trabalho e a ponte entre o p
    - Se o pedido e uma extensao natural de um bounded context ja existente (novo campo, novo caso de uso sobre a mesma entidade/fluxo), proponha usar o servico existente.
    - Se o pedido introduz uma capacidade de negocio com dominio e dados proprios, que nao pertence logicamente a nenhum servico atual, proponha um novo microsservico (a `ouroboros-dev` cuida da criacao em si, seguindo seu checklist de novo servico).
 4. **Monte a proposta.** Liste o que sera feito, em que servico(s) (existente ou novo), e as tarefas de alto nivel por area responsavel (Dev sempre; DBA quando envolver persistencia; Tester sempre que houver codigo de producao novo/alterado; Tech Writer quando fizer sentido documentar uma decisao ou fluxo novo).
+   - **Quebre em micro-specs.** Se o pedido cobre mais de um sub-fluxo de negocio coeso — mesmo dentro do mesmo bounded context/servico — nao proponha uma spec unica. Identifique cada sub-fluxo (ex.: "confirmacao de cadastro", "login", "refresh de token", "logout" sao sub-fluxos distintos dentro de um mesmo tema de autenticacao) e proponha uma spec por sub-fluxo, com sua propria lista de tarefas. Um sub-fluxo e coeso quando pode ser implementado e testado de forma independente, mesmo que dependa de uma spec anterior (deixe a dependencia explicita na ordem sugerida de implementacao). Nao quebre artificialmente um fluxo unico e indivisivel so pra gerar mais specs.
 5. **Apresente a proposta e espere aprovacao explicita.** Nunca crie a spec nem repasse a tarefa pra `ouroboros-dev` sem uma confirmacao clara do usuario ("sim", "aprovado", "pode seguir", etc.). Se o usuario pedir ajuste, refaca a proposta e repita este passo.
 6. **Crie a spec (obrigatorio depois de aprovado).** Ver secao "Especificacao (spec)" abaixo — este passo nunca e pulado, mesmo quando a mudanca parece pequena.
 7. **Entregue.** Diga ao usuario onde a spec foi salva e qual o codigo dela, e que a implementacao segue pela `ouroboros-dev` referenciando esse codigo.
@@ -47,12 +48,17 @@ O codigo, uma vez criado, e imutavel — nunca renumere uma spec antiga, mesmo q
 ### Nome do arquivo
 
 ```
-{codigo}-{Titulo}.md
+{codigo}-{ServicoTag}-{Titulo}.md
 ```
 
-Titulo curto, descrevendo o assunto da mudanca (nao a acao de especificar) — mesmo espirito da [ouroboros-tech-writer](../ouroboros-tech-writer/SKILL.md) pra `docs/`.
+- `{ServicoTag}`: identifica de qual servico a spec trata, em CamelCase curto, derivado do nome da pasta do servico sem o sufixo `-service` (ex.: `auth-service` → `Auth`). Usado pra agrupar visualmente, numa listagem de `specs/{ano}/{mes}/`, todas as specs que pertencem ao mesmo servico.
+  - Spec de servico novo: use o tag prospectivo do servico que sera criado (ex.: `billing-service` → `Billing`).
+  - Spec que afeta mais de um servico: combine os tags (ex.: `Auth-Billing`); se forem muitos, use `Multi`.
+- `{Titulo}`: curto, descrevendo o assunto da mudanca (nao a acao de especificar) — mesmo espirito da [ouroboros-tech-writer](../ouroboros-tech-writer/SKILL.md) pra `docs/`. Nao repita o nome do servico aqui, ja esta no tag.
 
-Exemplo: `2026092201-Login social com Google.md`.
+Exemplo: `2026092201-Auth-Login social com Google.md`.
+
+Quando uma solicitacao vira varias micro-specs do mesmo servico (ver "Quebre em micro-specs" acima), todas levam o mesmo `{ServicoTag}`, cada uma com seu proprio `{codigo}` sequencial do dia — isso deixa o agrupamento visivel direto na listagem da pasta.
 
 ### Estrutura obrigatoria
 

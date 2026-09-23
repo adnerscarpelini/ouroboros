@@ -1,0 +1,298 @@
+{
+  "info": {
+    "_postman_id": "4d1b13f9-6401-478d-b3f5-53394f04faea",
+    "name": "Ouroboros - Auth",
+    "description": "Endpoints do auth-service.\n\nFluxo sugerido: Register User -> Confirm Email -> Login -> Refresh Access Token -> Logout.\n\nOs tokens de confirmacao de e-mail e de login sao guardados automaticamente nas variaveis da collection. O token de redefinicao de senha nao volta na resposta (so aparece no log do servico, no Seq) — copie ele para a variavel `passwordResetToken` antes de rodar Reset Password.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"emailConfirmationToken\", pm.response.json().emailConfirmationToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{login}}\",\n  \"fullName\": \"Usuario de Teste\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Cadastra um usuario e devolve o token de confirmacao de e-mail (temporario, so em dev).\n\n- `201` usuario criado (header `Location`)\n- `400` dados invalidos, login/e-mail ja usados ou senha fora da politica"
+          }
+        },
+        {
+          "name": "Confirm Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{emailConfirmationToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/confirm-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "confirm-email"
+              ]
+            },
+            "description": "Confirma o e-mail do usuario com o token gerado no cadastro.\n\n- `200` e-mail confirmado\n- `400` token invalido, expirado ou ja usado"
+          }
+        },
+        {
+          "name": "Request Password Reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginOrEmail\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/password-reset/request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password-reset",
+                "request"
+              ]
+            },
+            "description": "Solicita a redefinicao de senha. A resposta e a mesma exista ou nao a conta; o token so aparece no log do servico (Seq).\n\n- `202` solicitacao aceita\n- `400` login/e-mail nao informado\n- `429` limite de 5 solicitacoes por IP a cada 15 minutos"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/password-reset/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password-reset",
+                "confirm"
+              ]
+            },
+            "description": "Redefine a senha com o token recebido. Preencha a variavel `passwordResetToken` com o token do log antes de rodar.\n\n- `204` senha redefinida\n- `400` token invalido/expirado/ja usado ou senha fora da politica\n- `429` limite de 10 tentativas por IP a cada 15 minutos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set(\"accessToken\", body.accessToken);",
+                  "    pm.collectionVariables.set(\"refreshToken\", body.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Autentica o usuario e devolve access token + refresh token.\n\n- `200` autenticado\n- `400` usuario inativo (e-mail ainda nao confirmado)\n- `401` credenciais invalidas"
+          }
+        },
+        {
+          "name": "Refresh Access Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set(\"accessToken\", body.accessToken);",
+                  "    pm.collectionVariables.set(\"refreshToken\", body.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Gera um novo par de tokens com rotacao: o refresh token usado e revogado.\n\n- `200` novos tokens\n- `400` refresh token nao informado\n- `401` refresh token invalido, expirado ou revogado"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revoga o refresh token. Idempotente: token ja revogado ou expirado tambem devolve 204.\n\n- `204` logout feito\n- `401` refresh token nao informado ou invalido"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "login",
+      "value": "usuario.teste"
+    },
+    {
+      "key": "email",
+      "value": "usuario.teste@example.com"
+    },
+    {
+      "key": "password",
+      "value": "Senha@123"
+    },
+    {
+      "key": "newPassword",
+      "value": "NovaSenha@456"
+    },
+    {
+      "key": "emailConfirmationToken",
+      "value": ""
+    },
+    {
+      "key": "passwordResetToken",
+      "value": ""
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    }
+  ]
+}

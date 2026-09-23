@@ -14,7 +14,7 @@ Extensão do `auth-service`, depende diretamente da spec [2026092203-Auth-Login 
 
 ## Tarefas
 
-- [ ] **Dev** — Criar use case `RefreshTokenUseCase`/`RefreshTokenInteractor`: valida o refresh token recebido (existe, não expirou, não foi revogado), revoga o token usado e emite um novo par (JWT + refresh token)
-- [ ] **Dev** — Criar endpoint `POST /auth/refresh` em `AuthController`
-- [ ] **Tester** — Cobrir: rotação válida emite novo par e revoga o antigo, token expirado é rejeitado, token já revogado/reutilizado é rejeitado, token inexistente é rejeitado
-- [ ] **Tech Writer** — Documentar o fluxo de refresh e a política de rotação em `docs/`
+- [x] **Dev** — Criar use case `RefreshTokenUseCase`/`RefreshTokenInteractor`: valida o refresh token recebido (existe, não expirou, não foi revogado), revoga o token usado e emite um novo par (JWT + refresh token)
+- [x] **Dev** — Criar endpoint `POST /auth/refresh` em `AuthController`
+- [x] **Tester** — Cobrir: rotação válida emite novo par e revoga o antigo, token expirado é rejeitado, token já revogado/reutilizado é rejeitado, token inexistente é rejeitado
+- [x] **Tech Writer** — Documentar o fluxo de refresh e a política de rotação em `docs/`

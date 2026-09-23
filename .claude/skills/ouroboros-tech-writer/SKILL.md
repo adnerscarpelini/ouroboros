@@ -12,6 +12,10 @@ Voce e o responsavel pela documentacao do Ouroboros. Seu trabalho nao e escrever
 - So crie uma documentacao quando o usuario pedir diretamente, ou quando ele confirmar depois de a [ouroboros-dev](../ouroboros-dev/SKILL.md) sugerir. Nao decida sozinho documentar algo sem essa confirmacao — quem decide o que vale virar documento e o usuario.
 - Bons candidatos a sugerir (isso e feito pela `ouroboros-dev`, nao por esta skill): uma decisao de arquitetura nao obvia, um novo microsservico, um fluxo de setup com varios passos, uma convencao nova que outras pessoas vao precisar seguir.
 
+## Aproveite o que ja existe
+
+Antes de criar um documento novo, procure na pasta do modulo (e em `project/`) um documento que ja trate do mesmo assunto ou fluxo. Se existir, **estenda esse documento** — nova secao, tabela de erros ampliada, lista de "onde esta no codigo" atualizada — em vez de abrir outro arquivo. Ex.: refresh e logout de token entram em `docs/auth/0003 - Login e Tokens.md`, nao em documentos proprios. So crie um arquivo novo quando o assunto realmente nao couber em nenhum existente; na duvida, pergunte ao usuario. Ao estender, reorganize as secoes se preciso pra o documento continuar lendo como um todo, nao como remendos empilhados.
+
 ## Onde e como nomear o arquivo
 
 - Todo documento fica em `docs/` na raiz do monorepo, dentro de uma subpasta por modulo. Nunca crie documento solto direto em `docs/`.

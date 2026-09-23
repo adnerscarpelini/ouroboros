@@ -60,4 +60,103 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
             throw new InvalidOperationException($"User '{refreshToken.UserExternalId}' not found while adding refresh token.");
         }
     }
+
+    public async Task<RefreshToken?> GetByHashAsync(string tokenHash)
+    {
+        const string sql = """
+            SELECT
+                refreshTokens.id,
+                refreshTokens.external_id,
+                refreshTokens.created_at,
+                refreshTokens.updated_at,
+                users.external_id AS user_external_id,
+                refreshTokens.token_hash,
+                refreshTokens.expires_at,
+                refreshTokens.revoked_at
+            FROM
+                auth.refresh_tokens AS refreshTokens
+            INNER JOIN
+                auth.users AS users
+                ON users.id = refreshTokens.user_id
+            WHERE
+                refreshTokens.token_hash = @TokenHash
+            LIMIT 1;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var row = await connection.QuerySingleOrDefaultAsync<RefreshTokenRow>(sql, new { TokenHash = tokenHash });
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        return RefreshToken.Rehydrate(
+            row.Id,
+            row.ExternalId,
+            new DateTimeOffset(row.CreatedAt),
+            ToDateTimeOffset(row.UpdatedAt),
+            row.UserExternalId,
+            row.TokenHash,
+            new DateTimeOffset(row.ExpiresAt),
+            ToDateTimeOffset(row.RevokedAt));
+    }
+
+    public async Task<bool> TryRevokeAsync(RefreshToken refreshToken)
+    {
+        // "revoked_at IS NULL" garante que so uma requisicao concorrente consegue revogar o mesmo token.
+        const string sql = """
+            UPDATE auth.refresh_tokens
+            SET
+                updated_at = @UpdatedAt,
+                revoked_at = @RevokedAt
+            WHERE
+                external_id = @ExternalId
+                AND revoked_at IS NULL;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var affectedRows = await connection.ExecuteAsync(
+            sql,
+            new
+            {
+                refreshToken.UpdatedAt,
+                refreshToken.RevokedAt,
+                refreshToken.ExternalId,
+            });
+
+        return affectedRows > 0;
+    }
+
+    private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        return new DateTimeOffset(value.Value);
+    }
+
+    // Npgsql le timestamptz como DateTime (Kind=Utc); a conversao pra DateTimeOffset e feita no mapeamento.
+    private sealed class RefreshTokenRow
+    {
+        public long Id { get; init; }
+
+        public Guid ExternalId { get; init; }
+
+        public DateTime CreatedAt { get; init; }
+
+        public DateTime? UpdatedAt { get; init; }
+
+        public Guid UserExternalId { get; init; }
+
+        public string TokenHash { get; init; } = null!;
+
+        public DateTime ExpiresAt { get; init; }
+
+        public DateTime? RevokedAt { get; init; }
+    }
 }

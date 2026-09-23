@@ -56,6 +56,22 @@ public sealed class RefreshToken : Entity
         return refreshToken;
     }
 
+    public void Revoke(DateTimeOffset revokedAt)
+    {
+        if (RevokedAt is not null)
+        {
+            throw new InvalidRefreshTokenException("Refresh token has been revoked");
+        }
+
+        if (revokedAt >= ExpiresAt)
+        {
+            throw new InvalidRefreshTokenException("Refresh token has expired");
+        }
+
+        RevokedAt = revokedAt;
+        MarkAsUpdated();
+    }
+
     private static Guid ValidateUserExternalId(Guid userExternalId)
     {
         if (userExternalId == Guid.Empty)

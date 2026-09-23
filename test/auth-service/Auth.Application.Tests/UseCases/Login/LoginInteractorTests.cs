@@ -51,6 +51,17 @@ public class LoginInteractorTests
             Items.Add(refreshToken);
             return Task.CompletedTask;
         }
+
+        public Task<RefreshToken?> GetByHashAsync(string tokenHash)
+        {
+            var refreshToken = Items.FirstOrDefault(item => item.TokenHash == tokenHash);
+            return Task.FromResult(refreshToken);
+        }
+
+        public Task<bool> TryRevokeAsync(RefreshToken refreshToken)
+        {
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher

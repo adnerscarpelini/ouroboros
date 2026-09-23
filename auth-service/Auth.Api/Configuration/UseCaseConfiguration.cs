@@ -5,6 +5,7 @@ using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Application.Settings;
 using Ouroboros.Auth.Application.UseCases.ConfirmEmail;
 using Ouroboros.Auth.Application.UseCases.Login;
+using Ouroboros.Auth.Application.UseCases.RefreshAccessToken;
 using Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Infrastructure.Persistence;
 using Ouroboros.Auth.Infrastructure.Security;
@@ -34,6 +35,7 @@ public static class UseCaseConfiguration
         services.AddScoped<IRegisterUserUseCase, RegisterUserInteractor>();
         services.AddScoped<IConfirmEmailUseCase, ConfirmEmailInteractor>();
         services.AddScoped<ILoginUseCase, LoginInteractor>();
+        services.AddScoped<IRefreshAccessTokenUseCase, RefreshAccessTokenInteractor>();
 
         return services;
     }

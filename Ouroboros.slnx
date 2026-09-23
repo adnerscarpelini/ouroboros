@@ -39,6 +39,7 @@
     <File Path="specs/2026/09/2026092302-Auth-Redefinicao de senha com token.md" />
     <File Path="specs/2026/09/2026092303-Auth-Perfil de acesso do usuario.md" />
     <File Path="specs/2026/09/2026092304-Auth-Consulta de usuario.md" />
+    <File Path="specs/2026/09/2026092305-Auth-Seguranca do cadastro de usuario.md" />
   </Folder>
 
   <Folder Name="/auth-service/">

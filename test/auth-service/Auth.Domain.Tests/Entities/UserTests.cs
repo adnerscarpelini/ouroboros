@@ -45,7 +45,8 @@ public class UserTests
             DateTimeOffset.UtcNow.AddDays(-30),
             true,
             null,
-            UserRole.Admin);
+            UserRole.Admin,
+            null);
 
         Assert.Equal(UserRole.Admin, user.Role);
     }
@@ -97,5 +98,16 @@ public class UserTests
         Assert.Throws<DomainException>(() => user.ChangePassword(passwordHash));
         Assert.Equal("hashed-password", user.PasswordHash);
         Assert.Null(user.UpdatedAt);
+    }
+
+    [Fact]
+    public void ShouldThrowDomainExceptionWhenUserIsAlreadyDeleted()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");
+        user.Delete();
+        var deletedAt = user.DeletedAt;
+
+        Assert.Throws<DomainException>(() => user.Delete());
+        Assert.Equal(deletedAt, user.DeletedAt);
     }
 }

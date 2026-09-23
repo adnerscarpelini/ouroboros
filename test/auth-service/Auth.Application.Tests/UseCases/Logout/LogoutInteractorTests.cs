@@ -54,6 +54,16 @@ public class LogoutInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<bool> ExistsDeletedByLoginAsync(string login)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<int> CountActiveAdminsAsync()
+        {
+            return Task.FromResult(0);
+        }
+
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
             var user = Items.FirstOrDefault(item => item.ExternalId == externalId);

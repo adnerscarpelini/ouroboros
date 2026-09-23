@@ -43,6 +43,12 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
             throw new DomainException("Login already in use");
         }
 
+        // Login de conta excluida nunca e reaproveitado, pra ninguem se passar pelo dono antigo.
+        if (loginOwner is null && await _userRepository.ExistsDeletedByLoginAsync(user.Login))
+        {
+            throw new DomainException("Login already in use");
+        }
+
         var emailOwner = await _userRepository.GetByEmailAsync(user.Email);
         var emailOwnerIsAbandoned = emailOwner is not null && await IsAbandonedAsync(emailOwner, now);
 

@@ -49,6 +49,7 @@ POST /api/users/search
 - O body precisa ter **exatamente um** dos dois campos.
 - Login e e-mail vão no body, não na query string, porque a URL fica em logs de proxy, gateway e histórico do navegador (OWASP).
 - A busca é exata. Espaços nas pontas são removidos.
+- Conta excluída não aparece na busca: devolve `404`, como se não existisse (ver `docs/auth/0007 - Exclusao de Conta.md`).
 
 Resposta dos dois:
 
@@ -85,7 +86,7 @@ Todos com corpo `{"error": "..."}`, exceto o `401`.
 | Sem token, token inválido ou expirado | `401` | *(sem corpo)* |
 | Nenhum ou os dois campos no body do `search` | `400` | `Exactly one search criterion (externalId, login or email) is required` |
 | `User` consultando outro usuário | `403` | `Access denied` |
-| Usuário não existe (só `Admin` chega aqui) | `404` | `User not found` |
+| Usuário não existe ou foi excluído | `404` | `User not found` |
 
 `400`, `403` e `404` são logados em `Warning` no Seq, com o `externalId` do solicitante.
 
@@ -94,5 +95,5 @@ Todos com corpo `{"error": "..."}`, exceto o `401`.
 - Caso de uso: `Auth.Application/UseCases/GetUser/`.
 - Endpoints: `GetById` e `Search` em `Auth.Api/Controllers/UserController.cs`. Body do search: `Auth.Api/Models/SearchUserBody.cs`.
 - Exceções: `AccessDeniedException` e `UserNotFoundException` em `Auth.Domain/Exceptions/`.
-- Busca por e-mail: `DapperUserRepository.GetByEmailAsync`. Os índices únicos de `login` e `email` cobrem as buscas.
+- Busca por e-mail: `DapperUserRepository.GetByEmailAsync`. Os índices únicos de `login` e `email` cobrem as buscas (o de `email` é parcial, só para contas não excluídas).
 - Perfis: `docs/auth/0005 - Perfis de Acesso.md`.

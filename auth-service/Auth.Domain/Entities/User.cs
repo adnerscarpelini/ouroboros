@@ -22,6 +22,8 @@ public sealed class User : Entity
 
     public UserRole Role { get; private set; }
 
+    public DateTimeOffset? DeletedAt { get; private set; }
+
     private User()
     {
     }
@@ -44,6 +46,7 @@ public sealed class User : Entity
             LastLoginAt = null,
             // Menor privilegio: todo cadastro nasce User; promocao a Admin nunca vem do request de cadastro.
             Role = UserRole.User,
+            DeletedAt = null,
         };
 
         return user;
@@ -62,7 +65,8 @@ public sealed class User : Entity
         DateTimeOffset passwordChangedAt,
         bool active,
         DateTimeOffset? lastLoginAt,
-        UserRole role)
+        UserRole role,
+        DateTimeOffset? deletedAt)
     {
         var user = new User
         {
@@ -75,6 +79,7 @@ public sealed class User : Entity
             Active = active,
             LastLoginAt = lastLoginAt,
             Role = role,
+            DeletedAt = deletedAt,
         };
 
         user.RestorePersistence(id, externalId, createdAt, updatedAt);
@@ -93,6 +98,19 @@ public sealed class User : Entity
     {
         PasswordHash = ValidatePasswordHash(passwordHash);
         PasswordChangedAt = DateTimeOffset.UtcNow;
+        MarkAsUpdated();
+    }
+
+    // Exclusao logica: a linha fica no banco pra auditoria; o login continua reservado e o e-mail fica livre.
+    public void Delete()
+    {
+        if (DeletedAt is not null)
+        {
+            throw new DomainException("User has already been deleted");
+        }
+
+        DeletedAt = DateTimeOffset.UtcNow;
+        Active = false;
         MarkAsUpdated();
     }
 

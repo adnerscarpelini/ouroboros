@@ -21,6 +21,7 @@
     <File Path="docs/auth/0004 - Recuperacao de Senha.md" />
     <File Path="docs/auth/0005 - Perfis de Acesso.md" />
     <File Path="docs/auth/0006 - Consulta de Usuario.md" />
+    <File Path="docs/auth/0007 - Exclusao de Conta.md" />
   </Folder>
   <Folder Name="/docker/postgres/init/">
     <File Path="docker/postgres/init/01-create-auth-db.sh" />
@@ -40,6 +41,7 @@
     <File Path="specs/2026/09/2026092303-Auth-Perfil de acesso do usuario.md" />
     <File Path="specs/2026/09/2026092304-Auth-Consulta de usuario.md" />
     <File Path="specs/2026/09/2026092305-Auth-Seguranca do cadastro de usuario.md" />
+    <File Path="specs/2026/09/2026092306-Auth-Exclusao de conta do usuario.md" />
   </Folder>
 
   <Folder Name="/auth-service/">

@@ -7,6 +7,7 @@ using Xunit;
 
 public class RegisterUserInteractorTests
 {
+    // Guarda tambem contas excluidas e as ignora nas buscas, igual ao repositorio real.
     private sealed class FakeUserRepository : IUserRepository
     {
         public List<User> Items { get; } = new();
@@ -19,25 +20,25 @@ public class RegisterUserInteractorTests
 
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
-            var user = Items.FirstOrDefault(item => item.ExternalId == externalId);
+            var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.ExternalId == externalId);
             return Task.FromResult(user);
         }
 
         public Task<User?> GetByEmailAsync(string email)
         {
-            var user = Items.FirstOrDefault(item => item.Email == email);
+            var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.Email == email);
             return Task.FromResult(user);
         }
 
         public Task<User?> GetByLoginAsync(string login)
         {
-            var user = Items.FirstOrDefault(item => item.Login == login);
+            var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.Login == login);
             return Task.FromResult(user);
         }
 
         public Task<User?> GetByLoginOrEmailAsync(string loginOrEmail)
         {
-            var user = Items.FirstOrDefault(item => item.Login == loginOrEmail || item.Email == loginOrEmail);
+            var user = Items.FirstOrDefault(item => item.DeletedAt is null && (item.Login == loginOrEmail || item.Email == loginOrEmail));
             return Task.FromResult(user);
         }
 
@@ -48,8 +49,19 @@ public class RegisterUserInteractorTests
 
         public Task RemoveAsync(Guid externalId)
         {
-            Items.RemoveAll(item => item.ExternalId == externalId);
+            Items.RemoveAll(item => item.DeletedAt is null && item.ExternalId == externalId);
             return Task.CompletedTask;
+        }
+
+        public Task<bool> ExistsDeletedByLoginAsync(string login)
+        {
+            var exists = Items.Any(item => item.DeletedAt is not null && item.Login == login);
+            return Task.FromResult(exists);
+        }
+
+        public Task<int> CountActiveAdminsAsync()
+        {
+            return Task.FromResult(0);
         }
     }
 
@@ -341,6 +353,45 @@ public class RegisterUserInteractorTests
         Assert.Equal("jdoe", user.Login);
         Assert.Equal("jdoe@example.com", user.Email);
         Assert.Equal(user.ExternalId, response.UserId);
+    }
+
+    [Fact]
+    public async Task ShouldRegisterUserAndKeepDeletedAccountWhenEmailBelongsToDeletedUser()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var deleted = CreateExistingUser("old-login", "jdoe@example.com");
+        deleted.ConfirmEmail();
+        deleted.Delete();
+        userRepository.Items.Add(deleted);
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+
+        var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
+
+        Assert.Equal(2, userRepository.Items.Count);
+        Assert.Contains(deleted, userRepository.Items);
+        var user = userRepository.Items.Single(item => item.DeletedAt is null);
+        Assert.Equal("jdoe@example.com", user.Email);
+        Assert.Equal(user.ExternalId, response.UserId);
+        Assert.Equal("raw-token", response.EmailConfirmationToken);
+    }
+
+    [Fact]
+    public async Task ShouldThrowDomainExceptionWhenLoginBelongsToDeletedUser()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var deleted = CreateExistingUser("jdoe", "old@example.com");
+        deleted.ConfirmEmail();
+        deleted.Delete();
+        userRepository.Items.Add(deleted);
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1")));
+
+        Assert.Equal("Login already in use", exception.Message);
+        Assert.Same(deleted, Assert.Single(userRepository.Items));
+        Assert.Empty(tokenRepository.Items);
     }
 
     [Fact]

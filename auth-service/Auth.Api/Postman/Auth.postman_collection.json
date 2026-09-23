@@ -188,6 +188,44 @@
             },
             "description": "Consulta um usuario por login ou e-mail, informados no body (nunca na URL). O body deve ter exatamente um dos dois campos (`login` ou `email`).\n\n- `200` usuario encontrado\n- `400` nenhum ou ambos os campos informados\n- `401` sem token, token invalido ou expirado\n- `403` perfil `User` consultando outro usuario\n- `404` usuario nao encontrado"
           }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "cole-o-access-token-aqui",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"Senha@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/cole-o-external-id-aqui",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "cole-o-external-id-aqui"
+              ]
+            },
+            "description": "Exclui a conta (exclusao logica): a conta fica inativa, os tokens sao revogados, o login continua reservado e o e-mail fica livre pra um novo cadastro. O body leva a senha atual de quem esta logado (reautenticacao), inclusive quando um Admin exclui outra conta.\n\n- `204` conta excluida\n- `400` exclusao do ultimo Admin ativo\n- `401` sem token, token invalido ou expirado, ou senha errada\n- `403` perfil `User` excluindo outra conta\n- `404` conta nao encontrada ou ja excluida\n- `429` limite de tentativas excedido"
+          }
         }
       ]
     },

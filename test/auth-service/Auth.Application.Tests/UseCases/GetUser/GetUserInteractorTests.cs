@@ -24,6 +24,16 @@ public class GetUserInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<bool> ExistsDeletedByLoginAsync(string login)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<int> CountActiveAdminsAsync()
+        {
+            return Task.FromResult(0);
+        }
+
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
             LookupCount++;
@@ -114,7 +124,8 @@ public class GetUserInteractorTests
                 DateTimeOffset.UtcNow.AddDays(-30),
                 true,
                 DateTimeOffset.UtcNow.AddDays(-1),
-                role);
+                role,
+                null);
         }
     }
 

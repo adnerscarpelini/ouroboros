@@ -58,6 +58,11 @@ Todos devolvem `400 {"error": "..."}`, com o motivo logado em `Warning` no Seq.
 
 A checagem ignora contas abandonadas (ver abaixo).
 
+Contas excluídas (ver `docs/auth/0007 - Exclusao de Conta.md`) têm tratamento próprio:
+
+- **Login de conta excluída:** continua reservado pra sempre → `400 Login already in use`.
+- **E-mail de conta excluída:** fica livre. O cadastro segue normalmente e a conta excluída continua no banco.
+
 - **Login usado:** `400 Login already in use`. Quem escolhe o login precisa saber que ele está ocupado.
 - **E-mail usado:** mesma resposta `202` do sucesso. Nenhum usuário ou token é criado e fica um `Warning` no Seq (`User registration ignored: email already in use`), sem o e-mail. Quando existir envio de e-mail, o dono deve ser avisado da tentativa (`TODO` no `RegisterUserInteractor`).
 
@@ -69,6 +74,7 @@ Uma conta é **abandonada** quando o e-mail nunca foi confirmado e ela não tem 
 - Se o login bater com uma conta abandonada e o e-mail com outra, as duas são removidas.
 - Dentro das 24h, a conta pendente continua reservando o login e o e-mail.
 - A remoção leva junto os tokens e refresh tokens da conta (`ON DELETE CASCADE`).
+- Uma conta excluída nunca é removida por essa limpeza.
 
 Não existe reenvio de token. Se o token expirar, a pessoa faz o cadastro de novo.
 

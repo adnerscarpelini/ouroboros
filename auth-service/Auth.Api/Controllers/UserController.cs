@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Ouroboros.Auth.Api.Configuration;
 using Ouroboros.Auth.Api.Models;
 using Ouroboros.Auth.Application.UseCases.ConfirmEmail;
+using Ouroboros.Auth.Application.UseCases.DeleteUser;
 using Ouroboros.Auth.Application.UseCases.GetUser;
 using Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Application.UseCases.RequestPasswordReset;
@@ -24,6 +25,7 @@ public sealed class UserController : ControllerBase
     private readonly IRequestPasswordResetUseCase _requestPasswordResetUseCase;
     private readonly IResetPasswordUseCase _resetPasswordUseCase;
     private readonly IGetUserUseCase _getUserUseCase;
+    private readonly IDeleteUserUseCase _deleteUserUseCase;
     private readonly ILogger<UserController> _logger;
 
     public UserController(
@@ -32,6 +34,7 @@ public sealed class UserController : ControllerBase
         IRequestPasswordResetUseCase requestPasswordResetUseCase,
         IResetPasswordUseCase resetPasswordUseCase,
         IGetUserUseCase getUserUseCase,
+        IDeleteUserUseCase deleteUserUseCase,
         ILogger<UserController> logger)
     {
         _registerUserUseCase = registerUserUseCase;
@@ -39,6 +42,7 @@ public sealed class UserController : ControllerBase
         _requestPasswordResetUseCase = requestPasswordResetUseCase;
         _resetPasswordUseCase = resetPasswordUseCase;
         _getUserUseCase = getUserUseCase;
+        _deleteUserUseCase = deleteUserUseCase;
         _logger = logger;
     }
 
@@ -146,6 +150,60 @@ public sealed class UserController : ControllerBase
     public Task<IActionResult> Search([FromBody] SearchUserBody body)
     {
         return GetUserAsync(null, body.Login, body.Email);
+    }
+
+    [HttpDelete("{externalId:guid}")]
+    [Authorize]
+    [EnableRateLimiting(RateLimitingConfiguration.UserDeletePolicy)]
+    public async Task<IActionResult> Delete(
+        Guid externalId,
+        [FromBody] DeleteUserBody body)
+    {
+        var requesterId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        if (!Guid.TryParse(requesterId, out var requesterExternalId))
+        {
+            _logger.LogWarning("User deletion rejected: access token without a valid subject");
+            return Unauthorized(new { error = "Invalid access token" });
+        }
+
+        var request = new DeleteUserRequest(
+            requesterExternalId,
+            User.FindFirstValue(JwtTokenGenerator.RoleClaimType) ?? string.Empty,
+            body.Password,
+            externalId);
+
+        try
+        {
+            var response = await _deleteUserUseCase.ExecuteAsync(request);
+
+            _logger.LogInformation(
+                "User {UserId} deleted by requester {RequesterId}",
+                response.UserId,
+                requesterExternalId);
+
+            return NoContent();
+        }
+        catch (InvalidCredentialsException e)
+        {
+            _logger.LogWarning(e, "User deletion rejected for requester {RequesterId}: {Reason}", requesterExternalId, e.Message);
+            return Unauthorized(new { error = e.Message });
+        }
+        catch (AccessDeniedException e)
+        {
+            _logger.LogWarning(e, "User deletion denied for requester {RequesterId}: {Reason}", requesterExternalId, e.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = e.Message });
+        }
+        catch (UserNotFoundException e)
+        {
+            _logger.LogWarning(e, "User deletion by requester {RequesterId} found nothing: {Reason}", requesterExternalId, e.Message);
+            return NotFound(new { error = e.Message });
+        }
+        catch (DomainException e)
+        {
+            _logger.LogWarning(e, "User deletion rejected for requester {RequesterId}: {Reason}", requesterExternalId, e.Message);
+            return BadRequest(new { error = e.Message });
+        }
     }
 
     private async Task<IActionResult> GetUserAsync(

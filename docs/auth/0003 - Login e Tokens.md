@@ -43,7 +43,7 @@ Erros:
 | Login inexistente, senha errada ou campos vazios | `401` | `Invalid login or password` |
 | Senha correta, mas usuário inativo | `400` | `User is not active` |
 
-Login inexistente e senha errada devolvem **a mesma resposta** de propósito, para não revelar quais logins existem. O usuário inativo só é informado depois que a senha confere.
+Login inexistente e senha errada devolvem **a mesma resposta** de propósito, para não revelar quais logins existem. O usuário inativo só é informado depois que a senha confere. Conta excluída é tratada como login inexistente, e o refresh de uma conta excluída devolve `401 Invalid refresh token` (ver `docs/auth/0007 - Exclusao de Conta.md`).
 
 Login rejeitado **não** revoga as sessões existentes. Só um login bem-sucedido faz isso.
 

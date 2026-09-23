@@ -23,6 +23,16 @@ public class LoginInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<bool> ExistsDeletedByLoginAsync(string login)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<int> CountActiveAdminsAsync()
+        {
+            return Task.FromResult(0);
+        }
+
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
             var user = Items.FirstOrDefault(item => item.ExternalId == externalId);
@@ -156,7 +166,8 @@ public class LoginInteractorTests
             DateTimeOffset.UtcNow.AddDays(-30),
             true,
             null,
-            role);
+            role,
+            null);
     }
 
     private static LoginInteractor CreateInteractor(

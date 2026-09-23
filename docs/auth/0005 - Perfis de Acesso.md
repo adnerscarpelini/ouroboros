@@ -4,8 +4,8 @@ Todo usuário tem um perfil (`role`) que define o que ele pode fazer nas rotas p
 
 | Perfil | Quem | Pode |
 |---|---|---|
-| `User` | Todo usuário cadastrado | Acessar só os próprios dados |
-| `Admin` | Promovido manualmente | Acessar dados de qualquer usuário |
+| `User` | Todo usuário cadastrado | Acessar só os próprios dados e excluir a própria conta |
+| `Admin` | Promovido manualmente | Acessar dados de qualquer usuário e excluir qualquer conta (ver `docs/auth/0007 - Exclusao de Conta.md`) |
 
 O nome segue o padrão de mercado: `role` no ASP.NET Core (`[Authorize(Roles = ...)]`), Keycloak, Auth0 e Entra ID. "Profile" fica reservado para dados pessoais.
 

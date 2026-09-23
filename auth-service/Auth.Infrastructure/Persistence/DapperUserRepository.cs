@@ -30,7 +30,8 @@ public sealed class DapperUserRepository : IUserRepository
                 password_changed_at,
                 active,
                 last_login_at,
-                role
+                role,
+                deleted_at
             )
             VALUES (
                 nextval('auth.users_id_seq'),
@@ -45,7 +46,8 @@ public sealed class DapperUserRepository : IUserRepository
                 @PasswordChangedAt,
                 @Active,
                 @LastLoginAt,
-                @Role
+                @Role,
+                @DeletedAt
             );
             """;
 
@@ -67,6 +69,7 @@ public sealed class DapperUserRepository : IUserRepository
                 user.Active,
                 user.LastLoginAt,
                 Role = user.Role.ToString(),
+                user.DeletedAt,
             });
     }
 
@@ -86,9 +89,12 @@ public sealed class DapperUserRepository : IUserRepository
                 users.password_changed_at,
                 users.active,
                 users.last_login_at,
-                users.role
+                users.role,
+                users.deleted_at
             FROM auth.users AS users
-            WHERE users.external_id = @ExternalId;
+            WHERE
+                users.external_id = @ExternalId
+                AND users.deleted_at IS NULL;
             """;
 
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -114,9 +120,12 @@ public sealed class DapperUserRepository : IUserRepository
                 users.password_changed_at,
                 users.active,
                 users.last_login_at,
-                users.role
+                users.role,
+                users.deleted_at
             FROM auth.users AS users
-            WHERE users.email = @Email;
+            WHERE
+                users.email = @Email
+                AND users.deleted_at IS NULL;
             """;
 
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -142,9 +151,12 @@ public sealed class DapperUserRepository : IUserRepository
                 users.password_changed_at,
                 users.active,
                 users.last_login_at,
-                users.role
+                users.role,
+                users.deleted_at
             FROM auth.users AS users
-            WHERE users.login = @Login;
+            WHERE
+                users.login = @Login
+                AND users.deleted_at IS NULL;
             """;
 
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -171,10 +183,12 @@ public sealed class DapperUserRepository : IUserRepository
                 users.password_changed_at,
                 users.active,
                 users.last_login_at,
-                users.role
+                users.role,
+                users.deleted_at
             FROM auth.users AS users
-            WHERE users.login = @LoginOrEmail
-            OR users.email = @LoginOrEmail
+            WHERE
+                (users.login = @LoginOrEmail OR users.email = @LoginOrEmail)
+                AND users.deleted_at IS NULL
             ORDER BY (users.login = @LoginOrEmail) DESC
             LIMIT 1;
             """;
@@ -199,7 +213,8 @@ public sealed class DapperUserRepository : IUserRepository
                 password_changed_at = @PasswordChangedAt,
                 active = @Active,
                 last_login_at = @LastLoginAt,
-                role = @Role
+                role = @Role,
+                deleted_at = @DeletedAt
             WHERE
                 external_id = @ExternalId;
             """;
@@ -219,6 +234,7 @@ public sealed class DapperUserRepository : IUserRepository
                 user.Active,
                 user.LastLoginAt,
                 Role = user.Role.ToString(),
+                user.DeletedAt,
                 user.ExternalId,
             });
     }
@@ -226,14 +242,50 @@ public sealed class DapperUserRepository : IUserRepository
     public async Task RemoveAsync(Guid externalId)
     {
         // Tokens e refresh tokens do usuario saem junto via ON DELETE CASCADE.
+        // Conta excluida (logicamente) nunca e apagada: a linha fica pra auditoria e pra reservar o login.
         const string sql = """
             DELETE FROM auth.users
-            WHERE external_id = @ExternalId;
+            WHERE
+                external_id = @ExternalId
+                AND deleted_at IS NULL;
             """;
 
         await using var connection = new NpgsqlConnection(_connectionString);
 
         await connection.ExecuteAsync(sql, new { ExternalId = externalId });
+    }
+
+    public async Task<bool> ExistsDeletedByLoginAsync(string login)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM auth.users AS users
+                WHERE
+                    users.login = @Login
+                    AND users.deleted_at IS NOT NULL
+            );
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        return await connection.ExecuteScalarAsync<bool>(sql, new { Login = login });
+    }
+
+    public async Task<int> CountActiveAdminsAsync()
+    {
+        const string sql = """
+            SELECT COUNT(*)
+            FROM auth.users AS users
+            WHERE
+                users.role = @Role
+                AND users.active
+                AND users.deleted_at IS NULL;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        return await connection.ExecuteScalarAsync<int>(sql, new { Role = nameof(UserRole.Admin) });
     }
 
     private static User? MapToUser(UserRow? row)
@@ -256,7 +308,8 @@ public sealed class DapperUserRepository : IUserRepository
             new DateTimeOffset(row.PasswordChangedAt),
             row.Active,
             ToDateTimeOffset(row.LastLoginAt),
-            Enum.Parse<UserRole>(row.Role));
+            Enum.Parse<UserRole>(row.Role),
+            ToDateTimeOffset(row.DeletedAt));
     }
 
     private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
@@ -298,5 +351,7 @@ public sealed class DapperUserRepository : IUserRepository
 
         // Gravado como texto (nome do enum) pra casar com o CHECK da coluna e ficar legivel em SQL.
         public string Role { get; init; } = null!;
+
+        public DateTime? DeletedAt { get; init; }
     }
 }

@@ -22,6 +22,16 @@ public class RequestPasswordResetInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<bool> ExistsDeletedByLoginAsync(string login)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<int> CountActiveAdminsAsync()
+        {
+            return Task.FromResult(0);
+        }
+
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
             var user = Items.FirstOrDefault(item => item.ExternalId == externalId);
@@ -264,7 +274,8 @@ public class RequestPasswordResetInteractorTests
             DateTimeOffset.UtcNow.AddDays(-30),
             false,
             null,
-            UserRole.User));
+            UserRole.User,
+            null));
         var interactor = CreateInteractor(userRepository, tokenRepository);
 
         var response = await interactor.ExecuteAsync(new RequestPasswordResetRequest("jdoe"));

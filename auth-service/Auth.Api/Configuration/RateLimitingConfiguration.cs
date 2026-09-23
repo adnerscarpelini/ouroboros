@@ -8,9 +8,11 @@ public static class RateLimitingConfiguration
     public const string PasswordResetRequestPolicy = "password-reset-request";
     public const string PasswordResetConfirmPolicy = "password-reset-confirm";
     public const string UserRegisterPolicy = "user-register";
+    public const string UserDeletePolicy = "user-delete";
 
     private static readonly TimeSpan PasswordResetWindow = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan UserRegisterWindow = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan UserDeleteWindow = TimeSpan.FromMinutes(15);
 
     public static IServiceCollection AddRateLimiting(this IServiceCollection services)
     {
@@ -38,6 +40,13 @@ public static class RateLimitingConfiguration
                 UserRegisterPolicy,
                 5,
                 UserRegisterWindow);
+
+            // A exclusao verifica senha: contem tentativa de adivinhar a senha a partir de um access token roubado.
+            AddFixedWindowPerIpPolicy(
+                options,
+                UserDeletePolicy,
+                5,
+                UserDeleteWindow);
 
             options.OnRejected = (context, _) =>
             {

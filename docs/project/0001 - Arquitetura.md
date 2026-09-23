@@ -9,7 +9,7 @@ Ouroboros é um monorepo de estudo pra praticar microsserviços com Clean Archit
 - Solution única `Ouroboros.slnx` (formato novo do .NET 10) na raiz, agregando os projetos de todos os serviços
 - xUnit
 - Sem ORM completo (nada de Entity Framework Core com change tracking, nem NHibernate) — persistência via Dapper
-- PostgreSQL — sobe via `docker-compose.yml` na raiz (ver `docs/0002 - Docker.md`); `auth-service` será o primeiro serviço a usar, banco `ouroboros_auth` já criado
+- PostgreSQL — sobe via `docker-compose.yml` na raiz (ver `docs/project/0002 - Docker.md`); `auth-service` será o primeiro serviço a usar, banco `ouroboros_auth` já criado
 
 ## A regra de dependência
 
@@ -58,7 +58,7 @@ Regras por projeto:
 - Cada serviço terá seu próprio banco lógico: `ouroboros_<servico>` (ex.: `auth-service` → `ouroboros_auth`), com role própria — isso isola os serviços entre si.
 - Tabelas de negócio ficam no schema `<servico>` (ex.: `auth.users`).
 - Migrations são arquivos `.sql` escritos à mão, aplicadas com DbUp, nomeadas `V<AAAAMMDDHHMMSS>__Descricao.sql`, guardadas em `{Servico}.Infrastructure/Migrations/` (embutidas no assembly). Detalhes na skill `ouroboros-dba`.
-- Uso do Docker (comandos, como cada serviço ganha seu próprio banco) em `docs/0002 - Docker.md`.
+- Uso do Docker (comandos, como cada serviço ganha seu próprio banco) em `docs/project/0002 - Docker.md`.
 
 ## Serviços existentes
 

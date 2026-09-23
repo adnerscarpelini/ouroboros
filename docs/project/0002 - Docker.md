@@ -5,13 +5,13 @@
 Um unico `docker-compose.yml` na raiz do monorepo, projeto/stack `ouroboros`, com um servico por enquanto: `postgres`.
 
 - Imagem `postgres:16-alpine`.
-- Uma unica instancia Postgres compartilhada entre todos os microsservicos — nao um container por servico. O isolamento entre servicos vem do banco e da role, nao do container (ver `docs/0001 - Arquitetura.md`).
+- Uma unica instancia Postgres compartilhada entre todos os microsservicos — nao um container por servico. O isolamento entre servicos vem do banco e da role, nao do container (ver `docs/project/0001 - Arquitetura.md`).
 - Dados persistidos no volume nomeado `ouroboros-postgres-data`, sobrevive a `docker compose down` (so some com `down -v`).
 - Scripts em `docker/postgres/init/` sao montados em `/docker-entrypoint-initdb.d` e rodam automaticamente **so na primeira subida** do volume (Postgres nao reexecuta se o volume ja existe).
 
 ## Setup local
 
-1. Copie `.env.example` para `.env` na raiz e preencha as senhas e a chave JWT (ver `docs/0005 - Configuracao JWT.md`):
+1. Copie `.env.example` para `.env` na raiz e preencha as senhas e a chave JWT (ver `docs/auth/0002 - Configuracao JWT.md`):
    ```
    cp .env.example .env
    ```

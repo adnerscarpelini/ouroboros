@@ -595,4 +595,4 @@ public sealed class {Entidade}Controller : ControllerBase
 }
 ```
 
-Ambiente ativado via `ASPNETCORE_ENVIRONMENT=Development` (o `docker-compose.yml` da raiz ja usa isso por padrao pro ambiente local, equivalente ao antigo `SPRING_PROFILES_ACTIVE=dev`). `ConnectionStrings:Default` e `Seq:ServerUrl` ficam vazios aqui e sao preenchidos via variavel de ambiente no `docker-compose.yml` (`ConnectionStrings__Default` e `Seq__ServerUrl: http://seq:5341`, ver `docs/0002 - Docker.md` e `docs/0003 - Logging e Erros.md`).
+Ambiente ativado via `ASPNETCORE_ENVIRONMENT=Development` (o `docker-compose.yml` da raiz ja usa isso por padrao pro ambiente local, equivalente ao antigo `SPRING_PROFILES_ACTIVE=dev`). `ConnectionStrings:Default` e `Seq:ServerUrl` ficam vazios aqui e sao preenchidos via variavel de ambiente no `docker-compose.yml` (`ConnectionStrings__Default` e `Seq__ServerUrl: http://seq:5341`, ver `docs/project/0002 - Docker.md` e `docs/project/0003 - Logging e Erros.md`).

@@ -9,13 +9,15 @@
     <File Path="project-logo.png" />
   </Folder>
 
-  <Folder Name="/docs/">
-    <File Path="docs/0001 - Arquitetura.md" />
-    <File Path="docs/0002 - Docker.md" />
-    <File Path="docs/0003 - Logging e Erros.md" />
-    <File Path="docs/0004 - Confirmacao de Cadastro.md" />
-    <File Path="docs/0005 - Configuracao JWT.md" />
-    <File Path="docs/0006 - Login e Tokens.md" />
+  <Folder Name="/docs/project/">
+    <File Path="docs/project/0001 - Arquitetura.md" />
+    <File Path="docs/project/0002 - Docker.md" />
+    <File Path="docs/project/0003 - Logging e Erros.md" />
+  </Folder>
+  <Folder Name="/docs/auth/">
+    <File Path="docs/auth/0001 - Confirmacao de Cadastro.md" />
+    <File Path="docs/auth/0002 - Configuracao JWT.md" />
+    <File Path="docs/auth/0003 - Login e Tokens.md" />
   </Folder>
   <Folder Name="/docker/postgres/init/">
     <File Path="docker/postgres/init/01-create-auth-db.sh" />

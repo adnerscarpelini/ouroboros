@@ -4,7 +4,7 @@
 
 1. O cliente envia login e senha para `POST /api/auth/login`.
 2. O `auth-service` busca o usuário pelo login e confere a senha com o hash PBKDF2 gravado.
-3. O login só é aceito para usuário **ativo**, ou seja, com o cadastro já confirmado por e-mail (ver `docs/0004 - Confirmacao de Cadastro.md`).
+3. O login só é aceito para usuário **ativo**, ou seja, com o cadastro já confirmado por e-mail (ver `docs/auth/0001 - Confirmacao de Cadastro.md`).
 4. A resposta traz dois tokens:
    - **Access token** (JWT): de vida curta, stateless, vai em toda requisição autenticada.
    - **Refresh token**: opaco e de vida longa. É persistido para poder ser consultado e revogado depois.
@@ -57,7 +57,7 @@ Todo login rejeitado é logado em `Warning` no Seq, com o login tentado e o moti
 | `iss` / `aud` | `Jwt:Issuer` / `Jwt:Audience` |
 | `iat` / `nbf` / `exp` | emissão / início da validade / expiração |
 
-Os parâmetros estão em `docs/0005 - Configuracao JWT.md`.
+Os parâmetros estão em `docs/auth/0002 - Configuracao JWT.md`.
 
 ## Refresh token
 

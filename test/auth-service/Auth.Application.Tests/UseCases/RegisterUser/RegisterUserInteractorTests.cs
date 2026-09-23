@@ -35,6 +35,12 @@ public class RegisterUserInteractorTests
             return Task.FromResult(user);
         }
 
+        public Task<User?> GetByLoginOrEmailAsync(string loginOrEmail)
+        {
+            var user = Items.FirstOrDefault(item => item.Login == loginOrEmail || item.Email == loginOrEmail);
+            return Task.FromResult(user);
+        }
+
         public Task UpdateAsync(User user)
         {
             return Task.CompletedTask;
@@ -71,6 +77,14 @@ public class RegisterUserInteractorTests
         }
 
         public Task UpdateAsync(Token token)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task InvalidatePendingByUserAsync(
+            Guid userExternalId,
+            TokenType type,
+            DateTimeOffset invalidatedAt)
         {
             return Task.CompletedTask;
         }

@@ -140,6 +140,38 @@ public sealed class DapperTokenRepository : ITokenRepository
             });
     }
 
+    public async Task InvalidatePendingByUserAsync(
+        Guid userExternalId,
+        TokenType type,
+        DateTimeOffset invalidatedAt)
+    {
+        // Nao existe coluna de revogacao em auth.tokens: invalidar = antecipar a expiracao pro instante atual.
+        const string sql = """
+            UPDATE auth.tokens AS tokens
+            SET
+                updated_at = @InvalidatedAt,
+                expires_at = @InvalidatedAt
+            FROM auth.users AS users
+            WHERE
+                users.id = tokens.user_id
+                AND users.external_id = @UserExternalId
+                AND tokens.type = @Type
+                AND tokens.used_at IS NULL
+                AND tokens.expires_at > @InvalidatedAt;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        await connection.ExecuteAsync(
+            sql,
+            new
+            {
+                InvalidatedAt = invalidatedAt,
+                UserExternalId = userExternalId,
+                Type = type.ToString(),
+            });
+    }
+
     private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
     {
         if (value is null)

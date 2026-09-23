@@ -46,10 +46,10 @@ Não existe reenvio de token hoje. Se o token expirar, o usuário fica inativo a
 
 ## Tabela `auth.tokens`
 
-Tabela genérica, pensada para reaproveitar em outros fluxos de token (ex.: reset de senha) sem criar uma tabela nova por caso.
+Tabela genérica, pensada para reaproveitar em outros fluxos de token sem criar uma tabela nova por caso.
 
 - `user_id`: FK para `auth.users`.
-- `type`: nome do enum `TokenType` gravado como texto (hoje só `EmailConfirmation`). Para um fluxo novo, adicione um valor ao enum.
+- `type`: nome do enum `TokenType` gravado como texto (hoje `EmailConfirmation` e `PasswordReset`, ver `docs/auth/0004 - Recuperacao de Senha.md`). Para um fluxo novo, adicione um valor ao enum.
 - `token_hash`: hash SHA-256 do token, com índice único. **O token em texto puro nunca é gravado.** A busca é feita pelo hash.
 - `expires_at` / `used_at`: validade e uso único.
 

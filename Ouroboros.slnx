@@ -18,6 +18,7 @@
     <File Path="docs/auth/0001 - Confirmacao de Cadastro.md" />
     <File Path="docs/auth/0002 - Configuracao JWT.md" />
     <File Path="docs/auth/0003 - Login e Tokens.md" />
+    <File Path="docs/auth/0004 - Recuperacao de Senha.md" />
   </Folder>
   <Folder Name="/docker/postgres/init/">
     <File Path="docker/postgres/init/01-create-auth-db.sh" />

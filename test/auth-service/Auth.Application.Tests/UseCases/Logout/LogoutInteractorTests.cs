@@ -67,6 +67,12 @@ public class LogoutInteractorTests
             return Task.FromResult(user);
         }
 
+        public Task<User?> GetByLoginOrEmailAsync(string loginOrEmail)
+        {
+            var user = Items.FirstOrDefault(item => item.Login == loginOrEmail || item.Email == loginOrEmail);
+            return Task.FromResult(user);
+        }
+
         public Task UpdateAsync(User user)
         {
             return Task.CompletedTask;

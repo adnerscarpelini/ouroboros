@@ -137,6 +137,37 @@ public sealed class DapperUserRepository : IUserRepository
         return MapToUser(row);
     }
 
+    public async Task<User?> GetByLoginOrEmailAsync(string loginOrEmail)
+    {
+        // Se o valor bater com o login de um usuario e o e-mail de outro, o login tem prioridade.
+        const string sql = """
+            SELECT
+                users.id,
+                users.external_id,
+                users.created_at,
+                users.updated_at,
+                users.login,
+                users.full_name,
+                users.email,
+                users.email_confirmed,
+                users.password_hash,
+                users.password_changed_at,
+                users.active,
+                users.last_login_at
+            FROM auth.users AS users
+            WHERE users.login = @LoginOrEmail
+            OR users.email = @LoginOrEmail
+            ORDER BY (users.login = @LoginOrEmail) DESC
+            LIMIT 1;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { LoginOrEmail = loginOrEmail });
+
+        return MapToUser(row);
+    }
+
     public async Task UpdateAsync(User user)
     {
         const string sql = """

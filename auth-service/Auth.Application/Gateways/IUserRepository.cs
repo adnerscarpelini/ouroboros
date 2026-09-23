@@ -12,5 +12,7 @@ public interface IUserRepository
 
     Task<User?> GetByLoginAsync(string login);
 
+    Task<User?> GetByLoginOrEmailAsync(string loginOrEmail);
+
     Task UpdateAsync(User user);
 }

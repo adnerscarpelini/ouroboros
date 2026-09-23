@@ -10,7 +10,7 @@ using Ouroboros.Auth.Domain.Entities;
 public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
     // Nome curto de claim usado por OIDC/Keycloak/Entra ID; quem valida o token configura RoleClaimType = "role".
-    private const string RoleClaimType = "role";
+    public const string RoleClaimType = "role";
 
     private readonly JwtSettings _settings;
     private readonly SigningCredentials _signingCredentials;

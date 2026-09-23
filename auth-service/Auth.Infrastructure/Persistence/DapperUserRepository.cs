@@ -114,6 +114,34 @@ public sealed class DapperUserRepository : IUserRepository
         return MapToUser(row);
     }
 
+    public async Task<User?> GetByEmailAsync(string email)
+    {
+        const string sql = """
+            SELECT
+                users.id,
+                users.external_id,
+                users.created_at,
+                users.updated_at,
+                users.login,
+                users.full_name,
+                users.email,
+                users.email_confirmed,
+                users.password_hash,
+                users.password_changed_at,
+                users.active,
+                users.last_login_at,
+                users.role
+            FROM auth.users AS users
+            WHERE users.email = @Email;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { Email = email });
+
+        return MapToUser(row);
+    }
+
     public async Task<User?> GetByLoginAsync(string login)
     {
         const string sql = """

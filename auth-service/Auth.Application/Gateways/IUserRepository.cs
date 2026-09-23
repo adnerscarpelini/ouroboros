@@ -10,6 +10,8 @@ public interface IUserRepository
 
     Task<User?> GetByExternalIdAsync(Guid externalId);
 
+    Task<User?> GetByEmailAsync(string email);
+
     Task<User?> GetByLoginAsync(string login);
 
     Task<User?> GetByLoginOrEmailAsync(string loginOrEmail);

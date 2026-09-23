@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "4d1b13f9-6401-478d-b3f5-53394f04faea",
     "name": "Ouroboros - Auth",
-    "description": "Endpoints do auth-service.\n\nFluxo sugerido: Register User -> Confirm Email -> Login -> Refresh Access Token -> Logout.\n\nOs tokens de confirmacao de e-mail e de login sao guardados automaticamente nas variaveis da collection. O token de redefinicao de senha nao volta na resposta (so aparece no log do servico, no Seq) — copie ele para a variavel `passwordResetToken` antes de rodar Reset Password.",
+    "description": "Endpoints do auth-service.\n\nFluxo sugerido: Register User -> Confirm Email -> Login -> Get User By Id / Search User -> Refresh Access Token -> Logout.\n\nOs tokens de confirmacao de e-mail e de login sao guardados automaticamente nas variaveis da collection. O token de redefinicao de senha nao volta na resposta (so aparece no log do servico, no Seq) — copie ele para a variavel `passwordResetToken` antes de rodar Reset Password.\n\nGet User By Id e Search User exigem Bearer token (`accessToken`, preenchido pelo Login). Perfil `User` so consulta a si mesmo; `Admin` consulta qualquer usuario.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -18,7 +18,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (pm.response.code === 201) {",
-                  "    pm.collectionVariables.set(\"emailConfirmationToken\", pm.response.json().emailConfirmationToken);",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set(\"emailConfirmationToken\", body.emailConfirmationToken);",
+                  "    pm.collectionVariables.set(\"userId\", body.id);",
                   "}"
                 ]
               }
@@ -133,6 +135,73 @@
               ]
             },
             "description": "Redefine a senha com o token recebido. Preencha a variavel `passwordResetToken` com o token do log antes de rodar.\n\n- `204` senha redefinida\n- `400` token invalido/expirado/ja usado ou senha fora da politica\n- `429` limite de 10 tentativas por IP a cada 15 minutos"
+          }
+        },
+        {
+          "name": "Get User By Id",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Consulta um usuario pelo externalId (preenchido pelo Register User). Devolve so dados nao sensiveis: externalId, login, fullName, email, role, active e createdAt.\n\n- `200` usuario encontrado\n- `401` sem token, token invalido ou expirado\n- `403` perfil `User` consultando outro usuario\n- `404` usuario nao encontrado"
+          }
+        },
+        {
+          "name": "Search User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{login}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "search"
+              ]
+            },
+            "description": "Consulta um usuario por login ou e-mail, informados no body (nunca na URL). O body deve ter exatamente um dos dois campos (`login` ou `email`).\n\n- `200` usuario encontrado\n- `400` nenhum ou ambos os campos informados\n- `401` sem token, token invalido ou expirado\n- `403` perfil `User` consultando outro usuario\n- `404` usuario nao encontrado"
           }
         }
       ]
@@ -277,6 +346,10 @@
     {
       "key": "newPassword",
       "value": "NovaSenha@456"
+    },
+    {
+      "key": "userId",
+      "value": ""
     },
     {
       "key": "emailConfirmationToken",

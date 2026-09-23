@@ -4,7 +4,7 @@
 
 ## Fluxo
 
-1. `POST /api/users` cria o usuário **inativo** (`active = false`, `email_confirmed = false`).
+1. `POST /api/users` cria o usuário **inativo** (`active = false`, `email_confirmed = false`) e sempre com perfil `User`. O body não aceita perfil (ver `docs/auth/0005 - Perfis de Acesso.md`).
 2. No mesmo request, é gerado um token de confirmação válido por **24h**. O valor em texto puro volta no campo `emailConfirmationToken` da resposta.
 3. O cliente envia o token para `POST /api/users/confirm-email`.
 4. Se o token for válido, o usuário passa a `active = true` e `email_confirmed = true`, e o token é marcado como usado.
@@ -18,7 +18,7 @@ POST /api/users
 { "login": "jdoe", "fullName": "John Doe", "email": "jdoe@example.com", "password": "S3cret!1" }
 
 201 Created
-{ "id": "...", "login": "jdoe", "fullName": "John Doe", "email": "jdoe@example.com", "emailConfirmationToken": "UO7xZ5mw..." }
+{ "id": "...", "login": "jdoe", "fullName": "John Doe", "email": "jdoe@example.com", "role": "User", "emailConfirmationToken": "UO7xZ5mw..." }
 ```
 
 Confirmação:

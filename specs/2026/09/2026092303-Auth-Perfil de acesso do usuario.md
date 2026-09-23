@@ -29,4 +29,4 @@ Pré-requisito da spec [2026092304](2026092304-Auth-Consulta%20de%20usuario.md),
 - [x] **DBA** — Migration adicionando `role text NOT NULL DEFAULT 'User'` em `auth.users`, com `CHECK (role IN ('User', 'Admin'))`
 - [x] **DBA** — Ajustar `DapperUserRepository` (INSERT, UPDATE, todos os SELECTs e mapeamento `UserRow` ↔ `UserRole`)
 - [x] **Tester** — Cobrir: cadastro gera `User`; `Rehydrate` restaura o perfil; login emite JWT com o claim de role; refresh mantém o perfil do usuário
-- [ ] **Tech Writer** — Documentar em `docs/auth/` os perfis existentes, o claim no JWT e o procedimento SQL para promover o primeiro `Admin`
+- [x] **Tech Writer** — Documentar em `docs/auth/` os perfis existentes, o claim no JWT e o procedimento SQL para promover o primeiro `Admin`

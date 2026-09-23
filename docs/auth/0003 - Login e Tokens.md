@@ -129,11 +129,23 @@ Um token é considerado **ativo** quando `revoked_at IS NULL` e `expires_at` ain
 | `sub` | `id` público do usuário (external id) |
 | `unique_name` | login |
 | `email` | e-mail |
+| `role` | perfil do usuário (`User` ou `Admin`, ver `docs/auth/0005 - Perfis de Acesso.md`) |
 | `jti` | id único do token |
 | `iss` / `aud` | `Jwt:Issuer` / `Jwt:Audience` |
 | `iat` / `nbf` / `exp` | emissão / início da validade / expiração |
 
 Os parâmetros estão em `docs/auth/0002 - Configuracao JWT.md`.
+
+### Validação nas rotas protegidas
+
+Rotas com `[Authorize]` exigem o header `Authorization: Bearer <accessToken>`. A API valida o token com o mesmo `JwtSettings` usado na emissão:
+
+- assinatura com `Jwt:SigningKey`, aceitando **só** `HS256` (bloqueia troca de algoritmo, ex.: `none`);
+- `iss` igual a `Jwt:Issuer` e `aud` igual a `Jwt:Audience`;
+- `exp` obrigatório, com tolerância de relógio de **30 segundos** (o padrão do ASP.NET é 5 min, longo demais para um token de 15 min);
+- claims com os nomes curtos do JWT (`sub`, `role`...), sem mapear para os URIs do `ClaimTypes`. O perfil é lido do claim `role`.
+
+Token ausente, adulterado, expirado ou de outro emissor → `401`, sem corpo.
 
 ## Refresh token
 
@@ -154,5 +166,6 @@ Todo login, refresh ou logout rejeitado é logado em `Warning` no Seq, com o mot
 - Revogação concorrente: `DapperRefreshTokenRepository.TryRevokeAsync`.
 - Revogação em lote no login: `DapperRefreshTokenRepository.RevokeAllActiveByUserAsync`.
 - Emissão do JWT: `Auth.Infrastructure/Security/JwtTokenGenerator.cs`.
+- Validação do JWT: `Auth.Api/Configuration/AuthenticationConfiguration.cs`.
 - Conferência de senha: `Pbkdf2PasswordHasher.Verify`, com comparação em tempo constante.
 - Migration: `V20260923160000__CreateRefreshTokensTable.sql`.

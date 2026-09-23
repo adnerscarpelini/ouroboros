@@ -10,7 +10,7 @@ Por quê:
 
 ## Parâmetros
 
-Seção `Jwt`, classe `Auth.Api/Configuration/JwtSettings.cs`:
+Seção `Jwt`, classe `Auth.Infrastructure/Security/JwtSettings.cs` (fica em Infrastructure porque é consumida pelo `JwtTokenGenerator`; a Api só faz o bind e a validação):
 
 | Chave | Padrão | Regra |
 |---|---|---|

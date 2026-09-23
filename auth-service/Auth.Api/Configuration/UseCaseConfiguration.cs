@@ -1,7 +1,10 @@
 namespace Ouroboros.Auth.Api.Configuration;
 
+using Microsoft.Extensions.Options;
 using Ouroboros.Auth.Application.Gateways;
+using Ouroboros.Auth.Application.Settings;
 using Ouroboros.Auth.Application.UseCases.ConfirmEmail;
+using Ouroboros.Auth.Application.UseCases.Login;
 using Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Infrastructure.Persistence;
 using Ouroboros.Auth.Infrastructure.Security;
@@ -18,13 +21,19 @@ public static class UseCaseConfiguration
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddSingleton<IJwtTokenGenerator>(provider =>
+            new JwtTokenGenerator(provider.GetRequiredService<IOptions<JwtSettings>>().Value));
+        services.AddSingleton(provider =>
+            new RefreshTokenSettings(TimeSpan.FromDays(provider.GetRequiredService<IOptions<JwtSettings>>().Value.RefreshTokenExpirationDays)));
 
         services.AddScoped<IUserRepository>(_ => new DapperUserRepository(connectionString));
         services.AddScoped<ITokenRepository>(_ => new DapperTokenRepository(connectionString));
+        services.AddScoped<IRefreshTokenRepository>(_ => new DapperRefreshTokenRepository(connectionString));
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, Sha256TokenGenerator>();
         services.AddScoped<IRegisterUserUseCase, RegisterUserInteractor>();
         services.AddScoped<IConfirmEmailUseCase, ConfirmEmailInteractor>();
+        services.AddScoped<ILoginUseCase, LoginInteractor>();
 
         return services;
     }

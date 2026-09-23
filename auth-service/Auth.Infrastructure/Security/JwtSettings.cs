@@ -1,4 +1,4 @@
-namespace Ouroboros.Auth.Api.Configuration;
+namespace Ouroboros.Auth.Infrastructure.Security;
 
 using System.ComponentModel.DataAnnotations;
 

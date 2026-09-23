@@ -31,6 +31,12 @@ public class ConfirmEmailInteractorTests
             return Task.FromResult(user);
         }
 
+        public Task<User?> GetByLoginAsync(string login)
+        {
+            var user = Items.FirstOrDefault(item => item.Login == login);
+            return Task.FromResult(user);
+        }
+
         public Task UpdateAsync(User user)
         {
             Updated.Add(user);

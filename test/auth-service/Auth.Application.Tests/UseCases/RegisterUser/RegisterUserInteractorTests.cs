@@ -29,6 +29,12 @@ public class RegisterUserInteractorTests
             return Task.FromResult(user);
         }
 
+        public Task<User?> GetByLoginAsync(string login)
+        {
+            var user = Items.FirstOrDefault(item => item.Login == login);
+            return Task.FromResult(user);
+        }
+
         public Task UpdateAsync(User user)
         {
             return Task.CompletedTask;
@@ -40,6 +46,11 @@ public class RegisterUserInteractorTests
         public string Hash(string password)
         {
             return $"hashed:{password}";
+        }
+
+        public bool Verify(string password, string passwordHash)
+        {
+            return passwordHash == Hash(password);
         }
     }
 

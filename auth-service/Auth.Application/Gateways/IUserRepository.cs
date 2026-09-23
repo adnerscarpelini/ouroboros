@@ -10,5 +10,7 @@ public interface IUserRepository
 
     Task<User?> GetByExternalIdAsync(Guid externalId);
 
+    Task<User?> GetByLoginAsync(string login);
+
     Task UpdateAsync(User user);
 }

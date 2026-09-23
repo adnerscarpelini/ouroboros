@@ -107,24 +107,34 @@ public sealed class DapperUserRepository : IUserRepository
 
         var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { ExternalId = externalId });
 
-        if (row is null)
-        {
-            return null;
-        }
+        return MapToUser(row);
+    }
 
-        return User.Rehydrate(
-            row.Id,
-            row.ExternalId,
-            new DateTimeOffset(row.CreatedAt),
-            ToDateTimeOffset(row.UpdatedAt),
-            row.Login,
-            row.FullName,
-            row.Email,
-            row.EmailConfirmed,
-            row.PasswordHash,
-            new DateTimeOffset(row.PasswordChangedAt),
-            row.Active,
-            ToDateTimeOffset(row.LastLoginAt));
+    public async Task<User?> GetByLoginAsync(string login)
+    {
+        const string sql = """
+            SELECT
+                users.id,
+                users.external_id,
+                users.created_at,
+                users.updated_at,
+                users.login,
+                users.full_name,
+                users.email,
+                users.email_confirmed,
+                users.password_hash,
+                users.password_changed_at,
+                users.active,
+                users.last_login_at
+            FROM auth.users AS users
+            WHERE users.login = @Login;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { Login = login });
+
+        return MapToUser(row);
     }
 
     public async Task UpdateAsync(User user)
@@ -160,6 +170,28 @@ public sealed class DapperUserRepository : IUserRepository
                 user.LastLoginAt,
                 user.ExternalId,
             });
+    }
+
+    private static User? MapToUser(UserRow? row)
+    {
+        if (row is null)
+        {
+            return null;
+        }
+
+        return User.Rehydrate(
+            row.Id,
+            row.ExternalId,
+            new DateTimeOffset(row.CreatedAt),
+            ToDateTimeOffset(row.UpdatedAt),
+            row.Login,
+            row.FullName,
+            row.Email,
+            row.EmailConfirmed,
+            row.PasswordHash,
+            new DateTimeOffset(row.PasswordChangedAt),
+            row.Active,
+            ToDateTimeOffset(row.LastLoginAt));
     }
 
     private static DateTimeOffset? ToDateTimeOffset(DateTime? value)

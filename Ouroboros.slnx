@@ -32,6 +32,8 @@
     <File Path="specs/2026/09/2026092203-Auth-Login com JWT e Refresh Token.md" />
     <File Path="specs/2026/09/2026092204-Auth-Refresh de token com rotacao.md" />
     <File Path="specs/2026/09/2026092205-Auth-Logout e revogacao de tokens.md" />
+    <File Path="specs/2026/09/2026092301-Auth-Solicitacao de recuperacao de senha.md" />
+    <File Path="specs/2026/09/2026092302-Auth-Redefinicao de senha com token.md" />
   </Folder>
 
   <Folder Name="/auth-service/">

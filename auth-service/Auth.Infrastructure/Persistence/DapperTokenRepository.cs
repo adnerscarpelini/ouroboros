@@ -115,6 +115,39 @@ public sealed class DapperTokenRepository : ITokenRepository
             ToDateTimeOffset(row.UsedAt));
     }
 
+    public async Task<bool> ExistsPendingByUserAsync(
+        Guid userExternalId,
+        TokenType type,
+        DateTimeOffset now)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM
+                    auth.tokens AS tokens
+                INNER JOIN
+                    auth.users AS users
+                    ON users.id = tokens.user_id
+                WHERE
+                    users.external_id = @UserExternalId
+                    AND tokens.type = @Type
+                    AND tokens.used_at IS NULL
+                    AND tokens.expires_at > @Now
+            );
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        return await connection.ExecuteScalarAsync<bool>(
+            sql,
+            new
+            {
+                UserExternalId = userExternalId,
+                Type = type.ToString(),
+                Now = now,
+            });
+    }
+
     public async Task UpdateAsync(Token token)
     {
         const string sql = """

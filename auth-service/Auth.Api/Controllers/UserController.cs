@@ -43,19 +43,28 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitingConfiguration.UserRegisterPolicy)]
     public async Task<IActionResult> Register([FromBody] RegisterUserRequest request)
     {
         try
         {
             var response = await _registerUserUseCase.ExecuteAsync(request);
 
-            // TODO: remover quando existir envio de e-mail via mensageria — logar token e temporario, so pra dev.
-            _logger.LogInformation(
-                "Email confirmation token generated for user {UserId}: {EmailConfirmationToken}",
-                response.Id,
-                response.EmailConfirmationToken);
+            if (response.EmailConfirmationToken is not null)
+            {
+                // TODO: remover quando existir envio de e-mail via mensageria — logar token e temporario, so pra dev.
+                _logger.LogInformation(
+                    "Email confirmation token generated for user {UserId}: {EmailConfirmationToken}",
+                    response.UserId,
+                    response.EmailConfirmationToken);
+            }
+            else
+            {
+                _logger.LogWarning("User registration ignored: email already in use");
+            }
 
-            return Created($"/api/users/{response.Id}", response);
+            // Resposta identica com e-mail novo ou ja cadastrado, pra nao permitir enumeracao de e-mails.
+            return Accepted(new { message = "If the email is available, a confirmation link will be sent to it." });
         }
         catch (DomainException e)
         {

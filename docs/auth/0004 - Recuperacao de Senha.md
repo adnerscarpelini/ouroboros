@@ -1,6 +1,6 @@
 # Recuperação de Senha
 
-> **O e-mail ainda não é enviado.** Não existe mensageria no projeto. Por enquanto, o token de recuperação só aparece no **log** do `auth-service`. Diferente do cadastro, ele **nunca** volta na resposta HTTP. Isso é temporário e está marcado com `TODO` no código.
+> **O e-mail ainda não é enviado.** Não existe mensageria no projeto. Por enquanto, o token de recuperação só aparece no **log** do `auth-service`. Assim como no cadastro, ele **nunca** volta na resposta HTTP. Isso é temporário e está marcado com `TODO` no código.
 
 ## Visão geral
 
@@ -77,7 +77,7 @@ Ela fica no domínio, e não na entidade `User`, porque a `User` só recebe o ha
 
 Baseadas no OWASP Forgot Password Cheat Sheet.
 
-- **Token nunca na resposta.** No cadastro quem recebe o token é o próprio dono da conta. Aqui qualquer pessoa pode informar o login de outra, então o token só pode chegar pelo e-mail da conta.
+- **Token nunca na resposta.** Qualquer pessoa pode informar o login de outra, então o token só pode chegar pelo e-mail da conta. Vale o mesmo para o cadastro (ver `docs/auth/0001 - Confirmacao de Cadastro.md`).
 - **Sem enumeração de usuários.** Na solicitação, existir ou não a conta dá a mesma resposta. Na redefinição, todo problema com o token dá a mesma mensagem.
 - **Conta inativa é ignorada.** O reset não pode virar atalho pra ativar conta sem confirmar o e-mail.
 - **Só o link mais recente vale.** Uma nova solicitação invalida os tokens de recuperação pendentes anteriores.
@@ -100,6 +100,7 @@ Usa o middleware nativo do ASP.NET Core (`AddRateLimiter` / `UseRateLimiter`), s
 |---|---|---|
 | `password-reset-request` | `POST /api/users/password-reset/request` | 5 a cada 15 min |
 | `password-reset-confirm` | `POST /api/users/password-reset/confirm` | 10 a cada 15 min |
+| `user-register` | `POST /api/users` | 5 a cada 15 min (ver `docs/auth/0001 - Confirmacao de Cadastro.md`) |
 
 - A redefinição é mais folgada porque o usuário pode errar a política de senha algumas vezes com o mesmo link.
 - Cada política tem seu próprio contador: chamadas de solicitação não consomem o limite da redefinição.

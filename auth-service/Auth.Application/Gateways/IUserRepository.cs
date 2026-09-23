@@ -6,8 +6,6 @@ public interface IUserRepository
 {
     Task AddAsync(User user);
 
-    Task<bool> ExistsByLoginOrEmailAsync(string login, string email);
-
     Task<User?> GetByExternalIdAsync(Guid externalId);
 
     Task<User?> GetByEmailAsync(string email);
@@ -17,4 +15,10 @@ public interface IUserRepository
     Task<User?> GetByLoginOrEmailAsync(string loginOrEmail);
 
     Task UpdateAsync(User user);
+
+    /// <summary>
+    /// Remove o usuario e, em cascata, os tokens e refresh tokens dele.
+    /// Usado so pra descartar cadastro abandonado (nunca confirmado).
+    /// </summary>
+    Task RemoveAsync(Guid externalId);
 }

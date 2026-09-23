@@ -19,10 +19,9 @@ public class ConfirmEmailInteractorTests
             return Task.CompletedTask;
         }
 
-        public Task<bool> ExistsByLoginOrEmailAsync(string login, string email)
+        public Task RemoveAsync(Guid externalId)
         {
-            var exists = Items.Any(item => item.Login == login || item.Email == email);
-            return Task.FromResult(exists);
+            return Task.CompletedTask;
         }
 
         public Task<User?> GetByExternalIdAsync(Guid externalId)
@@ -72,6 +71,14 @@ public class ConfirmEmailInteractorTests
         {
             var token = Items.FirstOrDefault(item => item.TokenHash == tokenHash && item.Type == type);
             return Task.FromResult(token);
+        }
+
+        public Task<bool> ExistsPendingByUserAsync(
+            Guid userExternalId,
+            TokenType type,
+            DateTimeOffset now)
+        {
+            return Task.FromResult(false);
         }
 
         public Task UpdateAsync(Token token)

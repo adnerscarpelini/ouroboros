@@ -7,8 +7,10 @@ public static class RateLimitingConfiguration
 {
     public const string PasswordResetRequestPolicy = "password-reset-request";
     public const string PasswordResetConfirmPolicy = "password-reset-confirm";
+    public const string UserRegisterPolicy = "user-register";
 
     private static readonly TimeSpan PasswordResetWindow = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan UserRegisterWindow = TimeSpan.FromMinutes(15);
 
     public static IServiceCollection AddRateLimiting(this IServiceCollection services)
     {
@@ -29,6 +31,13 @@ public static class RateLimitingConfiguration
                 PasswordResetConfirmPolicy,
                 10,
                 PasswordResetWindow);
+
+            // Contem criacao de contas em massa e varredura de e-mails/logins a partir de uma origem.
+            AddFixedWindowPerIpPolicy(
+                options,
+                UserRegisterPolicy,
+                5,
+                UserRegisterWindow);
 
             options.OnRejected = (context, _) =>
             {

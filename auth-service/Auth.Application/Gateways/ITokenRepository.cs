@@ -8,6 +8,14 @@ public interface ITokenRepository
 
     Task<Token?> GetByHashAsync(string tokenHash, TokenType type);
 
+    /// <summary>
+    /// Indica se o usuario tem algum token do tipo informado ainda pendente (nao usado e nao expirado em <paramref name="now"/>).
+    /// </summary>
+    Task<bool> ExistsPendingByUserAsync(
+        Guid userExternalId,
+        TokenType type,
+        DateTimeOffset now);
+
     Task UpdateAsync(Token token);
 
     /// <summary>

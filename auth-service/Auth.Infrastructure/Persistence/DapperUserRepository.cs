@@ -70,22 +70,6 @@ public sealed class DapperUserRepository : IUserRepository
             });
     }
 
-    public async Task<bool> ExistsByLoginOrEmailAsync(string login, string email)
-    {
-        const string sql = """
-            SELECT EXISTS (
-                SELECT 1
-                FROM auth.users AS users
-                WHERE users.login = @Login
-                OR users.email = @Email
-            );
-            """;
-
-        await using var connection = new NpgsqlConnection(_connectionString);
-
-        return await connection.ExecuteScalarAsync<bool>(sql, new { Login = login, Email = email });
-    }
-
     public async Task<User?> GetByExternalIdAsync(Guid externalId)
     {
         const string sql = """
@@ -237,6 +221,19 @@ public sealed class DapperUserRepository : IUserRepository
                 Role = user.Role.ToString(),
                 user.ExternalId,
             });
+    }
+
+    public async Task RemoveAsync(Guid externalId)
+    {
+        // Tokens e refresh tokens do usuario saem junto via ON DELETE CASCADE.
+        const string sql = """
+            DELETE FROM auth.users
+            WHERE external_id = @ExternalId;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        await connection.ExecuteAsync(sql, new { ExternalId = externalId });
     }
 
     private static User? MapToUser(UserRow? row)

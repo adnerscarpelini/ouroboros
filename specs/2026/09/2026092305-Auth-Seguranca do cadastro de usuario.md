@@ -1,7 +1,7 @@
 # 2026092305 - Seguranca do cadastro de usuario
 
 **Data:** 23/09/2026
-**Status:** Em andamento
+**Status:** Concluido
 **Servico(s):** auth-service
 
 ## Solicitação
@@ -34,11 +34,11 @@ Limitações conhecidas (registrar na doc):
 
 ## Tarefas
 
-- [ ] **Dev** — Remover `EmailConfirmationToken` de `RegisterUserResponse`; `POST /api/users` passa a responder `202 Accepted` com mensagem genérica, sem `Location` e sem dados do usuário. Manter o log temporário do token no `UserController.Register` com o `TODO` (o token precisa chegar ao controller por outro meio que não a resposta HTTP, ex.: campo interno do resultado do caso de uso não serializado)
-- [ ] **Dev** — No `RegisterUserInteractor`, separar a checagem de login e de e-mail: login ocupado por conta não abandonada → `DomainException("Login already in use")`; e-mail ocupado por conta não abandonada → termina sem criar nada e sem erro (resposta genérica), com `Warning` no log e `TODO` de notificar o dono
-- [ ] **Dev** — Remover a(s) conta(s) abandonada(s) que batem com o login ou o e-mail antes de criar o novo usuário
-- [ ] **Dev** — Criar a política de rate limiting `user-register` (5 a cada 15 min por IP) e aplicar no `POST /api/users`
-- [ ] **Dev** — Atualizar a collection Postman (Register User: resposta `202` e descrição; Confirm Email: token vem do log do Seq)
-- [ ] **DBA** — Adicionar ao repositório a busca de conta por login e por e-mail com status de confirmação e existência de token de confirmação pendente, e a remoção da conta abandonada com seus tokens; revisar as FKs de `auth.tokens` e `auth.refresh_tokens` (migration se precisar de `ON DELETE CASCADE`)
-- [ ] **Tester** — Cobrir: cadastro com sucesso (token gravado só como hash, fora da resposta); e-mail já usado → resposta genérica e nada criado; login já usado → erro; conta abandonada substituída (por login e por e-mail); conta pendente dentro das 24h mantida
-- [ ] **Tech Writer** — Atualizar `docs/auth/0001 - Confirmacao de Cadastro.md` (fluxo, contrato `202`, decisões de segurança, cadastro abandonado, rate limiting, limitações conhecidas incluindo pre-account takeover) e corrigir a frase sobre "o próprio dono da conta" em `docs/auth/0004 - Recuperacao de Senha.md`
+- [x] **Dev** — Remover `EmailConfirmationToken` de `RegisterUserResponse`; `POST /api/users` passa a responder `202 Accepted` com mensagem genérica, sem `Location` e sem dados do usuário. Manter o log temporário do token no `UserController.Register` com o `TODO` (o token precisa chegar ao controller por outro meio que não a resposta HTTP, ex.: campo interno do resultado do caso de uso não serializado)
+- [x] **Dev** — No `RegisterUserInteractor`, separar a checagem de login e de e-mail: login ocupado por conta não abandonada → `DomainException("Login already in use")`; e-mail ocupado por conta não abandonada → termina sem criar nada e sem erro (resposta genérica), com `Warning` no log e `TODO` de notificar o dono
+- [x] **Dev** — Remover a(s) conta(s) abandonada(s) que batem com o login ou o e-mail antes de criar o novo usuário
+- [x] **Dev** — Criar a política de rate limiting `user-register` (5 a cada 15 min por IP) e aplicar no `POST /api/users`
+- [x] **Dev** — Atualizar a collection Postman (Register User: resposta `202` e descrição; Confirm Email: token vem do log do Seq)
+- [x] **DBA** — Adicionar ao repositório a busca de conta por login e por e-mail com status de confirmação e existência de token de confirmação pendente, e a remoção da conta abandonada com seus tokens; revisar as FKs de `auth.tokens` e `auth.refresh_tokens` (migration se precisar de `ON DELETE CASCADE`)
+- [x] **Tester** — Cobrir: cadastro com sucesso (token gravado só como hash, fora da resposta); e-mail já usado → resposta genérica e nada criado; login já usado → erro; conta abandonada substituída (por login e por e-mail); conta pendente dentro das 24h mantida
+- [x] **Tech Writer** — Atualizar `docs/auth/0001 - Confirmacao de Cadastro.md` (fluxo, contrato `202`, decisões de segurança, cadastro abandonado, rate limiting, limitações conhecidas incluindo pre-account takeover) e corrigir a frase sobre "o próprio dono da conta" em `docs/auth/0004 - Recuperacao de Senha.md`

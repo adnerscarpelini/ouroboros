@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "4d1b13f9-6401-478d-b3f5-53394f04faea",
     "name": "Ouroboros - Auth",
-    "description": "Endpoints do auth-service.\n\nFluxo sugerido: Register User -> Confirm Email -> Login -> Get User By Id / Search User -> Refresh Access Token -> Logout.\n\nA unica variavel da collection e `baseUrl`. Tokens e ids ficam como texto de exemplo (`cole-o-...-aqui`) nos requests: copie o valor da resposta anterior e cole no request que o consome. O token de redefinicao de senha nao volta na resposta (so aparece no log do servico, no Seq).\n\nGet User By Id e Search User exigem Bearer token (o `accessToken` devolvido pelo Login, colado na aba Authorization). Perfil `User` so consulta a si mesmo; `Admin` consulta qualquer usuario.",
+    "description": "Endpoints do auth-service.\n\nFluxo sugerido: Register User -> Confirm Email -> Login -> Get User By Id / Search User -> Refresh Access Token -> Logout.\n\nA unica variavel da collection e `baseUrl`. Tokens e ids ficam como texto de exemplo (`cole-o-...-aqui`) nos requests: copie o valor da resposta anterior e cole no request que o consome. Os tokens de confirmacao de e-mail e de redefinicao de senha nao voltam na resposta (so aparecem no log do servico, no Seq). O `externalId` do usuario vem do Search User, depois do Login.\n\nGet User By Id e Search User exigem Bearer token (o `accessToken` devolvido pelo Login, colado na aba Authorization). Perfil `User` so consulta a si mesmo; `Admin` consulta qualquer usuario.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -33,7 +33,7 @@
                 "users"
               ]
             },
-            "description": "Cadastra um usuario e devolve o token de confirmacao de e-mail (temporario, so em dev). Todo cadastro nasce com perfil `User` (campo `role` da resposta); o body nao aceita perfil.\n\n- `201` usuario criado (header `Location`)\n- `400` dados invalidos, login/e-mail ja usados ou senha fora da politica"
+            "description": "Cadastra um usuario inativo, com perfil `User` (o body nao aceita perfil). A resposta e sempre a mesma mensagem generica, sem dados do usuario, pra nao revelar se o e-mail ja tem conta. O token de confirmacao so aparece no log do servico (Seq).\n\n- `202` solicitacao aceita (usuario criado ou e-mail ja em uso)\n- `400` dados invalidos, login ja usado ou senha fora da politica\n- `429` limite de 5 cadastros por IP a cada 15 minutos"
           }
         },
         {
@@ -61,7 +61,7 @@
                 "confirm-email"
               ]
             },
-            "description": "Confirma o e-mail do usuario com o token gerado no cadastro.\n\n- `200` e-mail confirmado\n- `400` token invalido, expirado ou ja usado"
+            "description": "Confirma o e-mail do usuario com o token gerado no cadastro. Cole no body o token que aparece no log do servico (Seq).\n\n- `200` e-mail confirmado\n- `400` token invalido, expirado ou ja usado"
           }
         },
         {
@@ -148,7 +148,7 @@
                 "cole-o-external-id-aqui"
               ]
             },
-            "description": "Consulta um usuario pelo externalId (campo `id` devolvido pelo Register User, colado na URL). Devolve so dados nao sensiveis: externalId, login, fullName, email, role, active e createdAt.\n\n- `200` usuario encontrado\n- `401` sem token, token invalido ou expirado\n- `403` perfil `User` consultando outro usuario\n- `404` usuario nao encontrado"
+            "description": "Consulta um usuario pelo externalId (devolvido pelo Search User, colado na URL). Devolve so dados nao sensiveis: externalId, login, fullName, email, role, active e createdAt.\n\n- `200` usuario encontrado\n- `401` sem token, token invalido ou expirado\n- `403` perfil `User` consultando outro usuario\n- `404` usuario nao encontrado"
           }
         },
         {

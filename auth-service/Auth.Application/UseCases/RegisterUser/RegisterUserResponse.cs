@@ -1,13 +1,14 @@
 namespace Ouroboros.Auth.Application.UseCases.RegisterUser;
 
-/// <remarks>
-/// TODO: remover <c>EmailConfirmationToken</c> quando existir envio de e-mail via mensageria —
-/// hoje o token so e devolvido aqui pra permitir confirmar o cadastro em dev (Swagger/Postman).
-/// </remarks>
+/// <summary>
+/// Resultado interno do cadastro. Nunca vai no corpo da resposta HTTP: o cadastro responde sempre
+/// com uma mensagem generica, pra nao revelar se o e-mail ja tem conta.
+/// </summary>
+/// <param name="UserId">Preenchido so quando o usuario foi criado.</param>
+/// <param name="EmailConfirmationToken">
+/// Token em claro, preenchido so quando o usuario foi criado.
+/// TODO: remover quando existir envio de e-mail via mensageria — hoje o token so volta aqui pra ser logado em dev.
+/// </param>
 public record RegisterUserResponse(
-    Guid Id,
-    string Login,
-    string FullName,
-    string Email,
-    string Role,
-    string EmailConfirmationToken);
+    Guid? UserId,
+    string? EmailConfirmationToken);

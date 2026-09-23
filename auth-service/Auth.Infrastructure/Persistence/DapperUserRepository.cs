@@ -29,7 +29,8 @@ public sealed class DapperUserRepository : IUserRepository
                 password_hash,
                 password_changed_at,
                 active,
-                last_login_at
+                last_login_at,
+                role
             )
             VALUES (
                 nextval('auth.users_id_seq'),
@@ -43,7 +44,8 @@ public sealed class DapperUserRepository : IUserRepository
                 @PasswordHash,
                 @PasswordChangedAt,
                 @Active,
-                @LastLoginAt
+                @LastLoginAt,
+                @Role
             );
             """;
 
@@ -64,6 +66,7 @@ public sealed class DapperUserRepository : IUserRepository
                 user.PasswordChangedAt,
                 user.Active,
                 user.LastLoginAt,
+                Role = user.Role.ToString(),
             });
     }
 
@@ -98,7 +101,8 @@ public sealed class DapperUserRepository : IUserRepository
                 users.password_hash,
                 users.password_changed_at,
                 users.active,
-                users.last_login_at
+                users.last_login_at,
+                users.role
             FROM auth.users AS users
             WHERE users.external_id = @ExternalId;
             """;
@@ -125,7 +129,8 @@ public sealed class DapperUserRepository : IUserRepository
                 users.password_hash,
                 users.password_changed_at,
                 users.active,
-                users.last_login_at
+                users.last_login_at,
+                users.role
             FROM auth.users AS users
             WHERE users.login = @Login;
             """;
@@ -153,7 +158,8 @@ public sealed class DapperUserRepository : IUserRepository
                 users.password_hash,
                 users.password_changed_at,
                 users.active,
-                users.last_login_at
+                users.last_login_at,
+                users.role
             FROM auth.users AS users
             WHERE users.login = @LoginOrEmail
             OR users.email = @LoginOrEmail
@@ -180,7 +186,8 @@ public sealed class DapperUserRepository : IUserRepository
                 password_hash = @PasswordHash,
                 password_changed_at = @PasswordChangedAt,
                 active = @Active,
-                last_login_at = @LastLoginAt
+                last_login_at = @LastLoginAt,
+                role = @Role
             WHERE
                 external_id = @ExternalId;
             """;
@@ -199,6 +206,7 @@ public sealed class DapperUserRepository : IUserRepository
                 user.PasswordChangedAt,
                 user.Active,
                 user.LastLoginAt,
+                Role = user.Role.ToString(),
                 user.ExternalId,
             });
     }
@@ -222,7 +230,8 @@ public sealed class DapperUserRepository : IUserRepository
             row.PasswordHash,
             new DateTimeOffset(row.PasswordChangedAt),
             row.Active,
-            ToDateTimeOffset(row.LastLoginAt));
+            ToDateTimeOffset(row.LastLoginAt),
+            Enum.Parse<UserRole>(row.Role));
     }
 
     private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
@@ -261,5 +270,8 @@ public sealed class DapperUserRepository : IUserRepository
         public bool Active { get; init; }
 
         public DateTime? LastLoginAt { get; init; }
+
+        // Gravado como texto (nome do enum) pra casar com o CHECK da coluna e ficar legivel em SQL.
+        public string Role { get; init; } = null!;
     }
 }

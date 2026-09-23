@@ -84,7 +84,8 @@ public class LogoutInteractorTests
         public AccessToken Generate(
             Guid userId,
             string login,
-            string email)
+            string email,
+            UserRole role)
         {
             return new AccessToken("jwt", DateTimeOffset.UtcNow.AddMinutes(15));
         }

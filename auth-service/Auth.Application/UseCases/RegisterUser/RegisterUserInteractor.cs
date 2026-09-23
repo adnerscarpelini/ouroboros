@@ -56,6 +56,7 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
             user.Login,
             user.FullName,
             user.Email,
+            user.Role.ToString(),
             confirmationToken);
     }
 }

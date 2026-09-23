@@ -65,7 +65,11 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
             throw new InvalidRefreshTokenException("Refresh token has been revoked");
         }
 
-        var accessToken = _jwtTokenGenerator.Generate(user.ExternalId, user.Login, user.Email);
+        var accessToken = _jwtTokenGenerator.Generate(
+            user.ExternalId,
+            user.Login,
+            user.Email,
+            user.Role);
 
         var rawRefreshToken = _tokenGenerator.Generate();
         var newToken = RefreshToken.Create(

@@ -9,4 +9,5 @@ public record RegisterUserResponse(
     string Login,
     string FullName,
     string Email,
+    string Role,
     string EmailConfirmationToken);

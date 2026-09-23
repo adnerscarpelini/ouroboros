@@ -96,9 +96,10 @@ public class RefreshAccessTokenInteractorTests
         public AccessToken Generate(
             Guid userId,
             string login,
-            string email)
+            string email,
+            UserRole role)
         {
-            return new AccessToken($"jwt:{userId}:{login}:{email}", ExpiresAt);
+            return new AccessToken($"jwt:{userId}:{login}:{email}:{role}", ExpiresAt);
         }
     }
 
@@ -127,6 +128,24 @@ public class RefreshAccessTokenInteractorTests
         }
 
         return user;
+    }
+
+    private static User CreateActiveUserWithRole(UserRole role)
+    {
+        return User.Rehydrate(
+            1,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddDays(-30),
+            null,
+            "jdoe",
+            "John Doe",
+            "jdoe@example.com",
+            true,
+            "hashed-password",
+            DateTimeOffset.UtcNow.AddDays(-30),
+            true,
+            null,
+            role);
     }
 
     private static RefreshToken CreateStoredToken(
@@ -171,7 +190,7 @@ public class RefreshAccessTokenInteractorTests
         var response = await interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token"));
 
         Assert.Equal("Bearer", response.TokenType);
-        Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com", response.AccessToken);
+        Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com:User", response.AccessToken);
         Assert.Equal(FakeJwtTokenGenerator.ExpiresAt, response.AccessTokenExpiresAt);
         Assert.Equal("new-refresh-token", response.RefreshToken);
         Assert.Single(refreshTokenRepository.Revoked);
@@ -182,6 +201,21 @@ public class RefreshAccessTokenInteractorTests
         Assert.Equal("hashed:new-refresh-token", refreshTokenRepository.Added[0].TokenHash);
         Assert.Equal(response.RefreshTokenExpiresAt, refreshTokenRepository.Added[0].ExpiresAt);
         Assert.Null(refreshTokenRepository.Added[0].RevokedAt);
+    }
+
+    [Fact]
+    public async Task ShouldKeepUserRoleWhenAccessTokenIsRefreshed()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var user = CreateActiveUserWithRole(UserRole.Admin);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository);
+
+        var response = await interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token"));
+
+        Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com:Admin", response.AccessToken);
     }
 
     [Fact]

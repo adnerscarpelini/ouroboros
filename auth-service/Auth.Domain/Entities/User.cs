@@ -20,6 +20,8 @@ public sealed class User : Entity
 
     public DateTimeOffset? LastLoginAt { get; private set; }
 
+    public UserRole Role { get; private set; }
+
     private User()
     {
     }
@@ -40,6 +42,8 @@ public sealed class User : Entity
             PasswordChangedAt = DateTimeOffset.UtcNow,
             Active = false,
             LastLoginAt = null,
+            // Menor privilegio: todo cadastro nasce User; promocao a Admin nunca vem do request de cadastro.
+            Role = UserRole.User,
         };
 
         return user;
@@ -57,7 +61,8 @@ public sealed class User : Entity
         string passwordHash,
         DateTimeOffset passwordChangedAt,
         bool active,
-        DateTimeOffset? lastLoginAt)
+        DateTimeOffset? lastLoginAt,
+        UserRole role)
     {
         var user = new User
         {
@@ -69,6 +74,7 @@ public sealed class User : Entity
             PasswordChangedAt = passwordChangedAt,
             Active = active,
             LastLoginAt = lastLoginAt,
+            Role = role,
         };
 
         user.RestorePersistence(id, externalId, createdAt, updatedAt);

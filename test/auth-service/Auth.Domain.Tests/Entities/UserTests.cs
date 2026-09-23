@@ -22,6 +22,35 @@ public class UserTests
     }
 
     [Fact]
+    public void ShouldCreateUserWithUserRoleWhenDataIsValid()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");
+
+        Assert.Equal(UserRole.User, user.Role);
+    }
+
+    [Fact]
+    public void ShouldRestoreRoleWhenUserIsRehydrated()
+    {
+        var user = User.Rehydrate(
+            1,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddDays(-30),
+            null,
+            "jdoe",
+            "John Doe",
+            "jdoe@example.com",
+            true,
+            "hashed-password",
+            DateTimeOffset.UtcNow.AddDays(-30),
+            true,
+            null,
+            UserRole.Admin);
+
+        Assert.Equal(UserRole.Admin, user.Role);
+    }
+
+    [Fact]
     public void ShouldThrowDomainExceptionWhenLoginIsInvalid()
     {
         Assert.Throws<DomainException>(() => User.Create("   ", "John Doe", "jdoe@example.com", "hashed-password"));

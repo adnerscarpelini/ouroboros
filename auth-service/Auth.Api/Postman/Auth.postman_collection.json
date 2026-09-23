@@ -46,7 +46,7 @@
                 "users"
               ]
             },
-            "description": "Cadastra um usuario e devolve o token de confirmacao de e-mail (temporario, so em dev).\n\n- `201` usuario criado (header `Location`)\n- `400` dados invalidos, login/e-mail ja usados ou senha fora da politica"
+            "description": "Cadastra um usuario e devolve o token de confirmacao de e-mail (temporario, so em dev). Todo cadastro nasce com perfil `User` (campo `role` da resposta); o body nao aceita perfil.\n\n- `201` usuario criado (header `Location`)\n- `400` dados invalidos, login/e-mail ja usados ou senha fora da politica"
           }
         },
         {
@@ -180,7 +180,7 @@
                 "login"
               ]
             },
-            "description": "Autentica o usuario e devolve access token + refresh token.\n\n- `200` autenticado\n- `400` usuario inativo (e-mail ainda nao confirmado)\n- `401` credenciais invalidas"
+            "description": "Autentica o usuario e devolve access token + refresh token. O access token carrega o perfil do usuario no claim `role`.\n\n- `200` autenticado\n- `400` usuario inativo (e-mail ainda nao confirmado)\n- `401` credenciais invalidas"
           }
         },
         {

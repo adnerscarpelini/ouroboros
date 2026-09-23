@@ -250,7 +250,8 @@ public class RequestPasswordResetInteractorTests
             "hashed-password",
             DateTimeOffset.UtcNow.AddDays(-30),
             false,
-            null));
+            null,
+            UserRole.User));
         var interactor = CreateInteractor(userRepository, tokenRepository);
 
         var response = await interactor.ExecuteAsync(new RequestPasswordResetRequest("jdoe"));

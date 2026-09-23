@@ -187,7 +187,8 @@ public class ResetPasswordInteractorTests
                 $"hashed:{CurrentPassword}",
                 OriginalPasswordChangedAt,
                 userActive,
-                null);
+                null,
+                UserRole.User);
             UserRepository.Items.Add(User);
         }
 

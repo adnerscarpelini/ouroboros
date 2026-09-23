@@ -109,6 +109,19 @@ public class RegisterUserInteractorTests
     }
 
     [Fact]
+    public async Task ShouldRegisterUserWithUserRoleWhenUserIsRegistered()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+
+        var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
+
+        Assert.Equal("User", response.Role);
+        Assert.Equal(UserRole.User, userRepository.Items[0].Role);
+    }
+
+    [Fact]
     public async Task ShouldGenerateEmailConfirmationTokenWhenUserIsRegistered()
     {
         var userRepository = new FakeUserRepository();

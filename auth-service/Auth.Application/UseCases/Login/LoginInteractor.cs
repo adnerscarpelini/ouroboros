@@ -56,7 +56,11 @@ public sealed class LoginInteractor : ILoginUseCase
         // Estou fazendo assim porque atualmente eu não criei uma rotina automatica de revogacao de refresh tokens,
         await _refreshTokenRepository.RevokeAllActiveByUserAsync(user.ExternalId, DateTimeOffset.UtcNow);
 
-        var accessToken = _jwtTokenGenerator.Generate(user.ExternalId, user.Login, user.Email);
+        var accessToken = _jwtTokenGenerator.Generate(
+            user.ExternalId,
+            user.Login,
+            user.Email,
+            user.Role);
 
         var rawRefreshToken = _tokenGenerator.Generate();
         var refreshToken = RefreshToken.Create(

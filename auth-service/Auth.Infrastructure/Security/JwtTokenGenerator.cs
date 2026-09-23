@@ -5,9 +5,13 @@ using System.Text;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Ouroboros.Auth.Application.Gateways;
+using Ouroboros.Auth.Domain.Entities;
 
 public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
+    // Nome curto de claim usado por OIDC/Keycloak/Entra ID; quem valida o token configura RoleClaimType = "role".
+    private const string RoleClaimType = "role";
+
     private readonly JwtSettings _settings;
     private readonly SigningCredentials _signingCredentials;
     private readonly JsonWebTokenHandler _tokenHandler = new();
@@ -23,7 +27,8 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
     public AccessToken Generate(
         Guid userId,
         string login,
-        string email)
+        string email,
+        UserRole role)
     {
         var issuedAt = DateTime.UtcNow;
         var expiresAt = issuedAt.AddMinutes(_settings.AccessTokenExpirationMinutes);
@@ -41,6 +46,7 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
                 new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
                 new Claim(JwtRegisteredClaimNames.UniqueName, login),
                 new Claim(JwtRegisteredClaimNames.Email, email),
+                new Claim(RoleClaimType, role.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             ]),
         };

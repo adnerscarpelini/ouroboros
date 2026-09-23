@@ -102,9 +102,10 @@ public class LoginInteractorTests
         public AccessToken Generate(
             Guid userId,
             string login,
-            string email)
+            string email,
+            UserRole role)
         {
-            return new AccessToken($"jwt:{userId}:{login}:{email}", ExpiresAt);
+            return new AccessToken($"jwt:{userId}:{login}:{email}:{role}", ExpiresAt);
         }
     }
 
@@ -135,6 +136,24 @@ public class LoginInteractorTests
         return user;
     }
 
+    private static User CreateActiveUserWithRole(UserRole role)
+    {
+        return User.Rehydrate(
+            1,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow.AddDays(-30),
+            null,
+            "jdoe",
+            "John Doe",
+            "jdoe@example.com",
+            true,
+            "hashed:S3cret!1",
+            DateTimeOffset.UtcNow.AddDays(-30),
+            true,
+            null,
+            role);
+    }
+
     private static LoginInteractor CreateInteractor(
         FakeUserRepository userRepository,
         FakeRefreshTokenRepository refreshTokenRepository)
@@ -160,7 +179,7 @@ public class LoginInteractorTests
         var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
 
         Assert.Equal("Bearer", response.TokenType);
-        Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com", response.AccessToken);
+        Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com:User", response.AccessToken);
         Assert.Equal(FakeJwtTokenGenerator.ExpiresAt, response.AccessTokenExpiresAt);
         Assert.Equal("raw-refresh-token", response.RefreshToken);
         Assert.Single(refreshTokenRepository.Items);
@@ -169,6 +188,20 @@ public class LoginInteractorTests
         Assert.Equal(response.RefreshTokenExpiresAt, refreshTokenRepository.Items[0].ExpiresAt);
         Assert.True(response.RefreshTokenExpiresAt > DateTimeOffset.UtcNow.AddDays(6));
         Assert.Null(refreshTokenRepository.Items[0].RevokedAt);
+    }
+
+    [Fact]
+    public async Task ShouldIssueAccessTokenWithUserRoleWhenUserIsAdmin()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var user = CreateActiveUserWithRole(UserRole.Admin);
+        userRepository.Items.Add(user);
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository);
+
+        var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
+
+        Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com:Admin", response.AccessToken);
     }
 
     [Fact]

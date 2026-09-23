@@ -3,6 +3,7 @@ namespace Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
+using Ouroboros.Auth.Domain.Policies;
 
 public sealed class RegisterUserInteractor : IRegisterUserUseCase
 {
@@ -27,7 +28,7 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
 
     public async Task<RegisterUserResponse> ExecuteAsync(RegisterUserRequest request)
     {
-        ValidatePasswordStrength(request.Password);
+        PasswordPolicy.Validate(request.Password);
 
         var passwordHash = _passwordHasher.Hash(request.Password);
         var user = User.Create(request.Login, request.FullName, request.Email, passwordHash);
@@ -56,33 +57,5 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
             user.FullName,
             user.Email,
             confirmationToken);
-    }
-
-    private static void ValidatePasswordStrength(string password)
-    {
-        if (string.IsNullOrEmpty(password) || password.Length < 8)
-        {
-            throw new DomainException("Password must be at least 8 characters long");
-        }
-
-        if (!password.Any(char.IsUpper))
-        {
-            throw new DomainException("Password must contain at least one uppercase letter");
-        }
-
-        if (!password.Any(char.IsLower))
-        {
-            throw new DomainException("Password must contain at least one lowercase letter");
-        }
-
-        if (!password.Any(char.IsDigit))
-        {
-            throw new DomainException("Password must contain at least one digit");
-        }
-
-        if (password.All(char.IsLetterOrDigit))
-        {
-            throw new DomainException("Password must contain at least one special character");
-        }
     }
 }

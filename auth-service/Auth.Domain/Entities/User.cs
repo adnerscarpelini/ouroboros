@@ -83,6 +83,13 @@ public sealed class User : Entity
         MarkAsUpdated();
     }
 
+    public void ChangePassword(string passwordHash)
+    {
+        PasswordHash = ValidatePasswordHash(passwordHash);
+        PasswordChangedAt = DateTimeOffset.UtcNow;
+        MarkAsUpdated();
+    }
+
     private static string ValidateLogin(string login)
     {
         if (string.IsNullOrWhiteSpace(login))

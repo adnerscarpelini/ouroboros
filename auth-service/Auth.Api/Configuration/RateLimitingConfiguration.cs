@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.RateLimiting;
 
 public static class RateLimitingConfiguration
 {
-    public const string PasswordResetPolicy = "password-reset";
+    public const string PasswordResetRequestPolicy = "password-reset-request";
+    public const string PasswordResetConfirmPolicy = "password-reset-confirm";
 
-    private const int PasswordResetPermitLimit = 5;
     private static readonly TimeSpan PasswordResetWindow = TimeSpan.FromMinutes(15);
 
     public static IServiceCollection AddRateLimiting(this IServiceCollection services)
@@ -17,15 +17,18 @@ public static class RateLimitingConfiguration
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
             // Limite por IP: contem spam de e-mails pra mesma conta e varredura de logins a partir de uma origem.
-            options.AddPolicy(PasswordResetPolicy, httpContext =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = PasswordResetPermitLimit,
-                        Window = PasswordResetWindow,
-                        QueueLimit = 0,
-                    }));
+            AddFixedWindowPerIpPolicy(
+                options,
+                PasswordResetRequestPolicy,
+                5,
+                PasswordResetWindow);
+
+            // Mais folgado que a solicitacao: o usuario pode errar a politica de senha algumas vezes com o mesmo link.
+            AddFixedWindowPerIpPolicy(
+                options,
+                PasswordResetConfirmPolicy,
+                10,
+                PasswordResetWindow);
 
             options.OnRejected = (context, _) =>
             {
@@ -43,5 +46,22 @@ public static class RateLimitingConfiguration
         });
 
         return services;
+    }
+
+    private static void AddFixedWindowPerIpPolicy(
+        RateLimiterOptions options,
+        string policyName,
+        int permitLimit,
+        TimeSpan window)
+    {
+        options.AddPolicy(policyName, httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = permitLimit,
+                    Window = window,
+                    QueueLimit = 0,
+                }));
     }
 }

@@ -140,6 +140,33 @@ public sealed class DapperTokenRepository : ITokenRepository
             });
     }
 
+    public async Task<bool> TryMarkAsUsedAsync(Token token)
+    {
+        // "used_at IS NULL" garante que so uma requisicao concorrente consegue usar o mesmo token.
+        const string sql = """
+            UPDATE auth.tokens
+            SET
+                updated_at = @UpdatedAt,
+                used_at = @UsedAt
+            WHERE
+                external_id = @ExternalId
+                AND used_at IS NULL;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var affectedRows = await connection.ExecuteAsync(
+            sql,
+            new
+            {
+                token.UpdatedAt,
+                token.UsedAt,
+                token.ExternalId,
+            });
+
+        return affectedRows == 1;
+    }
+
     public async Task InvalidatePendingByUserAsync(
         Guid userExternalId,
         TokenType type,

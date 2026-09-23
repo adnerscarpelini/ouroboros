@@ -44,4 +44,29 @@ public class UserTests
     {
         Assert.Throws<DomainException>(() => User.Create("jdoe", "John Doe", "jdoe@example.com", "   "));
     }
+
+    [Fact]
+    public void ShouldUpdatePasswordHashAndChangedAtWhenPasswordIsChanged()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");
+        var previousPasswordChangedAt = user.PasswordChangedAt;
+
+        user.ChangePassword("new-hashed-password");
+
+        Assert.Equal("new-hashed-password", user.PasswordHash);
+        Assert.True(user.PasswordChangedAt >= previousPasswordChangedAt);
+        Assert.NotNull(user.UpdatedAt);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ShouldThrowDomainExceptionWhenChangedPasswordHashIsInvalid(string passwordHash)
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");
+
+        Assert.Throws<DomainException>(() => user.ChangePassword(passwordHash));
+        Assert.Equal("hashed-password", user.PasswordHash);
+        Assert.Null(user.UpdatedAt);
+    }
 }

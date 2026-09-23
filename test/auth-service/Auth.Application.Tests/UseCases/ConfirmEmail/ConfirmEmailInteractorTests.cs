@@ -81,6 +81,12 @@ public class ConfirmEmailInteractorTests
         {
             return Task.CompletedTask;
         }
+
+        public Task<bool> TryMarkAsUsedAsync(Token token)
+        {
+            Updated.Add(token);
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class FakeTokenGenerator : ITokenGenerator

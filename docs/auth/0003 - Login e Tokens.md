@@ -105,12 +105,13 @@ POST /api/auth/logout
 
 Revogar só se aplica ao **refresh token**, que é persistido. O access token (JWT) é stateless e **não é revogado individualmente**. Depois de um logout, ele continua válido até expirar (no máximo `Jwt:AccessTokenExpirationMinutes`, padrão 15 min). Por isso o access token tem vida curta.
 
-Um refresh token deixa de valer de três formas:
+Um refresh token deixa de valer de quatro formas:
 
 | Forma | Quando | Efeito |
 |---|---|---|
 | **Logout** | `POST /api/auth/logout` | Revoga o token enviado (`revoked_at` preenchido). |
 | **Reautenticação** | Login bem-sucedido do mesmo usuário | Revoga, num único `UPDATE`, todos os tokens ativos daquele usuário antes de emitir o novo. |
+| **Redefinição de senha** | `POST /api/users/password-reset/confirm` concluído | Revoga todos os tokens ativos do usuário, igual à reautenticação (ver `docs/auth/0004 - Recuperacao de Senha.md`). |
 | **Expiração** | `expires_at` passou | Nada é gravado: o refresh rejeita com `Refresh token has expired`. Não existe job de limpeza. |
 
 Além delas, o **refresh** revoga o token trocado (ver [Política de rotação](#política-de-rotação)).
@@ -139,7 +140,7 @@ Os parâmetros estão em `docs/auth/0002 - Configuracao JWT.md`.
 - 32 bytes aleatórios em base64url, gerados pelo mesmo `Sha256TokenGenerator` da confirmação de cadastro.
 - Validade: `Jwt:RefreshTokenExpirationDays` (padrão 7 dias).
 - Gravado em `auth.refresh_tokens`, **só o hash SHA-256**. O valor em texto puro existe apenas na resposta do login/refresh.
-- `revoked_at` é `null` enquanto o token está ativo e é preenchido quando ele é revogado (refresh, logout ou reautenticação).
+- `revoked_at` é `null` enquanto o token está ativo e é preenchido quando ele é revogado (refresh, logout, reautenticação ou redefinição de senha).
 
 ## Logs
 

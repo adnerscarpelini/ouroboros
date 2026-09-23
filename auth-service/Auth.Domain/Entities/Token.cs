@@ -62,6 +62,11 @@ public sealed class Token : Entity
         return token;
     }
 
+    public bool IsPending(DateTimeOffset now)
+    {
+        return UsedAt is null && now < ExpiresAt;
+    }
+
     public void MarkAsUsed(DateTimeOffset usedAt)
     {
         if (UsedAt is not null)

@@ -88,6 +88,11 @@ public class RegisterUserInteractorTests
         {
             return Task.CompletedTask;
         }
+
+        public Task<bool> TryMarkAsUsedAsync(Token token)
+        {
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class FakeTokenGenerator : ITokenGenerator

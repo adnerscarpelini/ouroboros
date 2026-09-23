@@ -6,6 +6,7 @@ using Ouroboros.Auth.Api.Configuration;
 using Ouroboros.Auth.Application.UseCases.ConfirmEmail;
 using Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Application.UseCases.RequestPasswordReset;
+using Ouroboros.Auth.Application.UseCases.ResetPassword;
 using Ouroboros.Auth.Domain.Exceptions;
 
 [ApiController]
@@ -15,17 +16,20 @@ public sealed class UserController : ControllerBase
     private readonly IRegisterUserUseCase _registerUserUseCase;
     private readonly IConfirmEmailUseCase _confirmEmailUseCase;
     private readonly IRequestPasswordResetUseCase _requestPasswordResetUseCase;
+    private readonly IResetPasswordUseCase _resetPasswordUseCase;
     private readonly ILogger<UserController> _logger;
 
     public UserController(
         IRegisterUserUseCase registerUserUseCase,
         IConfirmEmailUseCase confirmEmailUseCase,
         IRequestPasswordResetUseCase requestPasswordResetUseCase,
+        IResetPasswordUseCase resetPasswordUseCase,
         ILogger<UserController> logger)
     {
         _registerUserUseCase = registerUserUseCase;
         _confirmEmailUseCase = confirmEmailUseCase;
         _requestPasswordResetUseCase = requestPasswordResetUseCase;
+        _resetPasswordUseCase = resetPasswordUseCase;
         _logger = logger;
     }
 
@@ -67,7 +71,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpPost("password-reset/request")]
-    [EnableRateLimiting(RateLimitingConfiguration.PasswordResetPolicy)]
+    [EnableRateLimiting(RateLimitingConfiguration.PasswordResetRequestPolicy)]
     public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetRequest request)
     {
         try
@@ -89,6 +93,25 @@ public sealed class UserController : ControllerBase
         catch (DomainException e)
         {
             _logger.LogWarning(e, "Password reset request rejected: {Reason}", e.Message);
+            return BadRequest(new { error = e.Message });
+        }
+    }
+
+    [HttpPost("password-reset/confirm")]
+    [EnableRateLimiting(RateLimitingConfiguration.PasswordResetConfirmPolicy)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        try
+        {
+            var response = await _resetPasswordUseCase.ExecuteAsync(request);
+
+            _logger.LogInformation("Password reset completed for user {UserId}", response.UserId);
+
+            return NoContent();
+        }
+        catch (DomainException e)
+        {
+            _logger.LogWarning(e, "Password reset rejected: {Reason}", e.Message);
             return BadRequest(new { error = e.Message });
         }
     }

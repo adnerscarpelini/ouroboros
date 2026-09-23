@@ -1,6 +1,6 @@
 ---
 name: ouroboros-dev
-description: Guia operacional do desenvolvedor do projeto Ouroboros, um monorepo .NET/C# de microsservicos em Clean Architecture (Robert C. Martin). Use esta skill sempre que for criar um novo microsservico, adicionar um novo caso de uso, uma nova entidade de dominio, um novo gateway/repositorio, um novo controller, ou mexer na estrutura de projetos/solution do auth-service ou de qualquer servico futuro do Ouroboros. Use tambem para revisar se um trecho de codigo C# respeita as regras de dependencia entre Domain/Application/Infrastructure/Api, para decidir em qual projeto uma classe nova deve entrar, ou para responder duvidas sobre os padroes arquiteturais do projeto (Use Case Interactor, gateways, injecao manual de dependencia). Ative mesmo que o usuario nao diga "Clean Architecture" explicitamente — pedidos como "cria um serviço de pedidos", "adiciona um caso de uso de login", "cria a entidade Produto" ou "por que isso não pode ficar acoplado ao ASP.NET" ja sao gatilho.
+description: Guia operacional do desenvolvedor do projeto Ouroboros, um monorepo .NET/C# de microsservicos em Clean Architecture (Robert C. Martin). Use esta skill sempre que for criar um novo microsservico, adicionar um novo caso de uso, uma nova entidade de dominio, um novo gateway/repositorio, um novo controller, criar/alterar um endpoint HTTP (o que inclui manter a collection Postman da API), ou mexer na estrutura de projetos/solution do auth-service ou de qualquer servico futuro do Ouroboros. Use tambem para revisar se um trecho de codigo C# respeita as regras de dependencia entre Domain/Application/Infrastructure/Api, para decidir em qual projeto uma classe nova deve entrar, ou para responder duvidas sobre os padroes arquiteturais do projeto (Use Case Interactor, gateways, injecao manual de dependencia). Ative mesmo que o usuario nao diga "Clean Architecture" explicitamente — pedidos como "cria um serviço de pedidos", "adiciona um caso de uso de login", "cria a entidade Produto" ou "por que isso não pode ficar acoplado ao ASP.NET" ja sao gatilho.
 ---
 
 # Ouroboros Dev
@@ -74,6 +74,33 @@ Os projetos de teste (`{Servico}.Domain.Tests`, `{Servico}.Application.Tests`, e
 - Configuracao fica em `appsettings.json` (equivalente do `application.yml`) em `{Servico}.Api/`. Cada servico novo recebe sua **propria porta** (nao reutilize a porta de outro servico). `auth-service` usa `8082` — ao criar um servico novo, escolha a proxima porta livre e documente isso quando entregar o trabalho. A porta e configurada em `Kestrel:Endpoints:Http:Url` no `appsettings.json` (`http://+:8082`), nao via `launchSettings.json` (que e so pro Visual Studio/`dotnet run` local) — assim o comportamento e identico local e em container.
 - **Toda API de microsservico roda como imagem Docker propria.** `{Servico}.Api/Dockerfile` builda uma imagem que roda sozinha (`docker run`), sem depender do SDK/ambiente de dev instalado — so a imagem publicada e variaveis de ambiente de configuracao (connection string, porta). O servico entra no `docker-compose.yml` da raiz como um novo `service`, do mesmo jeito que `postgres` ja entra. Detalhes de uso do Docker no projeto (comandos, banco por servico) ficam em `docs/project/0002 - Docker.md`, nao aqui.
 - Ambiente e Swagger: o Swagger (`Swashbuckle.AspNetCore`) e habilitado condicionalmente em `Program.cs` via `if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }` — equivalente ao par `application.yml`/`application-dev.yml` da versao Java, so que resolvido em codigo em vez de config, porque e assim que o ASP.NET Core idiomaticamente distingue ambiente (`ASPNETCORE_ENVIRONMENT=Development`, que o `docker-compose.yml` da raiz ja usa por padrao pro ambiente local). Todo servico novo com API HTTP replica isso: pacote NuGet `Swashbuckle.AspNetCore` + o mesmo bloco condicional. UI fica em `/swagger/index.html`, o JSON da spec em `/swagger/v1/swagger.json`.
+
+## Collection da API (Postman / Insomnia / Bruno)
+
+Toda API HTTP de microsservico tem uma collection versionada no repositorio, pra quem for testar os endpoints na mao nao precisar remontar request por request. **Sempre que criar ou alterar um endpoint** (rota nova, rota removida, verbo, body, query string, header, codigo de resposta), crie a collection se ela ainda nao existir ou atualize a existente no mesmo passo — collection desatualizada conta como tarefa nao concluida, igual teste faltando.
+
+- **Formato: Postman Collection v2.1** (JSON, `"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"`). E o formato de fato da industria pra collection: abre direto no Postman e e importado por Insomnia, Bruno, Hoppscotch e Thunder Client. O OpenAPI ja e gerado em runtime pelo Swashbuckle (`/swagger/v1/swagger.json`) e continua sendo o contrato formal da API — a collection nao substitui isso, ela e o "caderno de requests prontos".
+- **Local:** `{Servico}.Api/Postman/{Servico}.postman_collection.json` (ex.: `auth-service/Auth.Api/Postman/Auth.postman_collection.json`). Um arquivo por servico.
+- **Nao pode ir pra imagem Docker.** O SDK Web inclui todo `*.json` do projeto como `Content` e copia pro output de publish. Por isso o `{Servico}.Api.csproj` tira a pasta do publish e mantem ela visivel no Solution Explorer:
+
+  ```xml
+  <ItemGroup>
+    <Content Remove="Postman\**" />
+    <None Include="Postman\**" />
+  </ItemGroup>
+  ```
+
+- **Estrutura:**
+  - Uma pasta (`item` com `item` dentro) por controller, com o mesmo nome do controller sem o sufixo (`Auth`, `User`).
+  - Um request por endpoint, nomeado pelo caso de uso (`Register User`, `Login`, `Refresh Access Token`), com `description` curta em portugues dizendo o que faz e quais codigos de resposta pode devolver (`201`, `400`, `401`, ...).
+  - URL sempre usando variavel: `{{baseUrl}}/api/...` — nunca host/porta fixos no request.
+  - Body de exemplo valido (JSON `raw`, com header `Content-Type: application/json`), com dados que passam nas validacoes de dominio, pra rodar o request sem editar nada.
+- **Variaveis de collection** (`variable` no nivel da collection, nao environment separado — assim um unico arquivo importa funcionando):
+  - `baseUrl` = `http://localhost:{porta do servico}` (ex.: `http://localhost:8082`).
+  - Valores que um request produz e outro consome (`accessToken`, `refreshToken`, ids) comecam vazios e sao preenchidos por script `test` do request que os gera (`pm.collectionVariables.set("accessToken", pm.response.json().accessToken);`), so quando a resposta for de sucesso. Endpoints autenticados usam `auth` do tipo `bearer` com `{{accessToken}}`.
+- **Nunca coloque segredo real** (senha de producao, chave JWT, connection string) na collection — so dados ficticios de desenvolvimento.
+- Ao atualizar: mexa so nos requests afetados pela mudanca, preserve o `_postman_id` e a ordem dos itens existentes, e remova o request quando o endpoint for removido.
+- A collection e um arquivo dentro de um projeto (`.csproj`), entao ja aparece no Visual Studio pelo `None Include` acima — nao precisa de pasta virtual no `.slnx`.
 
 ## Vinculacao a solution (Visual Studio)
 
@@ -198,7 +225,8 @@ Depois de criar ou alterar qualquer entidade, caso de uso, gateway ou repositori
 6. Configure `UseCaseConfiguration` e o controller no projeto `Api`, com a porta escolhida em `appsettings.json`.
 7. Configure Serilog + Seq e o `GlobalExceptionHandler`, seguindo exatamente o padrao do `auth-service` (ver secao 4 acima e `docs/project/0003 - Logging e Erros.md`).
 8. Crie `{Servico}.Api/Dockerfile` e adicione o servico como um novo `service` no `docker-compose.yml` da raiz, incluindo a variavel `Seq__ServerUrl: http://seq:5341` no `environment` (ver `docs/project/0002 - Docker.md`).
-9. Rode `dotnet build Ouroboros.slnx` e `dotnet test Ouroboros.slnx` a partir da raiz para confirmar que o novo projeto compila e os testes passam, e que os servicos existentes (ex. `auth-service`) continuam intactos.
+9. Crie `{Servico}.Api/Postman/{Servico}.postman_collection.json` com os endpoints do servico e adicione o `Content Remove`/`None Include` da pasta `Postman` no `{Servico}.Api.csproj` (ver "Collection da API" acima).
+10. Rode `dotnet build Ouroboros.slnx` e `dotnet test Ouroboros.slnx` a partir da raiz para confirmar que o novo projeto compila e os testes passam, e que os servicos existentes (ex. `auth-service`) continuam intactos.
 
 ## Checklist — adicionando um caso de uso a um servico existente
 
@@ -207,6 +235,7 @@ Depois de criar ou alterar qualquer entidade, caso de uso, gateway ou repositori
 3. Se precisar de um gateway novo, implemente-o em `Infrastructure` (com os `TODO`s de SQL, se for persistencia).
 4. Chame a `ouroboros-tester` para escrever o teste do Interactor.
 5. Exponha o caso de uso no controller apropriado e registre o servico correspondente em `UseCaseConfiguration`.
+6. Se o caso de uso ganhou ou mudou um endpoint, crie/atualize a collection em `{Servico}.Api/Postman/` (ver "Collection da API" acima).
 
 ## Referencia canonica
 

@@ -95,9 +95,9 @@ Toda API HTTP de microsservico tem uma collection versionada no repositorio, pra
   - Um request por endpoint, nomeado pelo caso de uso (`Register User`, `Login`, `Refresh Access Token`), com `description` curta em portugues dizendo o que faz e quais codigos de resposta pode devolver (`201`, `400`, `401`, ...).
   - URL sempre usando variavel: `{{baseUrl}}/api/...` — nunca host/porta fixos no request.
   - Body de exemplo valido (JSON `raw`, com header `Content-Type: application/json`), com dados que passam nas validacoes de dominio, pra rodar o request sem editar nada.
-- **Variaveis de collection** (`variable` no nivel da collection, nao environment separado — assim um unico arquivo importa funcionando):
+- **Variavel de collection: somente `baseUrl`** (`variable` no nivel da collection, nao environment separado — assim um unico arquivo importa funcionando):
   - `baseUrl` = `http://localhost:{porta do servico}` (ex.: `http://localhost:8082`).
-  - Valores que um request produz e outro consome (`accessToken`, `refreshToken`, ids) comecam vazios e sao preenchidos por script `test` do request que os gera (`pm.collectionVariables.set("accessToken", pm.response.json().accessToken);`), so quando a resposta for de sucesso. Endpoints autenticados usam `auth` do tipo `bearer` com `{{accessToken}}`.
+  - **Nenhuma outra variavel** — nada de `accessToken`, `refreshToken`, ids ou qualquer outro valor em `{{...}}`, e nenhum script `test`/`prerequest` (`pm.collectionVariables.set(...)` etc.). Valores que um request produz e outro consome (token, refresh token, ids) ficam escritos direto no request como texto literal de exemplo, pra quem usa colar o valor real na mao. Endpoints autenticados usam `auth` do tipo `bearer` com o token literal (ex.: `"token": "cole-o-access-token-aqui"`).
 - **Nunca coloque segredo real** (senha de producao, chave JWT, connection string) na collection — so dados ficticios de desenvolvimento.
 - Ao atualizar: mexa so nos requests afetados pela mudanca, preserve o `_postman_id` e a ordem dos itens existentes, e remova o request quando o endpoint for removido.
 - A collection e um arquivo dentro de um projeto (`.csproj`), entao ja aparece no Visual Studio pelo `None Include` acima — nao precisa de pasta virtual no `.slnx`.

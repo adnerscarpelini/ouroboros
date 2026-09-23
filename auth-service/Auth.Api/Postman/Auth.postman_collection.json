@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "4d1b13f9-6401-478d-b3f5-53394f04faea",
     "name": "Ouroboros - Auth",
-    "description": "Endpoints do auth-service.\n\nFluxo sugerido: Register User -> Confirm Email -> Login -> Get User By Id / Search User -> Refresh Access Token -> Logout.\n\nOs tokens de confirmacao de e-mail e de login sao guardados automaticamente nas variaveis da collection. O token de redefinicao de senha nao volta na resposta (so aparece no log do servico, no Seq) — copie ele para a variavel `passwordResetToken` antes de rodar Reset Password.\n\nGet User By Id e Search User exigem Bearer token (`accessToken`, preenchido pelo Login). Perfil `User` so consulta a si mesmo; `Admin` consulta qualquer usuario.",
+    "description": "Endpoints do auth-service.\n\nFluxo sugerido: Register User -> Confirm Email -> Login -> Get User By Id / Search User -> Refresh Access Token -> Logout.\n\nA unica variavel da collection e `baseUrl`. Tokens e ids ficam como texto de exemplo (`cole-o-...-aqui`) nos requests: copie o valor da resposta anterior e cole no request que o consome. O token de redefinicao de senha nao volta na resposta (so aparece no log do servico, no Seq).\n\nGet User By Id e Search User exigem Bearer token (o `accessToken` devolvido pelo Login, colado na aba Authorization). Perfil `User` so consulta a si mesmo; `Admin` consulta qualquer usuario.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -11,21 +11,6 @@
       "item": [
         {
           "name": "Register User",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 201) {",
-                  "    const body = pm.response.json();",
-                  "    pm.collectionVariables.set(\"emailConfirmationToken\", body.emailConfirmationToken);",
-                  "    pm.collectionVariables.set(\"userId\", body.id);",
-                  "}"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
@@ -36,7 +21,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"login\": \"{{login}}\",\n  \"fullName\": \"Usuario de Teste\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+              "raw": "{\n  \"login\": \"usuario.teste\",\n  \"fullName\": \"Usuario de Teste\",\n  \"email\": \"usuario.teste@example.com\",\n  \"password\": \"Senha@123\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users",
@@ -63,7 +48,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"{{emailConfirmationToken}}\"\n}"
+              "raw": "{\n  \"token\": \"cole-o-token-de-confirmacao-aqui\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users/confirm-email",
@@ -91,7 +76,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"loginOrEmail\": \"{{email}}\"\n}"
+              "raw": "{\n  \"loginOrEmail\": \"usuario.teste@example.com\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users/password-reset/request",
@@ -120,7 +105,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}"
+              "raw": "{\n  \"token\": \"cole-o-token-de-redefinicao-aqui\",\n  \"newPassword\": \"NovaSenha@456\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users/password-reset/confirm",
@@ -134,7 +119,7 @@
                 "confirm"
               ]
             },
-            "description": "Redefine a senha com o token recebido. Preencha a variavel `passwordResetToken` com o token do log antes de rodar.\n\n- `204` senha redefinida\n- `400` token invalido/expirado/ja usado ou senha fora da politica\n- `429` limite de 10 tentativas por IP a cada 15 minutos"
+            "description": "Redefine a senha com o token recebido. Cole no body o token que aparece no log do servico (Seq) antes de rodar.\n\n- `204` senha redefinida\n- `400` token invalido/expirado/ja usado ou senha fora da politica\n- `429` limite de 10 tentativas por IP a cada 15 minutos"
           }
         },
         {
@@ -145,7 +130,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{accessToken}}",
+                  "value": "cole-o-access-token-aqui",
                   "type": "string"
                 }
               ]
@@ -153,17 +138,17 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "raw": "{{baseUrl}}/api/users/cole-o-external-id-aqui",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "users",
-                "{{userId}}"
+                "cole-o-external-id-aqui"
               ]
             },
-            "description": "Consulta um usuario pelo externalId (preenchido pelo Register User). Devolve so dados nao sensiveis: externalId, login, fullName, email, role, active e createdAt.\n\n- `200` usuario encontrado\n- `401` sem token, token invalido ou expirado\n- `403` perfil `User` consultando outro usuario\n- `404` usuario nao encontrado"
+            "description": "Consulta um usuario pelo externalId (campo `id` devolvido pelo Register User, colado na URL). Devolve so dados nao sensiveis: externalId, login, fullName, email, role, active e createdAt.\n\n- `200` usuario encontrado\n- `401` sem token, token invalido ou expirado\n- `403` perfil `User` consultando outro usuario\n- `404` usuario nao encontrado"
           }
         },
         {
@@ -174,7 +159,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{accessToken}}",
+                  "value": "cole-o-access-token-aqui",
                   "type": "string"
                 }
               ]
@@ -188,7 +173,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"login\": \"{{login}}\"\n}"
+              "raw": "{\n  \"login\": \"usuario.teste\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users/search",
@@ -211,21 +196,6 @@
       "item": [
         {
           "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const body = pm.response.json();",
-                  "    pm.collectionVariables.set(\"accessToken\", body.accessToken);",
-                  "    pm.collectionVariables.set(\"refreshToken\", body.refreshToken);",
-                  "}"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
@@ -236,7 +206,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}"
+              "raw": "{\n  \"login\": \"usuario.teste\",\n  \"password\": \"Senha@123\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
@@ -254,21 +224,6 @@
         },
         {
           "name": "Refresh Access Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const body = pm.response.json();",
-                  "    pm.collectionVariables.set(\"accessToken\", body.accessToken);",
-                  "    pm.collectionVariables.set(\"refreshToken\", body.refreshToken);",
-                  "}"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
@@ -279,7 +234,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+              "raw": "{\n  \"refreshToken\": \"cole-o-refresh-token-aqui\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/refresh",
@@ -307,7 +262,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+              "raw": "{\n  \"refreshToken\": \"cole-o-refresh-token-aqui\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/logout",
@@ -330,42 +285,6 @@
     {
       "key": "baseUrl",
       "value": "http://localhost:8082"
-    },
-    {
-      "key": "login",
-      "value": "usuario.teste"
-    },
-    {
-      "key": "email",
-      "value": "usuario.teste@example.com"
-    },
-    {
-      "key": "password",
-      "value": "Senha@123"
-    },
-    {
-      "key": "newPassword",
-      "value": "NovaSenha@456"
-    },
-    {
-      "key": "userId",
-      "value": ""
-    },
-    {
-      "key": "emailConfirmationToken",
-      "value": ""
-    },
-    {
-      "key": "passwordResetToken",
-      "value": ""
-    },
-    {
-      "key": "accessToken",
-      "value": ""
-    },
-    {
-      "key": "refreshToken",
-      "value": ""
     }
   ]
 }

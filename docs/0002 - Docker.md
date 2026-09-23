@@ -11,7 +11,7 @@ Um unico `docker-compose.yml` na raiz do monorepo, projeto/stack `ouroboros`, co
 
 ## Setup local
 
-1. Copie `.env.example` para `.env` na raiz e preencha as senhas:
+1. Copie `.env.example` para `.env` na raiz e preencha as senhas e a chave JWT (ver `docs/0005 - Configuracao JWT.md`):
    ```
    cp .env.example .env
    ```

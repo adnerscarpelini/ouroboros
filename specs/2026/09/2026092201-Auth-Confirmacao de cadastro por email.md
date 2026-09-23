@@ -22,4 +22,4 @@ Extensão natural do `auth-service` — mesma entidade `User`, que já tem os ca
 - [x] **Dev** — Retornar/logar o token gerado no registro, com nota explícita de que é temporário até existir envio de e-mail
 - [x] **DBA** — Migration criando `auth.tokens` (id interno, external id, auditoria, `user_id`, `type`, `token_hash`, `expires_at`, `used_at`)
 - [x] **Tester** — Cobrir: geração do token no registro, confirmação com token válido, token expirado, token já usado, token inexistente
-- [ ] **Tech Writer** — Documentar o fluxo de confirmação de cadastro em `docs/`, deixando explícito que o envio por e-mail ainda não existe
+- [x] **Tech Writer** — Documentar o fluxo de confirmação de cadastro em `docs/`, deixando explícito que o envio por e-mail ainda não existe

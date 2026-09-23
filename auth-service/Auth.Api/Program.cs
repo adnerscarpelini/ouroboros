@@ -30,7 +30,7 @@ DapperConfiguration.Configure();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddUseCases(connectionString);
+builder.Services.AddUseCases(builder.Configuration, connectionString);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 

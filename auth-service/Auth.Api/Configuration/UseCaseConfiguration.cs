@@ -10,8 +10,15 @@ public static class UseCaseConfiguration
 {
     public static IServiceCollection AddUseCases(
         this IServiceCollection services,
+        IConfiguration configuration,
         string connectionString)
     {
+        services.AddOptions<JwtSettings>()
+            .Bind(configuration.GetSection(JwtSettings.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+
         services.AddScoped<IUserRepository>(_ => new DapperUserRepository(connectionString));
         services.AddScoped<ITokenRepository>(_ => new DapperTokenRepository(connectionString));
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();

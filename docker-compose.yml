@@ -46,6 +46,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=${AUTH_DB_NAME};Username=${AUTH_DB_USER};Password=${AUTH_DB_PASSWORD}
       Seq__ServerUrl: http://seq:5341
+      Jwt__SigningKey: ${AUTH_JWT_SIGNING_KEY}
     ports:
       - "8082:8082"
     depends_on:

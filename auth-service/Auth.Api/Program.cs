@@ -1,6 +1,7 @@
 using Ouroboros.Auth.Api.Configuration;
 using Ouroboros.Auth.Api.Middleware;
 using Ouroboros.Auth.Infrastructure.Migrations;
+using Ouroboros.Auth.Infrastructure.Persistence;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
 MigrationRunner.Run(connectionString);
+DapperConfiguration.Configure();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

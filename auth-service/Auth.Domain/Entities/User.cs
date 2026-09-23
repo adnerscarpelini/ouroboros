@@ -76,6 +76,13 @@ public sealed class User : Entity
         return user;
     }
 
+    public void ConfirmEmail()
+    {
+        EmailConfirmed = true;
+        Active = true;
+        MarkAsUpdated();
+    }
+
     private static string ValidateLogin(string login)
     {
         if (string.IsNullOrWhiteSpace(login))

@@ -6,15 +6,23 @@ using Ouroboros.Auth.Domain.Exceptions;
 
 public sealed class RegisterUserInteractor : IRegisterUserUseCase
 {
+    private static readonly TimeSpan EmailConfirmationTokenLifetime = TimeSpan.FromHours(24);
+
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ITokenRepository _tokenRepository;
+    private readonly ITokenGenerator _tokenGenerator;
 
     public RegisterUserInteractor(
         IUserRepository userRepository,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        ITokenRepository tokenRepository,
+        ITokenGenerator tokenGenerator)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
+        _tokenRepository = tokenRepository;
+        _tokenGenerator = tokenGenerator;
     }
 
     public async Task<RegisterUserResponse> ExecuteAsync(RegisterUserRequest request)
@@ -33,7 +41,21 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
 
         await _userRepository.AddAsync(user);
 
-        return new RegisterUserResponse(user.ExternalId, user.Login, user.FullName, user.Email);
+        var confirmationToken = _tokenGenerator.Generate();
+        var token = Token.Create(
+            user.ExternalId,
+            TokenType.EmailConfirmation,
+            _tokenGenerator.Hash(confirmationToken),
+            DateTimeOffset.UtcNow.Add(EmailConfirmationTokenLifetime));
+
+        await _tokenRepository.AddAsync(token);
+
+        return new RegisterUserResponse(
+            user.ExternalId,
+            user.Login,
+            user.FullName,
+            user.Email,
+            confirmationToken);
     }
 
     private static void ValidatePasswordStrength(string password)

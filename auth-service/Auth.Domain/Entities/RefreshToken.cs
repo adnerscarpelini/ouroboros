@@ -56,6 +56,11 @@ public sealed class RefreshToken : Entity
         return refreshToken;
     }
 
+    public bool IsActive(DateTimeOffset now)
+    {
+        return RevokedAt is null && now < ExpiresAt;
+    }
+
     public void Revoke(DateTimeOffset revokedAt)
     {
         if (RevokedAt is not null)

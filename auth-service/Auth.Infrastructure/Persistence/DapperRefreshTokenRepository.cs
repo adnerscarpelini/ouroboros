@@ -130,6 +130,32 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
         return affectedRows > 0;
     }
 
+    public async Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
+    {
+        const string sql = """
+            UPDATE auth.refresh_tokens AS refreshTokens
+            SET
+                updated_at = @RevokedAt,
+                revoked_at = @RevokedAt
+            FROM auth.users AS users
+            WHERE
+                users.id = refreshTokens.user_id
+                AND users.external_id = @UserExternalId
+                AND refreshTokens.revoked_at IS NULL
+                AND refreshTokens.expires_at > @RevokedAt;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        await connection.ExecuteAsync(
+            sql,
+            new
+            {
+                RevokedAt = revokedAt,
+                UserExternalId = userExternalId,
+            });
+    }
+
     private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
     {
         if (value is null)

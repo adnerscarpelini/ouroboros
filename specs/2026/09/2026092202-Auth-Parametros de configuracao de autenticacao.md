@@ -1,7 +1,7 @@
 # 2026092202 - Parametros de configuracao de autenticacao
 
 **Data:** 22/09/2026
-**Status:** Em andamento
+**Status:** Concluido
 **Servico(s):** auth-service
 
 ## Solicitação

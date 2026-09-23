@@ -1,7 +1,7 @@
 # 2026092204 - Refresh de token com rotacao
 
 **Data:** 22/09/2026
-**Status:** Em andamento
+**Status:** Concluido
 **Servico(s):** auth-service
 
 ## Solicitação

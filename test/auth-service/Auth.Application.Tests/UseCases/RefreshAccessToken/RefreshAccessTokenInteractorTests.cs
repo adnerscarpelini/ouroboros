@@ -76,6 +76,11 @@ public class RefreshAccessTokenInteractorTests
             Revoked.Add(refreshToken);
             return Task.FromResult(true);
         }
+
+        public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeJwtTokenGenerator : IJwtTokenGenerator

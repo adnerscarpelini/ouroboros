@@ -62,6 +62,18 @@ public class LoginInteractorTests
         {
             return Task.FromResult(true);
         }
+
+        public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
+        {
+            var activeTokens = Items.Where(item => item.UserExternalId == userExternalId && item.IsActive(revokedAt));
+
+            foreach (var activeToken in activeTokens)
+            {
+                activeToken.Revoke(revokedAt);
+            }
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher
@@ -151,6 +163,43 @@ public class LoginInteractorTests
         Assert.Equal(response.RefreshTokenExpiresAt, refreshTokenRepository.Items[0].ExpiresAt);
         Assert.True(response.RefreshTokenExpiresAt > DateTimeOffset.UtcNow.AddDays(6));
         Assert.Null(refreshTokenRepository.Items[0].RevokedAt);
+    }
+
+    [Fact]
+    public async Task ShouldRevokePreviousActiveRefreshTokensWhenUserLogsInAgain()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var user = CreateUser(active: true);
+        var otherUser = User.Create("other", "Other User", "other@example.com", "hashed:S3cret!1");
+        userRepository.Items.Add(user);
+        var previousToken = RefreshToken.Create(user.ExternalId, "hashed:previous", DateTimeOffset.UtcNow.AddDays(1));
+        var otherUserToken = RefreshToken.Create(otherUser.ExternalId, "hashed:other", DateTimeOffset.UtcNow.AddDays(1));
+        refreshTokenRepository.Items.Add(previousToken);
+        refreshTokenRepository.Items.Add(otherUserToken);
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository);
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
+
+        var newToken = refreshTokenRepository.Items.Single(item => item.TokenHash == "hashed:raw-refresh-token");
+        Assert.NotNull(previousToken.RevokedAt);
+        Assert.Null(newToken.RevokedAt);
+        Assert.Null(otherUserToken.RevokedAt);
+    }
+
+    [Fact]
+    public async Task ShouldNotRevokePreviousRefreshTokensWhenLoginIsRejected()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        var previousToken = RefreshToken.Create(user.ExternalId, "hashed:previous", DateTimeOffset.UtcNow.AddDays(1));
+        refreshTokenRepository.Items.Add(previousToken);
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Wrong!123")));
+        Assert.Null(previousToken.RevokedAt);
     }
 
     [Fact]

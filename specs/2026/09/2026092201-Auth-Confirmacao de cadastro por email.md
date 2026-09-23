@@ -1,7 +1,7 @@
 # 2026092201 - Confirmacao de cadastro por email
 
 **Data:** 22/09/2026
-**Status:** Em andamento
+**Status:** Concluido
 **Servico(s):** auth-service
 
 ## Solicitação

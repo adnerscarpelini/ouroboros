@@ -13,4 +13,9 @@ public interface IRefreshTokenRepository
     /// Retorna <c>false</c> quando outra requisicao revogou o mesmo token antes (uso concorrente).
     /// </summary>
     Task<bool> TryRevokeAsync(RefreshToken refreshToken);
+
+    /// <summary>
+    /// Revoga, num unico comando, todos os refresh tokens ainda ativos (nao revogados e nao expirados) do usuario.
+    /// </summary>
+    Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt);
 }

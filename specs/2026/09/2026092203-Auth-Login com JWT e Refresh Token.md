@@ -1,7 +1,7 @@
 # 2026092203 - Login com JWT e Refresh Token
 
 **Data:** 22/09/2026
-**Status:** Em andamento
+**Status:** Concluido
 **Servico(s):** auth-service
 
 ## Solicitação

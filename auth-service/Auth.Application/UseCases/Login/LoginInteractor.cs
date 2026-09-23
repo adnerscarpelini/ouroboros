@@ -52,6 +52,10 @@ public sealed class LoginInteractor : ILoginUseCase
             throw new DomainException("User is not active");
         }
 
+        // Reautenticacao encerra as sessoes anteriores: so o par emitido agora continua valido.
+        // Estou fazendo assim porque atualmente eu não criei uma rotina automatica de revogacao de refresh tokens,
+        await _refreshTokenRepository.RevokeAllActiveByUserAsync(user.ExternalId, DateTimeOffset.UtcNow);
+
         var accessToken = _jwtTokenGenerator.Generate(user.ExternalId, user.Login, user.Email);
 
         var rawRefreshToken = _tokenGenerator.Generate();

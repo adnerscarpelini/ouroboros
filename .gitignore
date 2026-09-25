@@ -61,3 +61,7 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Links locais para as skills compartilhadas em .skills/
+/.claude/
+/.agents/

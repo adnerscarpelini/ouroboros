@@ -42,6 +42,21 @@
     <File Path="specs/2026/09/2026092304-Auth-Consulta de usuario.md" />
     <File Path="specs/2026/09/2026092305-Auth-Seguranca do cadastro de usuario.md" />
     <File Path="specs/2026/09/2026092306-Auth-Exclusao de conta do usuario.md" />
+    <File Path="specs/2026/09/2026092501-Auth-Protecao contra tentativas de autenticacao.md" />
+    <File Path="specs/2026/09/2026092502-Auth-Consistencia do cadastro concorrente.md" />
+    <File Path="specs/2026/09/2026092503-Auth-Confirmacao atomica de cadastro.md" />
+    <File Path="specs/2026/09/2026092504-Auth-Redefinicao atomica de senha.md" />
+    <File Path="specs/2026/09/2026092505-Auth-Exclusao atomica de conta.md" />
+    <File Path="specs/2026/09/2026092506-Auth-Emissao atomica no login.md" />
+    <File Path="specs/2026/09/2026092507-Auth-Rotacao atomica de refresh token.md" />
+    <File Path="specs/2026/09/2026092508-Auth-Politica de identidade de login e email.md" />
+    <File Path="specs/2026/09/2026092509-Auth-Politica e armazenamento de senhas.md" />
+    <File Path="specs/2026/09/2026092510-Auth-Invalidacao de JWT em eventos sensiveis.md" />
+    <File Path="specs/2026/09/2026092511-Auth-Configuracao segura de producao.md" />
+    <File Path="specs/2026/09/2026092512-Auth-Testes de integracao da API e do banco.md" />
+    <File Path="specs/2026/09/2026092513-Auth-Integracao continua.md" />
+    <File Path="specs/2026/09/2026092514-Auth-Verificacoes de saude.md" />
+    <File Path="specs/2026/09/2026092515-Auth-Limpeza de tokens expirados.md" />
   </Folder>
 
   <Folder Name="/auth-service/">

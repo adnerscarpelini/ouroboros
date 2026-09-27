@@ -34,15 +34,25 @@ public sealed class LoginInteractor : ILoginUseCase
 
     public async Task<LoginResponse> ExecuteAsync(LoginRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrEmpty(request.Password))
+        var now = DateTimeOffset.UtcNow;
+        var user = string.IsNullOrWhiteSpace(request.Login)
+            ? null
+            : await _userRepository.GetByLoginAsync(request.Login.Trim());
+        var canVerifyRealHash = user is not null && !user.IsLockedOut(now);
+        var hash = canVerifyRealHash ? user!.PasswordHash : _passwordHasher.DummyHash;
+        var passwordMatches = _passwordHasher.Verify(request.Password ?? string.Empty, hash);
+
+        if (!canVerifyRealHash || !passwordMatches)
         {
+            if (canVerifyRealHash)
+            {
+                await _userRepository.RecordFailedAccessAsync(user!.ExternalId, now);
+            }
+
             throw new InvalidCredentialsException();
         }
 
-        var user = await _userRepository.GetByLoginAsync(request.Login.Trim());
-
-        // Login inexistente e senha errada geram o mesmo erro pra nao revelar quais logins existem.
-        if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        if (!await _userRepository.TryResetFailedAccessAsync(user!.ExternalId, now))
         {
             throw new InvalidCredentialsException();
         }

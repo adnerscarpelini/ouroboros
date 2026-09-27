@@ -4,6 +4,9 @@ using Ouroboros.Auth.Domain.Exceptions;
 
 public sealed class User : Entity
 {
+    public const int MaxFailedAccessAttempts = 5;
+    public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
     public string Login { get; private set; } = null!;
 
     public string FullName { get; private set; } = null!;
@@ -23,6 +26,10 @@ public sealed class User : Entity
     public UserRole Role { get; private set; }
 
     public DateTimeOffset? DeletedAt { get; private set; }
+
+    public int AccessFailedCount { get; private set; }
+
+    public DateTimeOffset? LockoutEnd { get; private set; }
 
     private User()
     {
@@ -47,6 +54,8 @@ public sealed class User : Entity
             // Menor privilegio: todo cadastro nasce User; promocao a Admin nunca vem do request de cadastro.
             Role = UserRole.User,
             DeletedAt = null,
+            AccessFailedCount = 0,
+            LockoutEnd = null,
         };
 
         return user;
@@ -66,7 +75,9 @@ public sealed class User : Entity
         bool active,
         DateTimeOffset? lastLoginAt,
         UserRole role,
-        DateTimeOffset? deletedAt)
+        DateTimeOffset? deletedAt,
+        int accessFailedCount = 0,
+        DateTimeOffset? lockoutEnd = null)
     {
         var user = new User
         {
@@ -80,6 +91,8 @@ public sealed class User : Entity
             LastLoginAt = lastLoginAt,
             Role = role,
             DeletedAt = deletedAt,
+            AccessFailedCount = accessFailedCount,
+            LockoutEnd = lockoutEnd,
         };
 
         user.RestorePersistence(id, externalId, createdAt, updatedAt);
@@ -92,6 +105,39 @@ public sealed class User : Entity
         EmailConfirmed = true;
         Active = true;
         MarkAsUpdated();
+    }
+
+    public bool IsLockedOut(DateTimeOffset now)
+    {
+        return LockoutEnd > now;
+    }
+
+    // Em producao a regra roda atomica no UPDATE de DapperUserRepository.RecordFailedAccessAsync,
+    // pra falhas concorrentes nao se perderem. Qualquer mudanca aqui precisa ser replicada la.
+    public bool RecordFailedAccess(DateTimeOffset now)
+    {
+        if (IsLockedOut(now))
+        {
+            return false;
+        }
+
+        LockoutEnd = null;
+        AccessFailedCount++;
+
+        if (AccessFailedCount < MaxFailedAccessAttempts)
+        {
+            return false;
+        }
+
+        AccessFailedCount = 0;
+        LockoutEnd = now.Add(LockoutDuration);
+        return true;
+    }
+
+    public void ResetFailedAccess()
+    {
+        AccessFailedCount = 0;
+        LockoutEnd = null;
     }
 
     public void ChangePassword(string passwordHash)

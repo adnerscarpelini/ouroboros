@@ -78,6 +78,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpPost("confirm-email")]
+    [EnableRateLimiting(RateLimitingConfiguration.EmailConfirmPolicy)]
     public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request)
     {
         try

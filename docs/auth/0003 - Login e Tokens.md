@@ -40,12 +40,15 @@ Erros:
 
 | Situação | Status | Mensagem |
 |---|---|---|
-| Login inexistente, senha errada ou campos vazios | `401` | `Invalid login or password` |
+| Login inexistente, senha errada, campos vazios ou conta bloqueada | `401` | `Invalid login or password` |
 | Senha correta, mas usuário inativo | `400` | `User is not active` |
+| Limite por IP excedido | `429` | Sem corpo específico |
 
 Login inexistente e senha errada devolvem **a mesma resposta** de propósito, para não revelar quais logins existem. O usuário inativo só é informado depois que a senha confere. Conta excluída é tratada como login inexistente, e o refresh de uma conta excluída devolve `401 Invalid refresh token` (ver `docs/auth/0007 - Exclusao de Conta.md`).
 
 Login rejeitado **não** revoga as sessões existentes. Só um login bem-sucedido faz isso.
+
+Cinco falhas de senha seguidas bloqueiam a conta por 15 minutos. O login usa um hash fictício quando a conta não existe ou está bloqueada e responde `401` nos três casos. Um acerto zera o contador. Veja `docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md` para os limites e a configuração de proxies.
 
 ## Refresh
 
@@ -71,6 +74,7 @@ Erros:
 | Token expirado | `401` | `Refresh token has expired` |
 | Token já usado/revogado | `401` | `Refresh token has been revoked` |
 | Usuário não está mais ativo | `400` | `User is not active` |
+| Limite por IP excedido | `429` | Sem corpo específico |
 
 No caso de usuário inativo, o token **não** é consumido.
 

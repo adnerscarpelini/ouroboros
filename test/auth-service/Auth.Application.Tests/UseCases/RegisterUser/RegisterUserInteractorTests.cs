@@ -10,6 +10,18 @@ public class RegisterUserInteractorTests
     // Guarda tambem contas excluidas e as ignora nas buscas, igual ao repositorio real.
     private sealed class FakeUserRepository : IUserRepository
     {
+        public Task<bool> RecordFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
+        public Task<bool> TryResetFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
         public List<User> Items { get; } = new();
 
         public Task AddAsync(User user)
@@ -67,6 +79,7 @@ public class RegisterUserInteractorTests
 
     private sealed class FakePasswordHasher : IPasswordHasher
     {
+        public string DummyHash => "hashed:dummy";
         public string Hash(string password)
         {
             return $"hashed:{password}";

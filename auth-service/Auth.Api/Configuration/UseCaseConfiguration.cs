@@ -32,7 +32,9 @@ public static class UseCaseConfiguration
         services.AddSingleton(provider =>
             new RefreshTokenSettings(TimeSpan.FromDays(provider.GetRequiredService<IOptions<JwtSettings>>().Value.RefreshTokenExpirationDays)));
 
-        services.AddScoped<IUserRepository>(_ => new DapperUserRepository(connectionString));
+        services.AddScoped<IUserRepository>(provider => new DapperUserRepository(
+            connectionString,
+            provider.GetRequiredService<ILogger<DapperUserRepository>>()));
         services.AddScoped<ITokenRepository>(_ => new DapperTokenRepository(connectionString));
         services.AddScoped<IRefreshTokenRepository>(_ => new DapperRefreshTokenRepository(connectionString));
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();

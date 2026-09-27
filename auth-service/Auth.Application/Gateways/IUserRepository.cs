@@ -19,6 +19,14 @@ public interface IUserRepository
 
     Task UpdateAsync(User user);
 
+    Task<bool> RecordFailedAccessAsync(
+        Guid externalId,
+        DateTimeOffset now);
+
+    Task<bool> TryResetFailedAccessAsync(
+        Guid externalId,
+        DateTimeOffset now);
+
     /// <summary>
     /// Remove o usuario e, em cascata, os tokens e refresh tokens dele.
     /// Usado so pra descartar cadastro abandonado (nunca confirmado). Nunca remove conta excluida.

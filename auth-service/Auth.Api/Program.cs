@@ -32,7 +32,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddUseCases(builder.Configuration, connectionString);
 builder.Services.AddJwtAuthentication();
-builder.Services.AddRateLimiting();
+builder.Services.AddRateLimiting(builder.Configuration);
+builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -45,9 +46,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
+app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapControllers();
 app.Run();
+
+// Exposto para o WebApplicationFactory dos testes de integracao.
+public partial class Program;

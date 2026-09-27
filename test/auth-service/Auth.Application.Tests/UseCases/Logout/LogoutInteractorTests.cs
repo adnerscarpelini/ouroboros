@@ -41,6 +41,18 @@ public class LogoutInteractorTests
 
     private sealed class FakeUserRepository : IUserRepository
     {
+        public Task<bool> RecordFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
+        public Task<bool> TryResetFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
         public List<User> Items { get; } = new();
 
         public Task AddAsync(User user)

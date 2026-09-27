@@ -61,7 +61,7 @@
                 "confirm-email"
               ]
             },
-            "description": "Confirma o e-mail do usuario com o token gerado no cadastro. Cole no body o token que aparece no log do servico (Seq).\n\n- `200` e-mail confirmado\n- `400` token invalido, expirado ou ja usado"
+            "description": "Confirma o e-mail do usuario com o token gerado no cadastro. Cole no body o token que aparece no log do servico (Seq).\n\n- `200` e-mail confirmado\n- `400` token invalido, expirado ou ja usado\n- `429` limite de 10 tentativas por IP a cada 15 minutos"
           }
         },
         {
@@ -257,7 +257,7 @@
                 "login"
               ]
             },
-            "description": "Autentica o usuario e devolve access token + refresh token. O access token carrega o perfil do usuario no claim `role`.\n\n- `200` autenticado\n- `400` usuario inativo (e-mail ainda nao confirmado)\n- `401` credenciais invalidas"
+            "description": "Autentica o usuario e devolve access token + refresh token. O access token carrega o perfil do usuario no claim `role`.\n\n- `200` autenticado\n- `400` usuario inativo (e-mail ainda nao confirmado)\n- `401` credenciais invalidas ou conta temporariamente bloqueada\n- `429` limite de 20 tentativas por IP a cada 15 minutos"
           }
         },
         {
@@ -285,7 +285,7 @@
                 "refresh"
               ]
             },
-            "description": "Gera um novo par de tokens com rotacao: o refresh token usado e revogado.\n\n- `200` novos tokens\n- `400` refresh token nao informado\n- `401` refresh token invalido, expirado ou revogado"
+            "description": "Gera um novo par de tokens com rotacao: o refresh token usado e revogado.\n\n- `200` novos tokens\n- `400` refresh token nao informado\n- `401` refresh token invalido, expirado ou revogado\n- `429` limite de 60 tentativas por IP a cada 15 minutos"
           }
         },
         {

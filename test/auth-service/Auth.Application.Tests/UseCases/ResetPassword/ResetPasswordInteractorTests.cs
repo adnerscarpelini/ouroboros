@@ -13,6 +13,18 @@ public class ResetPasswordInteractorTests
 
     private sealed class FakeUserRepository : IUserRepository
     {
+        public Task<bool> RecordFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
+        public Task<bool> TryResetFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
         public List<User> Items { get; } = new();
 
         public List<User> Updated { get; } = new();
@@ -159,6 +171,7 @@ public class ResetPasswordInteractorTests
 
     private sealed class FakePasswordHasher : IPasswordHasher
     {
+        public string DummyHash => "hashed:dummy";
         public string Hash(string password)
         {
             return $"hashed:{password}";

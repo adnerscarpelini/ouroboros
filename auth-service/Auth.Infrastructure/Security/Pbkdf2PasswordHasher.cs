@@ -9,6 +9,11 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher
     private const int HashSizeInBytes = 32;
     private const int Iterations = 100_000;
 
+    private static readonly string DummyHashValue = new Pbkdf2PasswordHasher().Hash(
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+
+    public string DummyHash => DummyHashValue;
+
     public string Hash(string password)
     {
         var salt = RandomNumberGenerator.GetBytes(SaltSizeInBytes);

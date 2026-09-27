@@ -38,9 +38,22 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
         var requester = await _userRepository.GetByExternalIdAsync(request.RequesterId);
 
         // Reautenticacao: uma sessao aberta (ou um access token roubado) sozinha nao basta pra excluir uma conta.
-        if (requester is null
-            || string.IsNullOrEmpty(request.RequesterPassword)
-            || !_passwordHasher.Verify(request.RequesterPassword, requester.PasswordHash))
+        var now = DateTimeOffset.UtcNow;
+        var canVerifyRealHash = requester is not null && !requester.IsLockedOut(now);
+        var hash = canVerifyRealHash ? requester!.PasswordHash : _passwordHasher.DummyHash;
+        var passwordMatches = _passwordHasher.Verify(request.RequesterPassword ?? string.Empty, hash);
+
+        if (!canVerifyRealHash || !passwordMatches)
+        {
+            if (canVerifyRealHash)
+            {
+                await _userRepository.RecordFailedAccessAsync(requester!.ExternalId, now);
+            }
+
+            throw new InvalidCredentialsException();
+        }
+
+        if (!await _userRepository.TryResetFailedAccessAsync(requester!.ExternalId, now))
         {
             throw new InvalidCredentialsException();
         }
@@ -61,8 +74,6 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
         user.Delete();
 
         await _userRepository.UpdateAsync(user);
-
-        var now = DateTimeOffset.UtcNow;
 
         await _refreshTokenRepository.RevokeAllActiveByUserAsync(user.ExternalId, now);
         await _tokenRepository.InvalidatePendingByUserAsync(

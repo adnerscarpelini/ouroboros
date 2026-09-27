@@ -1,6 +1,7 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
@@ -8,10 +9,14 @@ using Ouroboros.Auth.Domain.Entities;
 public sealed class DapperUserRepository : IUserRepository
 {
     private readonly string _connectionString;
+    private readonly ILogger<DapperUserRepository> _logger;
 
-    public DapperUserRepository(string connectionString)
+    public DapperUserRepository(
+        string connectionString,
+        ILogger<DapperUserRepository> logger)
     {
         _connectionString = connectionString;
+        _logger = logger;
     }
 
     public async Task AddAsync(User user)
@@ -31,7 +36,9 @@ public sealed class DapperUserRepository : IUserRepository
                 active,
                 last_login_at,
                 role,
-                deleted_at
+                deleted_at,
+                access_failed_count,
+                lockout_end
             )
             VALUES (
                 nextval('auth.users_id_seq'),
@@ -47,7 +54,9 @@ public sealed class DapperUserRepository : IUserRepository
                 @Active,
                 @LastLoginAt,
                 @Role,
-                @DeletedAt
+                @DeletedAt,
+                @AccessFailedCount,
+                @LockoutEnd
             );
             """;
 
@@ -70,6 +79,8 @@ public sealed class DapperUserRepository : IUserRepository
                 user.LastLoginAt,
                 Role = user.Role.ToString(),
                 user.DeletedAt,
+                user.AccessFailedCount,
+                user.LockoutEnd,
             });
     }
 
@@ -90,7 +101,9 @@ public sealed class DapperUserRepository : IUserRepository
                 users.active,
                 users.last_login_at,
                 users.role,
-                users.deleted_at
+                users.deleted_at,
+                users.access_failed_count,
+                users.lockout_end
             FROM auth.users AS users
             WHERE
                 users.external_id = @ExternalId
@@ -121,7 +134,9 @@ public sealed class DapperUserRepository : IUserRepository
                 users.active,
                 users.last_login_at,
                 users.role,
-                users.deleted_at
+                users.deleted_at,
+                users.access_failed_count,
+                users.lockout_end
             FROM auth.users AS users
             WHERE
                 users.email = @Email
@@ -152,7 +167,9 @@ public sealed class DapperUserRepository : IUserRepository
                 users.active,
                 users.last_login_at,
                 users.role,
-                users.deleted_at
+                users.deleted_at,
+                users.access_failed_count,
+                users.lockout_end
             FROM auth.users AS users
             WHERE
                 users.login = @Login
@@ -184,7 +201,9 @@ public sealed class DapperUserRepository : IUserRepository
                 users.active,
                 users.last_login_at,
                 users.role,
-                users.deleted_at
+                users.deleted_at,
+                users.access_failed_count,
+                users.lockout_end
             FROM auth.users AS users
             WHERE
                 (users.login = @LoginOrEmail OR users.email = @LoginOrEmail)
@@ -237,6 +256,73 @@ public sealed class DapperUserRepository : IUserRepository
                 user.DeletedAt,
                 user.ExternalId,
             });
+    }
+
+    // Mesma regra de User.RecordFailedAccess, feita no proprio UPDATE pra ser atomica entre requisicoes e replicas.
+    // Qualquer mudanca aqui precisa ser replicada na entidade.
+    public async Task<bool> RecordFailedAccessAsync(
+        Guid externalId,
+        DateTimeOffset now)
+    {
+        const string sql = """
+            UPDATE auth.users
+            SET
+                access_failed_count = CASE
+                    WHEN access_failed_count + 1 >= @MaxAttempts THEN 0
+                    ELSE access_failed_count + 1
+                END,
+                lockout_end = CASE
+                    WHEN access_failed_count + 1 >= @MaxAttempts THEN @LockoutEnd
+                    ELSE NULL
+                END,
+                updated_at = @Now
+            WHERE
+                external_id = @ExternalId
+                AND deleted_at IS NULL
+                AND (lockout_end IS NULL OR lockout_end <= @Now)
+            RETURNING lockout_end;
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var lockoutEnd = await connection.QuerySingleOrDefaultAsync<DateTime?>(
+            sql,
+            new
+            {
+                ExternalId = externalId,
+                Now = now,
+                MaxAttempts = User.MaxFailedAccessAttempts,
+                LockoutEnd = now.Add(User.LockoutDuration),
+            });
+
+        if (lockoutEnd is null)
+        {
+            return false;
+        }
+
+        _logger.LogWarning("User {ExternalId} locked until {LockoutEnd}", externalId, lockoutEnd);
+        return true;
+    }
+
+    public async Task<bool> TryResetFailedAccessAsync(
+        Guid externalId,
+        DateTimeOffset now)
+    {
+        const string sql = """
+            UPDATE auth.users
+            SET
+                access_failed_count = 0,
+                lockout_end = NULL,
+                updated_at = @Now
+            WHERE
+                external_id = @ExternalId
+                AND deleted_at IS NULL
+                AND (lockout_end IS NULL OR lockout_end <= @Now);
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        return await connection.ExecuteAsync(sql, new { ExternalId = externalId, Now = now }) == 1;
     }
 
     public async Task RemoveAsync(Guid externalId)
@@ -309,7 +395,9 @@ public sealed class DapperUserRepository : IUserRepository
             row.Active,
             ToDateTimeOffset(row.LastLoginAt),
             Enum.Parse<UserRole>(row.Role),
-            ToDateTimeOffset(row.DeletedAt));
+            ToDateTimeOffset(row.DeletedAt),
+            row.AccessFailedCount,
+            ToDateTimeOffset(row.LockoutEnd));
     }
 
     private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
@@ -353,5 +441,9 @@ public sealed class DapperUserRepository : IUserRepository
         public string Role { get; init; } = null!;
 
         public DateTime? DeletedAt { get; init; }
+
+        public int AccessFailedCount { get; init; }
+
+        public DateTime? LockoutEnd { get; init; }
     }
 }

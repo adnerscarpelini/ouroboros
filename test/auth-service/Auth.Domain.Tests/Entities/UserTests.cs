@@ -6,6 +6,52 @@ using Xunit;
 public class UserTests
 {
     [Fact]
+    public void ShouldLockForFifteenMinutesOnFifthFailedAccess()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");
+        var now = DateTimeOffset.UtcNow;
+
+        for (var attempt = 1; attempt < 5; attempt++)
+        {
+            Assert.False(user.RecordFailedAccess(now));
+            Assert.Equal(attempt, user.AccessFailedCount);
+        }
+
+        Assert.True(user.RecordFailedAccess(now));
+        Assert.Equal(0, user.AccessFailedCount);
+        Assert.Equal(now.AddMinutes(15), user.LockoutEnd);
+    }
+
+    [Fact]
+    public void ShouldAllowAccessAfterLockoutExpires()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");
+        var now = DateTimeOffset.UtcNow;
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            user.RecordFailedAccess(now);
+        }
+
+        Assert.True(user.IsLockedOut(now.AddMinutes(14)));
+        Assert.False(user.IsLockedOut(now.AddMinutes(15)));
+        Assert.False(user.RecordFailedAccess(now.AddMinutes(15)));
+        Assert.Equal(1, user.AccessFailedCount);
+    }
+
+    [Fact]
+    public void ShouldResetFailedAccessAfterSuccess()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");
+        user.RecordFailedAccess(DateTimeOffset.UtcNow);
+
+        user.ResetFailedAccess();
+
+        Assert.Equal(0, user.AccessFailedCount);
+        Assert.Null(user.LockoutEnd);
+    }
+
+    [Fact]
     public void ShouldCreateUserInactiveByDefaultWhenDataIsValid()
     {
         var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed-password");

@@ -1,6 +1,8 @@
 namespace Ouroboros.Auth.Api.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Ouroboros.Auth.Api.Configuration;
 using Ouroboros.Auth.Application.UseCases.Login;
 using Ouroboros.Auth.Application.UseCases.Logout;
 using Ouroboros.Auth.Application.UseCases.RefreshAccessToken;
@@ -28,6 +30,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitingConfiguration.AuthLoginPolicy)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         try
@@ -37,17 +40,18 @@ public sealed class AuthController : ControllerBase
         }
         catch (InvalidCredentialsException e)
         {
-            _logger.LogWarning(e, "Login rejected for {Login}: {Reason}", request.Login, e.Message);
+            _logger.LogWarning(e, "Login rejected for {Login} from {RemoteIp}: {Reason}", request.Login, HttpContext.Connection.RemoteIpAddress, e.Message);
             return Unauthorized(new { error = e.Message });
         }
         catch (DomainException e)
         {
-            _logger.LogWarning(e, "Login rejected for {Login}: {Reason}", request.Login, e.Message);
+            _logger.LogWarning(e, "Login rejected for {Login} from {RemoteIp}: {Reason}", request.Login, HttpContext.Connection.RemoteIpAddress, e.Message);
             return BadRequest(new { error = e.Message });
         }
     }
 
     [HttpPost("refresh")]
+    [EnableRateLimiting(RateLimitingConfiguration.AuthRefreshPolicy)]
     public async Task<IActionResult> Refresh([FromBody] RefreshAccessTokenRequest request)
     {
         try

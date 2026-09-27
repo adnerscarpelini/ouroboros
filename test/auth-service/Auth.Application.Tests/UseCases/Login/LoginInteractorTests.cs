@@ -10,6 +10,28 @@ public class LoginInteractorTests
 {
     private sealed class FakeUserRepository : IUserRepository
     {
+        public Task<bool> RecordFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            var user = Items.Single(item => item.ExternalId == externalId);
+            return Task.FromResult(user.RecordFailedAccess(now));
+        }
+
+        public Task<bool> TryResetFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            var user = Items.Single(item => item.ExternalId == externalId);
+
+            if (user.IsLockedOut(now))
+            {
+                return Task.FromResult(false);
+            }
+
+            user.ResetFailedAccess();
+            return Task.FromResult(true);
+        }
         public List<User> Items { get; } = new();
 
         public Task AddAsync(User user)
@@ -99,6 +121,9 @@ public class LoginInteractorTests
 
     private sealed class FakePasswordHasher : IPasswordHasher
     {
+        public string DummyHash => "hashed:dummy";
+        public List<string> VerifiedHashes { get; } = new();
+
         public string Hash(string password)
         {
             return $"hashed:{password}";
@@ -106,6 +131,7 @@ public class LoginInteractorTests
 
         public bool Verify(string password, string passwordHash)
         {
+            VerifiedHashes.Add(passwordHash);
             return passwordHash == Hash(password);
         }
     }
@@ -172,12 +198,13 @@ public class LoginInteractorTests
 
     private static LoginInteractor CreateInteractor(
         FakeUserRepository userRepository,
-        FakeRefreshTokenRepository refreshTokenRepository)
+        FakeRefreshTokenRepository refreshTokenRepository,
+        FakePasswordHasher? passwordHasher = null)
     {
         return new LoginInteractor(
             userRepository,
             refreshTokenRepository,
-            new FakePasswordHasher(),
+            passwordHasher ?? new FakePasswordHasher(),
             new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
             RefreshTokenSettings);
@@ -305,5 +332,54 @@ public class LoginInteractorTests
 
         await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("   ", "")));
         Assert.Empty(refreshTokenRepository.Items);
+    }
+
+    [Fact]
+    public async Task ShouldUseDummyHashOnceWhenLoginDoesNotExist()
+    {
+        var users = new FakeUserRepository();
+        var hasher = new FakePasswordHasher();
+        var interactor = CreateInteractor(users, new FakeRefreshTokenRepository(), hasher);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            interactor.ExecuteAsync(new LoginRequest("unknown", "Wrong!123")));
+
+        Assert.Equal(hasher.DummyHash, Assert.Single(hasher.VerifiedHashes));
+    }
+
+    [Fact]
+    public async Task ShouldUseDummyHashAndGenericErrorWhenAccountIsLocked()
+    {
+        var users = new FakeUserRepository();
+        var user = CreateUser(active: true);
+        users.Items.Add(user);
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            user.RecordFailedAccess(DateTimeOffset.UtcNow);
+        }
+
+        var hasher = new FakePasswordHasher();
+        var interactor = CreateInteractor(users, new FakeRefreshTokenRepository(), hasher);
+
+        var error = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1")));
+
+        Assert.Equal("Invalid login or password", error.Message);
+        Assert.Equal(hasher.DummyHash, Assert.Single(hasher.VerifiedHashes));
+    }
+
+    [Fact]
+    public async Task ShouldResetFailureCountAfterSuccessfulLogin()
+    {
+        var users = new FakeUserRepository();
+        var user = CreateUser(active: true);
+        users.Items.Add(user);
+        user.RecordFailedAccess(DateTimeOffset.UtcNow);
+        var interactor = CreateInteractor(users, new FakeRefreshTokenRepository());
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
+
+        Assert.Equal(0, user.AccessFailedCount);
     }
 }

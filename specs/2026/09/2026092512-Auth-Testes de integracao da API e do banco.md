@@ -24,7 +24,7 @@ Decisões:
 
 ## Tarefas
 
-- [ ] **Dev** — Expor `public partial class Program` e garantir que a configuração injetada pelo teste (connection string, chave, limites) valha já nas migrations do startup
+- [x] **Dev** — Expor `public partial class Program` e garantir que a configuração injetada pelo teste (connection string, chave, limites) valha já nas migrations do startup
 - [ ] **Tester** — Criar o projeto `Auth.Integration.Tests` com a fixture Testcontainers + `WebApplicationFactory`, a limpeza entre testes e o decorator de falha controlada; incluí-lo na solution
 - [ ] **Tester** — Cobrir a linha de base pela API: cadastro (inclusive a resposta genérica para e-mail ocupado), confirmação, login, refresh com rotação, logout, reset, consulta com regras de perfil e dono, exclusão, `401` sem token, `403` por perfil e `429` nas políticas atuais
 - [ ] **Tester** — Cobrir o SQL dos repositórios que os testes unitários não alcançam: filtros de `deleted_at`, índice parcial de e-mail, `ON DELETE CASCADE` e escritas condicionais (`TryRevokeAsync`, `TryMarkAsUsedAsync`)

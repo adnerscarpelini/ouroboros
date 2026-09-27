@@ -12,6 +12,28 @@ public class DeleteUserInteractorTests
     // Guarda tambem contas excluidas e as ignora nas buscas, igual ao repositorio real.
     private sealed class FakeUserRepository : IUserRepository
     {
+        public Task<bool> RecordFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            var user = Items.Single(item => item.ExternalId == externalId);
+            return Task.FromResult(user.RecordFailedAccess(now));
+        }
+
+        public Task<bool> TryResetFailedAccessAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            var user = Items.Single(item => item.ExternalId == externalId);
+
+            if (user.IsLockedOut(now))
+            {
+                return Task.FromResult(false);
+            }
+
+            user.ResetFailedAccess();
+            return Task.FromResult(true);
+        }
         public List<User> Items { get; } = new();
 
         public List<User> Updated { get; } = new();
@@ -78,6 +100,7 @@ public class DeleteUserInteractorTests
 
     private sealed class FakePasswordHasher : IPasswordHasher
     {
+        public string DummyHash => "hashed:dummy";
         public string Hash(string password)
         {
             return $"hashed:{password}";
@@ -259,6 +282,7 @@ public class DeleteUserInteractorTests
         Assert.Null(user.DeletedAt);
         Assert.Empty(context.UserRepository.Updated);
         Assert.Empty(context.TokenRepository.Invalidated);
+        Assert.Equal(1, user.AccessFailedCount);
     }
 
     [Fact]

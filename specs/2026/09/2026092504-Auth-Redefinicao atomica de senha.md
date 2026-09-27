@@ -6,15 +6,21 @@
 
 ## Solicitação
 
-O usuário aprovou especificar uma redefinição de senha que conclua ou reverta integralmente as mudanças de token, senha e sessão.
+Na validação de maturidade do auth-service, a redefinição de senha apareceu com escritas separadas: uma falha no meio consome o link sem trocar a senha. O usuário aprovou tornar a redefinição uma operação que conclui por inteiro ou é desfeita por inteiro.
 
 ## Análise
 
-Hoje o token de reset é marcado como usado antes de gravar a nova senha e revogar os refresh tokens. Falha intermediária consome o link sem trocar a senha. Preservar a spec 2026092302: token de uso único, usuário ativo, senha diferente, sem login automático e resposta genérica para token inválido. A política de senha atualizada virá da spec 2026092509; a decisão de validade imediata do JWT pertence à spec 2026092510.
+Depende de 2026092516 (unidade de trabalho). As regras da spec 2026092302 continuam: token de uso único, usuário ativo, nova senha diferente da atual, sem login automático e resposta genérica para token inválido. A política de senha usada aqui é a da 2026092509.
+
+Decisões:
+1. **Uma transação** para o consumo condicional do token (`used_at IS NULL AND expires_at > @now` no SQL, o mesmo `TryMarkAsUsedAsync` da 2026092503), a troca do hash, a revogação de todos os refresh tokens do usuário e a zeragem do bloqueio de conta (2026092501).
+2. **Ordem mantida.** Primeiro as validações: token pendente, usuário ativo, política de senha e senha diferente da atual. Só depois o consumo. Senha rejeitada não consome o link.
+3. **O reset desbloqueia a conta.** Quem conclui o reset provou que controla o e-mail. Zerar `access_failed_count` e `lockout_end` evita que o dono legítimo fique preso depois de um ataque de força bruta.
+4. **Limitação que continua:** access tokens já emitidos valem até expirar (no máximo 15 min). As ações que dependem de privilégio passam a ler o perfil do banco (2026092510).
 
 ## Tarefas
 
-- [ ] **Dev** — Coordenar consumo do token, troca da senha e revogação dos refresh tokens como operação indivisível; falha de validação de senha não consome o token.
-- [ ] **DBA** — Implementar transação e consumo condicional com `used_at IS NULL` e validade verificada no banco, sem expor a transação às camadas internas.
-- [ ] **Tester** — Cobrir disputa pelo mesmo token, falhas em cada escrita e rollback com PostgreSQL real; confirmar que só uma requisição troca a senha.
-- [ ] **Tech Writer** — Atualizar `docs/auth/0004 - Recuperacao de Senha.md`, removendo a limitação documentada de escritas separadas.
+- [ ] **Dev** — Executar o consumo do token, `ChangePassword`, a zeragem do bloqueio e `RevokeAllActiveByUserAsync` dentro do `IUnitOfWork`, mantendo as validações antes do consumo
+- [ ] **DBA** — Garantir que o `TryMarkAsUsedAsync` confira o prazo no SQL (compartilhado com 2026092503)
+- [ ] **Tester** — Unitários: senha rejeitada não consome o token; o reset zera o bloqueio. Integração: duas redefinições simultâneas com o mesmo token → só uma troca a senha; falha forçada na revogação → token, senha e sessões intactos
+- [ ] **Tech Writer** — Atualizar `docs/auth/0004 - Recuperacao de Senha.md`: remover a limitação "escritas separadas, sem transação" e documentar o desbloqueio da conta

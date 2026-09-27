@@ -6,15 +6,21 @@
 
 ## Solicitação
 
-O usuário aprovou especificar o uso único e a consistência da confirmação do e-mail de cadastro.
+Na validação de maturidade do auth-service, a confirmação de e-mail apareceu sem consumo único garantido no banco e sem transação. O usuário aprovou alinhar esse fluxo com a regra dos outros tokens.
 
 ## Análise
 
-Hoje `ConfirmEmailInteractor` atualiza o usuário e depois o token, sem transação nem consumo condicional no banco. Duas requisições podem ler o mesmo token pendente e ambas concluir. Seguir a regra já adotada para reset: validar tipo e prazo do token, consumi-lo uma única vez e ativar a conta na mesma transação. O endpoint permanece público por necessidade do fluxo; token, conta e e-mail não entram em URL nem logs.
+**O risco é baixo e a spec é pequena de propósito.** Duas confirmações simultâneas chegam ao mesmo resultado, a conta ativa. Uma falha parcial não dá acesso novo a ninguém. Ela entra porque aproveita a unidade de trabalho (2026092516) e o consumo condicional que o reset também passa a usar (2026092504). Assim, os três fluxos de token seguem a mesma regra.
+
+Decisões:
+1. **Consumo condicional no banco.** O comando é `UPDATE ... SET used_at = @now WHERE external_id = @id AND used_at IS NULL AND expires_at > @now`. Se afetar 0 linhas, o token é inválido. É o mesmo `TryMarkAsUsedAsync` do reset, que agora também confere o prazo no SQL.
+2. **Consumo do token e ativação do usuário na mesma transação.**
+3. **Mensagem única, `400 Invalid or expired confirmation token`,** para token vazio, inexistente, de outro tipo, expirado, já usado, ou de conta inexistente ou excluída. Hoje o domínio vaza a diferença ("Token has already been used", "Token has expired").
+4. O endpoint continua público, com o limite `email-confirm` da spec 2026092501.
 
 ## Tarefas
 
-- [ ] **Dev** — Fazer confirmação e consumo do token indivisíveis e devolver erro genérico para token inválido, expirado ou já utilizado.
-- [ ] **DBA** — Adicionar consumo condicional do token com verificação de validade no próprio comando SQL e atualização do usuário na mesma transação.
-- [ ] **Tester** — Testar duas confirmações simultâneas, expiração durante a operação e rollback quando a atualização do usuário falhar, usando PostgreSQL real.
-- [ ] **Tech Writer** — Atualizar `docs/auth/0001 - Confirmacao de Cadastro.md` para refletir a garantia de uso único.
+- [ ] **Dev** — Executar o consumo do token e o `ConfirmEmail()` do usuário dentro do `IUnitOfWork`, usando `TryMarkAsUsedAsync`, e devolver a mensagem genérica única para qualquer token inválido
+- [ ] **DBA** — Incluir `expires_at > @now` na condição do `TryMarkAsUsedAsync` do `DapperTokenRepository` (compartilhado com 2026092504)
+- [ ] **Tester** — Unitários: token expirado, já usado, de outro tipo e de conta excluída → mesma mensagem. Integração: duas confirmações simultâneas → uma `200` e uma `400`; falha forçada na atualização do usuário → token continua pendente
+- [ ] **Tech Writer** — Atualizar `docs/auth/0001 - Confirmacao de Cadastro.md` com a garantia de uso único e a mensagem genérica

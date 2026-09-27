@@ -6,15 +6,29 @@
 
 ## Solicitação
 
-O usuário aprovou especificar a limpeza periódica de tokens expirados para evitar crescimento ilimitado das tabelas.
+Na validação de maturidade do auth-service, `auth.tokens` e `auth.refresh_tokens` apareceram crescendo sem limite, porque nada remove as linhas expiradas. O usuário aprovou uma limpeza periódica, com retenção e agendamento definidos.
 
 ## Análise
 
-`auth.tokens` e `auth.refresh_tokens` guardam linhas expiradas indefinidamente. Criar rotina idempotente, em lotes, com observabilidade e período de retenção explícito. A limpeza não pode alterar a validade lógica de tokens ativos nem impedir investigação de eventos recentes. Se uma futura detecção de reuso exigir histórico da família de refresh tokens, sua retenção deverá ser compatível com o prazo dessa detecção. O job pertence ao `auth-service` ou à sua operação, sem novo bounded context.
+Extensão do `auth-service`. A prioridade é baixa, porque o volume atual é pequeno. Referências: `BackgroundService` do .NET e advisory locks do PostgreSQL.
+
+Decisões:
+1. **`ExpiredTokenCleanupService`**, um `BackgroundService` no próprio auth-service, roda a cada 1 h.
+2. **Uma execução por vez entre réplicas.** O serviço usa `pg_try_advisory_lock` com uma chave fixa. A réplica que não consegue o lock pula o ciclo.
+3. **Retenção de 30 dias depois de expirar.** São apagadas as linhas das duas tabelas com `expires_at < now() - 30 dias`.
+   - Tokens ativos nunca são tocados.
+   - Tokens revogados que ainda não expiraram também ficam, porque a detecção de reuso (2026092507) precisa deles até expirarem.
+   - O histórico de longo prazo fica na auditoria (2026092519).
+4. **Em lotes de 1.000** (`DELETE ... WHERE id IN (SELECT id ... LIMIT 1000)`). Cada lote é uma transação curta, e o ciclo segue até não sobrar nada. Isso evita locks longos.
+5. **Índice em `expires_at`** nas duas tabelas.
+6. **Configuração `TokenCleanup:Enabled`, `Interval`, `Retention` e `BatchSize`**, validada no startup. Fica desligada nos testes de integração, exceto nos da própria limpeza.
+7. **Observabilidade.** Cada ciclo loga em `Information` a contagem por tabela, nunca valores de token. Uma falha gera `Error`, e o serviço tenta de novo no ciclo seguinte.
+8. **Cadastro abandonado não é afetado.** A regra da spec 2026092305 só olha tokens pendentes, então apagar os expirados não muda nada nela.
+9. **A purga da auditoria (2026092519) roda neste mesmo job**, com retenção própria.
 
 ## Tarefas
 
-- [ ] **Dev** — Agendar a rotina de limpeza e registrar métricas/contagens, sem incluir valores de tokens nos logs.
-- [ ] **DBA** — Criar exclusão em lotes com índices e política de retenção adequados, evitando bloqueios longos no PostgreSQL.
-- [ ] **Tester** — Cobrir preservação de tokens ativos, retenção de histórico recente, idempotência e execução com muitos registros.
-- [ ] **Tech Writer** — Documentar retenção, agendamento e operação da limpeza em `docs/auth/`.
+- [ ] **Dev** — Criar o `ExpiredTokenCleanupService` com advisory lock, laço de lotes, opções `TokenCleanup:*` validadas e logs de contagem
+- [ ] **DBA** — Migration com índices em `expires_at` em `auth.tokens` e `auth.refresh_tokens`; métodos de exclusão em lote nos dois repositórios
+- [ ] **Tester** — Integração: expirados há mais de 30 dias são apagados; ativos, revogados não expirados e expirados recentes ficam; duas execuções simultâneas → só uma trabalha; volume maior que um lote é processado por inteiro
+- [ ] **Tech Writer** — Criar doc em `docs/auth/` com a retenção, o agendamento, a configuração e a operação da limpeza

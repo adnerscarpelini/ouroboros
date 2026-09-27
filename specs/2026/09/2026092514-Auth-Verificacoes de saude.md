@@ -6,14 +6,26 @@
 
 ## Solicitação
 
-O usuário aprovou especificar verificações de saúde para operação do auth-service.
+Na validação de maturidade do auth-service, faltavam endpoints de saúde para um orquestrador saber se a API está viva e pronta. O usuário aprovou criá-los.
 
 ## Análise
 
-O Compose verifica o PostgreSQL, mas não a disponibilidade e prontidão da própria API. Criar liveness independente do banco e readiness que confirme dependências necessárias sem expor credenciais, detalhes internos ou dados de usuários. Endpoints de saúde podem ser públicos para sondas internas, mas a exposição externa deve ser restrita na configuração de produção da spec 2026092511. Não depender da futura integração de e-mail para declarar prontidão enquanto ela não existir.
+Extensão do `auth-service`. Referências: Health Checks do ASP.NET Core e as sondas liveness/readiness do Kubernetes.
+
+Decisões:
+1. **`GET /health/live`** não depende de nada: só confirma que o processo responde. **`GET /health/ready`** confere o PostgreSQL com um `SELECT 1` de timeout de 2 s, via `AddHealthChecks`.
+2. **A resposta traz só o status:** `Healthy` com `200` ou `Unhealthy` com `503`. Nada de mensagem de exceção, connection string ou nome de host.
+3. **Os endpoints ficam:**
+   - anônimos;
+   - fora do rate limit;
+   - fora do log de requisições do Serilog em `Information`, porque as sondas batem a cada poucos segundos e poluiriam o log. Só as falhas são logadas.
+4. **A exposição externa é bloqueada no proxy de borda** (2026092511). O acesso fica restrito à rede interna.
+5. **Sem `healthcheck` do auth-service no Compose por enquanto.** A imagem `aspnet` não tem `curl`, instalá-lo aumenta a superfície de ataque, e nenhum serviço do Compose depende do auth-service ainda. O orquestrador sonda por HTTP direto. Quando surgir um serviço dependente, isso é reavaliado.
+6. **O envio de e-mail fica fora da readiness** enquanto ele não existir.
 
 ## Tarefas
 
-- [ ] **Dev** — Expor `/health/live` e `/health/ready`, configurar a verificação do PostgreSQL e conectar a readiness ao orquestrador/Compose quando aplicável.
-- [ ] **Tester** — Cobrir API iniciada, banco indisponível e respostas sem informação sensível.
-- [ ] **Tech Writer** — Documentar semântica, acesso e uso dos endpoints em `docs/project/`.
+- [ ] **Dev** — Registrar os health checks com a verificação do PostgreSQL e mapear `/health/live` (sem checks) e `/health/ready` (com o banco), anônimos, fora do rate limit e com resposta só de status
+- [ ] **Dev** — Filtrar as requisições de health do `UseSerilogRequestLogging` quando bem-sucedidas
+- [ ] **Tester** — Integração: `live` e `ready` com `200` e o banco no ar; `ready` com `503` e `live` com `200` com o banco parado; o corpo não contém detalhes internos
+- [ ] **Tech Writer** — Criar doc em `docs/project/` com a semântica de cada endpoint, o uso em sondas de orquestrador e a restrição de acesso externo

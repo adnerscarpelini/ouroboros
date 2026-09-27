@@ -6,15 +6,21 @@
 
 ## Solicitação
 
-O usuário aprovou especificar exclusão de conta consistente mesmo quando a revogação de tokens ou outra gravação falhar.
+Na validação de maturidade do auth-service, a exclusão de conta apareceu com escritas separadas: a conta pode ser marcada como excluída e a revogação dos tokens falhar. O usuário aprovou tornar a exclusão consistente, inclusive na regra do último Admin.
 
 ## Análise
 
-O `DeleteUserInteractor` marca a conta como excluída e depois revoga refresh tokens e invalida tokens pendentes em comandos separados. Manter a spec 2026092306: exclusão própria ou por Admin, senha do solicitante exigida e último Admin ativo preservado. A verificação do último Admin também precisa resistir a exclusões concorrentes. O endpoint continua autenticado; usuário comum só age sobre a própria conta e não recebe dados de terceiros.
+Depende de 2026092516 (unidade de trabalho). As regras da spec 2026092306 continuam: exclusão da própria conta ou por Admin, senha de quem exclui obrigatória e último Admin ativo preservado.
+
+Decisões:
+1. **Uma transação** para a exclusão lógica, a revogação dos refresh tokens e a invalidação dos tokens pendentes de confirmação e de reset.
+2. **Último Admin sob concorrência.** Quando o alvo é Admin ativo, a contagem de Admins ativos roda com `SELECT ... FOR UPDATE` sobre essas linhas, dentro da transação. Duas exclusões simultâneas de Admins ficam em fila, e a segunda já enxerga a contagem reduzida. A troca de perfil (2026092520) reaproveita o mesmo método para o rebaixamento.
+3. **Falha de senha conta para o bloqueio** (2026092501). Ela é gravada fora da transação da exclusão, para não ser desfeita pelo rollback.
+4. A autorização pelo perfil gravado no banco, em vez do claim, está na spec 2026092510.
 
 ## Tarefas
 
-- [ ] **Dev** — Agrupar exclusão lógica e invalidação dos tokens numa operação indivisível, preservando reautenticação e autorização existentes.
-- [ ] **DBA** — Implementar transação e proteção concorrente da regra do último Admin ativo no PostgreSQL.
-- [ ] **Tester** — Cobrir rollback em falha de revogação, duas exclusões simultâneas de Admin e tentativas de excluir conta alheia com usuário comum.
-- [ ] **Tech Writer** — Atualizar `docs/auth/0007 - Exclusao de Conta.md` com a garantia de consistência e a janela de validade do JWT definida na spec 2026092510.
+- [ ] **Dev** — Executar `Delete()`, a atualização do usuário, `RevokeAllActiveByUserAsync` e as duas `InvalidatePendingByUserAsync` dentro do `IUnitOfWork`, mantendo reautenticação e autorização antes da transação
+- [ ] **DBA** — Trocar `CountActiveAdminsAsync` por uma contagem com bloqueio (`FOR UPDATE`) para uso dentro da transação
+- [ ] **Tester** — Integração: falha forçada na revogação → conta continua ativa e tokens intactos; dois Admins, cada um excluindo o outro ao mesmo tempo → exatamente um sucesso e um `400`
+- [ ] **Tech Writer** — Atualizar `docs/auth/0007 - Exclusao de Conta.md` com a garantia de consistência e a regra concorrente do último Admin

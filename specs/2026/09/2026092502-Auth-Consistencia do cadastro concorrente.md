@@ -6,15 +6,32 @@
 
 ## Solicitação
 
-O usuário aprovou especificar a consistência do cadastro e o tratamento de requisições simultâneas que disputam login ou e-mail.
+Na validação de maturidade do auth-service, o cadastro apareceu como não atômico e sujeito a `500` quando dois cadastros disputam o mesmo login ou e-mail. O usuário aprovou tornar o cadastro uma operação única e tratar essa disputa sem mudar os contratos públicos.
 
 ## Análise
 
-O `RegisterUserInteractor` remove cadastros abandonados, insere usuário e cria token de confirmação em escritas separadas. A checagem prévia de unicidade também pode perder uma corrida para o índice único do PostgreSQL e hoje resultar em `500`. Manter as decisões da spec 2026092305: e-mail ocupado recebe resposta genérica e login ocupado pode ser informado. A identidade comparada seguirá a política da spec 2026092508. O fluxo continua público, com limite de requisições, cadastro sempre `User` e sem expor token ou dados da conta na resposta.
+Depende de 2026092516 (unidade de trabalho), de 2026092508 (nomes finais dos índices de unicidade) e de 2026092512 (testes com PostgreSQL real).
+
+Estado atual: o `RegisterUserInteractor` faz até quatro escritas separadas. Remove o dono abandonado do login, remove o do e-mail, insere o usuário e insere o token. Uma falha no meio pode apagar o cadastro abandonado sem criar o novo. Além disso, dois cadastros simultâneos passam juntos pela checagem prévia. O segundo esbarra no índice único, gera `PostgresException 23505` e o cliente recebe `500`.
+
+Decisões:
+1. **Uma transação** (2026092516) para as remoções de abandonados, a inserção do usuário e a inserção do token. O token de confirmação só é devolvido, e logado enquanto não existe envio de e-mail, depois do commit.
+2. **Checagem prévia mais índice único.** A checagem prévia continua, porque dá a resposta certa no caso comum. O índice único é a garantia final.
+3. **Tradução da violação na Infrastructure.** O repositório captura `PostgresException` com `SqlState 23505` e decide pelo `ConstraintName`:
+   - `users_normalized_login_key` → `DuplicateLoginException`;
+   - `users_normalized_email_key` → `DuplicateEmailException`.
+
+   As duas exceções ficam no Domain e derivam de `DomainException`. Qualquer outra constraint mantém o erro original. Npgsql não sai da Infrastructure.
+4. **Contratos mantidos** (spec 2026092305):
+   - Login duplicado → `400 Login already in use`.
+   - E-mail duplicado → o mesmo `202` genérico, sem criar nada. O interactor captura `DuplicateEmailException` depois do rollback e devolve a mesma resposta do caso "e-mail ocupado". Não pode existir caminho que diferencie os dois casos.
+5. **Remoção de abandonado em corrida.** Duas requisições podem tentar remover o mesmo cadastro abandonado. Um `DELETE` que afeta 0 linhas não é erro. O índice decide quem ganha a inserção.
 
 ## Tarefas
 
-- [ ] **Dev** — Executar remoção de cadastro abandonado, criação do usuário e token de confirmação como uma unidade; preservar o contrato público `202` para e-mail ocupado.
-- [ ] **DBA** — Implementar transação no gateway sem levar detalhes de Npgsql para Domain/Application; traduzir conflitos de unicidade com base na restrição violada, sem expor SQL ou existência de e-mail.
-- [ ] **Tester** — Cobrir rollback em cada escrita e cadastros concorrentes com mesmo login ou e-mail usando PostgreSQL real, além das regras de ownership do cadastro abandonado.
-- [ ] **Tech Writer** — Atualizar `docs/auth/0001 - Confirmacao de Cadastro.md` e a collection Postman se o contrato de erro de login mudar.
+- [ ] **Dev** — Criar `DuplicateLoginException` e `DuplicateEmailException` em `Auth.Domain/Exceptions`, derivadas de `DomainException`
+- [ ] **Dev** — Executar todas as escritas do `RegisterUserInteractor` dentro do `IUnitOfWork`; tratar `DuplicateEmailException` como o `202` genérico e `DuplicateLoginException` como `400 Login already in use`
+- [ ] **DBA** — No `DapperUserRepository.AddAsync`, traduzir `23505` pelo nome da constraint para as exceções de duplicidade e relançar os demais erros sem alteração
+- [ ] **Tester** — Unitários: repositório lançando cada exceção de duplicidade → contrato correto; e-mail duplicado não devolve token
+- [ ] **Tester** — Integração: dois cadastros simultâneos com o mesmo login → um `202` e um `400`; com o mesmo e-mail → dois `202` e uma única conta; falha forçada na inserção do token → rollback (o abandonado continua existindo e o usuário novo não existe)
+- [ ] **Tech Writer** — Atualizar `docs/auth/0001 - Confirmacao de Cadastro.md` com a garantia transacional e o comportamento em cadastros simultâneos

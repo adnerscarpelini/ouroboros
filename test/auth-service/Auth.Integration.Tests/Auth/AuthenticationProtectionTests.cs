@@ -147,7 +147,7 @@ public sealed class AuthenticationProtectionTests : IAsyncLifetime
     }
 
     private DapperUserRepository CreateRepository() =>
-        new(_fixture.ConnectionString, NullLogger<DapperUserRepository>.Instance);
+        new(_fixture.CreateSession(), NullLogger<DapperUserRepository>.Instance);
 
     private async Task<User> CreateActiveUserAsync(string login)
     {

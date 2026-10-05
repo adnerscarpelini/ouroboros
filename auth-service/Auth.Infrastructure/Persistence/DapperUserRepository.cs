@@ -1,21 +1,20 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 
 public sealed class DapperUserRepository : IUserRepository
 {
-    private readonly string _connectionString;
+    private readonly DbSession _session;
     private readonly ILogger<DapperUserRepository> _logger;
 
     public DapperUserRepository(
-        string connectionString,
+        DbSession session,
         ILogger<DapperUserRepository> logger)
     {
-        _connectionString = connectionString;
+        _session = session;
         _logger = logger;
     }
 
@@ -58,9 +57,7 @@ public sealed class DapperUserRepository : IUserRepository
             );
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        await connection.ExecuteAsync(
+        await _session.ExecuteAsync(
             sql,
             new
             {
@@ -108,9 +105,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { ExternalId = externalId });
+        var row = await _session.QuerySingleOrDefaultAsync<UserRow>(sql, new { ExternalId = externalId });
 
         return MapToUser(row);
     }
@@ -141,9 +136,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { Email = email });
+        var row = await _session.QuerySingleOrDefaultAsync<UserRow>(sql, new { Email = email });
 
         return MapToUser(row);
     }
@@ -174,9 +167,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { Login = login });
+        var row = await _session.QuerySingleOrDefaultAsync<UserRow>(sql, new { Login = login });
 
         return MapToUser(row);
     }
@@ -209,9 +200,7 @@ public sealed class DapperUserRepository : IUserRepository
             ORDER BY CASE WHEN users.login = @LoginOrEmail THEN 0 ELSE 1 END;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { LoginOrEmail = loginOrEmail });
+        var row = await _session.QuerySingleOrDefaultAsync<UserRow>(sql, new { LoginOrEmail = loginOrEmail });
 
         return MapToUser(row);
     }
@@ -235,9 +224,7 @@ public sealed class DapperUserRepository : IUserRepository
                 external_id = @ExternalId;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        await connection.ExecuteAsync(
+        await _session.ExecuteAsync(
             sql,
             new
             {
@@ -280,9 +267,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND (lockout_end IS NULL OR lockout_end <= @Now);
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var lockoutEnd = await connection.QuerySingleOrDefaultAsync<DateTimeOffset?>(
+        var lockoutEnd = await _session.QuerySingleOrDefaultAsync<DateTimeOffset?>(
             sql,
             new
             {
@@ -317,9 +302,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND (lockout_end IS NULL OR lockout_end <= @Now);
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        return await connection.ExecuteAsync(sql, new { ExternalId = externalId, Now = now }) == 1;
+        return await _session.ExecuteAsync(sql, new { ExternalId = externalId, Now = now }) == 1;
     }
 
     public async Task RemoveAsync(Guid externalId)
@@ -333,9 +316,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND deleted_at IS NULL;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        await connection.ExecuteAsync(sql, new { ExternalId = externalId });
+        await _session.ExecuteAsync(sql, new { ExternalId = externalId });
     }
 
     public async Task<bool> ExistsDeletedByLoginAsync(string login)
@@ -350,9 +331,7 @@ public sealed class DapperUserRepository : IUserRepository
             ) THEN 1 ELSE 0 END;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        return await connection.ExecuteScalarAsync<bool>(sql, new { Login = login });
+        return await _session.ExecuteScalarAsync<bool>(sql, new { Login = login });
     }
 
     public async Task<int> CountActiveAdminsAsync()
@@ -366,9 +345,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        return await connection.ExecuteScalarAsync<int>(sql, new { Role = nameof(UserRole.Admin) });
+        return await _session.ExecuteScalarAsync<int>(sql, new { Role = nameof(UserRole.Admin) });
     }
 
     private static User? MapToUser(UserRow? row)

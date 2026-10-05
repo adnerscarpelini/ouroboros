@@ -3,6 +3,7 @@ namespace Ouroboros.Auth.Integration.Tests.Infrastructure;
 using System.Net;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Ouroboros.Auth.Infrastructure.Persistence;
 using Testcontainers.MsSql;
 using Xunit;
 
@@ -40,6 +41,9 @@ public sealed class AuthApiFixture : IAsyncLifetime
     }
 
     public HttpClient CreateClient() => Factory.CreateClient();
+
+    // Sessao propria pra o teste preparar e conferir dados direto no banco, fora da API.
+    public DbSession CreateSession() => new(new SqlConnectionFactory(ConnectionString));
 
     // O limite por IP fica em memoria e nao e zerado entre testes: cada teste usa IPs proprios.
     public static string NextIp()

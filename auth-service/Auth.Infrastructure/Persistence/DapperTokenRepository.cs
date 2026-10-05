@@ -1,17 +1,16 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
-using Microsoft.Data.SqlClient;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 
 public sealed class DapperTokenRepository : ITokenRepository
 {
-    private readonly string _connectionString;
+    private readonly DbSession _session;
 
-    public DapperTokenRepository(string connectionString)
+    public DapperTokenRepository(DbSession session)
     {
-        _connectionString = connectionString;
+        _session = session;
     }
 
     public async Task AddAsync(Token token)
@@ -40,9 +39,7 @@ public sealed class DapperTokenRepository : ITokenRepository
             WHERE users.external_id = @UserExternalId;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var affectedRows = await connection.ExecuteAsync(
+        var affectedRows = await _session.ExecuteAsync(
             sql,
             new
             {
@@ -85,9 +82,7 @@ public sealed class DapperTokenRepository : ITokenRepository
                 AND tokens.type = @Type;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var row = await connection.QuerySingleOrDefaultAsync<TokenRow>(
+        var row = await _session.QuerySingleOrDefaultAsync<TokenRow>(
             sql,
             new
             {
@@ -133,9 +128,7 @@ public sealed class DapperTokenRepository : ITokenRepository
             ) THEN 1 ELSE 0 END;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        return await connection.ExecuteScalarAsync<bool>(
+        return await _session.ExecuteScalarAsync<bool>(
             sql,
             new
             {
@@ -157,9 +150,7 @@ public sealed class DapperTokenRepository : ITokenRepository
                 external_id = @ExternalId;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        await connection.ExecuteAsync(
+        await _session.ExecuteAsync(
             sql,
             new
             {
@@ -183,9 +174,7 @@ public sealed class DapperTokenRepository : ITokenRepository
                 AND used_at IS NULL;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var affectedRows = await connection.ExecuteAsync(
+        var affectedRows = await _session.ExecuteAsync(
             sql,
             new
             {
@@ -218,9 +207,7 @@ public sealed class DapperTokenRepository : ITokenRepository
                 AND tokens.expires_at > @InvalidatedAt;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        await connection.ExecuteAsync(
+        await _session.ExecuteAsync(
             sql,
             new
             {

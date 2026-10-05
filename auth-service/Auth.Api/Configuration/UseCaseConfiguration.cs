@@ -32,11 +32,12 @@ public static class UseCaseConfiguration
         services.AddSingleton(provider =>
             new RefreshTokenSettings(TimeSpan.FromDays(provider.GetRequiredService<IOptions<JwtSettings>>().Value.RefreshTokenExpirationDays)));
 
-        services.AddScoped<IUserRepository>(provider => new DapperUserRepository(
-            connectionString,
-            provider.GetRequiredService<ILogger<DapperUserRepository>>()));
-        services.AddScoped<ITokenRepository>(_ => new DapperTokenRepository(connectionString));
-        services.AddScoped<IRefreshTokenRepository>(_ => new DapperRefreshTokenRepository(connectionString));
+        services.AddSingleton(new SqlConnectionFactory(connectionString));
+        services.AddScoped<DbSession>();
+        services.AddScoped<IUnitOfWork, SqlUnitOfWork>();
+        services.AddScoped<IUserRepository, DapperUserRepository>();
+        services.AddScoped<ITokenRepository, DapperTokenRepository>();
+        services.AddScoped<IRefreshTokenRepository, DapperRefreshTokenRepository>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, Sha256TokenGenerator>();
         services.AddScoped<IRegisterUserUseCase, RegisterUserInteractor>();

@@ -60,6 +60,20 @@ Regras por projeto:
 - Migrations são arquivos `.sql` escritos à mão, aplicadas com DbUp, nomeadas `V<AAAAMMDDHHMMSS>__Descricao.sql`, guardadas em `{Servico}.Infrastructure/Migrations/` (embutidas no assembly). Detalhes na skill `ouroboros-dba`.
 - Uso do Docker (comandos, como cada serviço ganha seu próprio banco) em `docs/project/0002 - Docker.md`.
 
+## Transações
+
+Escritas que precisam valer juntas rodam dentro de `IUnitOfWork.ExecuteAsync` (gateway da Application, implementado por `SqlUnitOfWork` na Infrastructure).
+
+- **Como funciona:** o método abre a transação, executa o delegate e faz o commit. Qualquer exceção desfaz tudo e é relançada. Não existem `Begin`/`Commit` soltos, então ninguém esquece o commit nem deixa transação aberta.
+- **`DbSession`** (scoped, um por request) guarda a conexão e a transação corrente. Os repositórios Dapper recebem o `DbSession` e usam sempre os helpers dele, que informam a transação ao Dapper. A fábrica `SqlConnectionFactory` (singleton) cria as conexões.
+- **Fora de uma unidade de trabalho**, cada comando abre a própria conexão e roda em autocommit.
+- **Sem transação aninhada:** chamar `ExecuteAsync` dentro de outro `ExecuteAsync` lança `InvalidOperationException`.
+- **Isolamento:** Read Committed (padrão do SQL Server). Quando a regra pedir mais, a spec define um lock explícito ou uma escrita condicional.
+- **Nada sensível sai antes do commit:** o interactor só devolve ou loga tokens depois que o `ExecuteAsync` termina com sucesso.
+- **Fica fora da transação principal** o que precisa sobreviver a um rollback: contador de falhas de senha, revogação de sessão por reuso de refresh token e eventos de auditoria de falha.
+- **Quando usar:** sempre que um caso de uso fizer duas ou mais escritas que não podem ficar pela metade. Uma escrita só já é atômica sozinha.
+- **Testes:** os de Application usam o `FakeUnitOfWork`; commit e rollback reais são provados nos testes de integração.
+
 ## Serviços existentes
 
 Nenhum serviço foi criado ainda. `auth-service` será o primeiro, seguindo o checklist da skill `ouroboros-dev`.

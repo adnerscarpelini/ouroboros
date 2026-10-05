@@ -1,17 +1,16 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
-using Microsoft.Data.SqlClient;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 
 public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
 {
-    private readonly string _connectionString;
+    private readonly DbSession _session;
 
-    public DapperRefreshTokenRepository(string connectionString)
+    public DapperRefreshTokenRepository(DbSession session)
     {
-        _connectionString = connectionString;
+        _session = session;
     }
 
     public async Task AddAsync(RefreshToken refreshToken)
@@ -38,9 +37,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
             WHERE users.external_id = @UserExternalId;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var affectedRows = await connection.ExecuteAsync(
+        var affectedRows = await _session.ExecuteAsync(
             sql,
             new
             {
@@ -80,9 +77,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 refreshTokens.token_hash = @TokenHash;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var row = await connection.QuerySingleOrDefaultAsync<RefreshTokenRow>(sql, new { TokenHash = tokenHash });
+        var row = await _session.QuerySingleOrDefaultAsync<RefreshTokenRow>(sql, new { TokenHash = tokenHash });
 
         if (row is null)
         {
@@ -113,9 +108,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 AND revoked_at IS NULL;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        var affectedRows = await connection.ExecuteAsync(
+        var affectedRows = await _session.ExecuteAsync(
             sql,
             new
             {
@@ -143,9 +136,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 AND refreshTokens.expires_at > @RevokedAt;
             """;
 
-        await using var connection = new SqlConnection(_connectionString);
-
-        await connection.ExecuteAsync(
+        await _session.ExecuteAsync(
             sql,
             new
             {

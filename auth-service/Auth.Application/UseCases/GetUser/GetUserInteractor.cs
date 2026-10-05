@@ -3,6 +3,7 @@ namespace Ouroboros.Auth.Application.UseCases.GetUser;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
+using Ouroboros.Auth.Domain.Policies;
 
 public sealed class GetUserInteractor : IGetUserUseCase
 {
@@ -58,7 +59,7 @@ public sealed class GetUserInteractor : IGetUserUseCase
             return null;
         }
 
-        return value.Trim();
+        return IdentityPolicy.Normalize(value);
     }
 
     private static void ValidateSingleCriterion(
@@ -101,10 +102,10 @@ public sealed class GetUserInteractor : IGetUserUseCase
 
         if (login is not null)
         {
-            return login == request.RequesterLogin;
+            return login == Normalize(request.RequesterLogin);
         }
 
-        return email == request.RequesterEmail;
+        return email == Normalize(request.RequesterEmail);
     }
 
     private Task<User?> FindUserAsync(

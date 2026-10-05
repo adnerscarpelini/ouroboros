@@ -26,8 +26,10 @@ public sealed class DapperUserRepository : IUserRepository
                 created_at,
                 updated_at,
                 login,
+                normalized_login,
                 full_name,
                 email,
+                normalized_email,
                 email_confirmed,
                 password_hash,
                 password_changed_at,
@@ -43,8 +45,10 @@ public sealed class DapperUserRepository : IUserRepository
                 @CreatedAt,
                 @UpdatedAt,
                 @Login,
+                @NormalizedLogin,
                 @FullName,
                 @Email,
+                @NormalizedEmail,
                 @EmailConfirmed,
                 @PasswordHash,
                 @PasswordChangedAt,
@@ -65,8 +69,10 @@ public sealed class DapperUserRepository : IUserRepository
                 user.CreatedAt,
                 user.UpdatedAt,
                 user.Login,
+                user.NormalizedLogin,
                 user.FullName,
                 user.Email,
+                user.NormalizedEmail,
                 user.EmailConfirmed,
                 user.PasswordHash,
                 user.PasswordChangedAt,
@@ -132,7 +138,7 @@ public sealed class DapperUserRepository : IUserRepository
                 users.lockout_end
             FROM auth.users AS users
             WHERE
-                users.email = @Email
+                users.normalized_email = @Email
                 AND users.deleted_at IS NULL;
             """;
 
@@ -163,7 +169,7 @@ public sealed class DapperUserRepository : IUserRepository
                 users.lockout_end
             FROM auth.users AS users
             WHERE
-                users.login = @Login
+                users.normalized_login = @Login
                 AND users.deleted_at IS NULL;
             """;
 
@@ -195,9 +201,9 @@ public sealed class DapperUserRepository : IUserRepository
                 users.lockout_end
             FROM auth.users AS users
             WHERE
-                (users.login = @LoginOrEmail OR users.email = @LoginOrEmail)
+                (users.normalized_login = @LoginOrEmail OR users.normalized_email = @LoginOrEmail)
                 AND users.deleted_at IS NULL
-            ORDER BY CASE WHEN users.login = @LoginOrEmail THEN 0 ELSE 1 END;
+            ORDER BY CASE WHEN users.normalized_login = @LoginOrEmail THEN 0 ELSE 1 END;
             """;
 
         var row = await _session.QuerySingleOrDefaultAsync<UserRow>(sql, new { LoginOrEmail = loginOrEmail });
@@ -213,6 +219,7 @@ public sealed class DapperUserRepository : IUserRepository
                 updated_at = @UpdatedAt,
                 full_name = @FullName,
                 email = @Email,
+                normalized_email = @NormalizedEmail,
                 email_confirmed = @EmailConfirmed,
                 password_hash = @PasswordHash,
                 password_changed_at = @PasswordChangedAt,
@@ -231,6 +238,7 @@ public sealed class DapperUserRepository : IUserRepository
                 user.UpdatedAt,
                 user.FullName,
                 user.Email,
+                user.NormalizedEmail,
                 user.EmailConfirmed,
                 user.PasswordHash,
                 user.PasswordChangedAt,
@@ -326,7 +334,7 @@ public sealed class DapperUserRepository : IUserRepository
                 SELECT 1
                 FROM auth.users AS users
                 WHERE
-                    users.login = @Login
+                    users.normalized_login = @Login
                     AND users.deleted_at IS NOT NULL
             ) THEN 1 ELSE 0 END;
             """;

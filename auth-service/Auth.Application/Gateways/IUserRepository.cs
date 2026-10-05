@@ -4,6 +4,7 @@ using Ouroboros.Auth.Domain.Entities;
 
 /// <remarks>
 /// As buscas ignoram contas excluidas (exclusao logica): pra aplicacao, uma conta excluida nao existe.
+/// Toda busca por login ou e-mail recebe o valor ja normalizado (<c>IdentityPolicy.Normalize</c>).
 /// </remarks>
 public interface IUserRepository
 {

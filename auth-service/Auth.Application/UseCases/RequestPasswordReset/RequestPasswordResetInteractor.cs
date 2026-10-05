@@ -3,6 +3,7 @@ namespace Ouroboros.Auth.Application.UseCases.RequestPasswordReset;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
+using Ouroboros.Auth.Domain.Policies;
 
 public sealed class RequestPasswordResetInteractor : IRequestPasswordResetUseCase
 {
@@ -29,7 +30,7 @@ public sealed class RequestPasswordResetInteractor : IRequestPasswordResetUseCas
             throw new DomainException("Login or email is required");
         }
 
-        var user = await _userRepository.GetByLoginOrEmailAsync(request.LoginOrEmail.Trim());
+        var user = await _userRepository.GetByLoginOrEmailAsync(IdentityPolicy.Normalize(request.LoginOrEmail));
 
         // Usuario inexistente, inativo ou sem e-mail confirmado termina sem erro: o chamador nao pode
         // distinguir esses casos (evita enumeracao) e o reset nao vira atalho pra ativar conta.

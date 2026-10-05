@@ -1,6 +1,7 @@
 namespace Ouroboros.Auth.Domain.Entities;
 
 using Ouroboros.Auth.Domain.Exceptions;
+using Ouroboros.Auth.Domain.Policies;
 
 public sealed class User : Entity
 {
@@ -9,9 +10,14 @@ public sealed class User : Entity
 
     public string Login { get; private set; } = null!;
 
+    // Valores de comparacao (spec 2026092508): derivados de Login/Email, nunca informados de fora.
+    public string NormalizedLogin { get; private set; } = null!;
+
     public string FullName { get; private set; } = null!;
 
     public string Email { get; private set; } = null!;
+
+    public string NormalizedEmail { get; private set; } = null!;
 
     public bool EmailConfirmed { get; private set; }
 
@@ -41,11 +47,16 @@ public sealed class User : Entity
         string email,
         string passwordHash)
     {
+        var validLogin = IdentityPolicy.ValidateLogin(login);
+        var validEmail = IdentityPolicy.ValidateEmail(email);
+
         var user = new User
         {
-            Login = ValidateLogin(login),
+            Login = validLogin,
+            NormalizedLogin = IdentityPolicy.Normalize(validLogin),
             FullName = ValidateFullName(fullName),
-            Email = ValidateEmail(email),
+            Email = validEmail,
+            NormalizedEmail = IdentityPolicy.Normalize(validEmail),
             PasswordHash = ValidatePasswordHash(passwordHash),
             EmailConfirmed = false,
             PasswordChangedAt = DateTimeOffset.UtcNow,
@@ -82,8 +93,10 @@ public sealed class User : Entity
         var user = new User
         {
             Login = login,
+            NormalizedLogin = IdentityPolicy.Normalize(login),
             FullName = fullName,
             Email = email,
+            NormalizedEmail = IdentityPolicy.Normalize(email),
             EmailConfirmed = emailConfirmed,
             PasswordHash = passwordHash,
             PasswordChangedAt = passwordChangedAt,
@@ -160,16 +173,6 @@ public sealed class User : Entity
         MarkAsUpdated();
     }
 
-    private static string ValidateLogin(string login)
-    {
-        if (string.IsNullOrWhiteSpace(login))
-        {
-            throw new DomainException("Login is required");
-        }
-
-        return login.Trim();
-    }
-
     private static string ValidateFullName(string fullName)
     {
         if (string.IsNullOrWhiteSpace(fullName))
@@ -178,16 +181,6 @@ public sealed class User : Entity
         }
 
         return fullName.Trim();
-    }
-
-    private static string ValidateEmail(string email)
-    {
-        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
-        {
-            throw new DomainException("A valid email is required");
-        }
-
-        return email.Trim();
     }
 
     private static string ValidatePasswordHash(string passwordHash)

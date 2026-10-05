@@ -56,21 +56,21 @@ public class DeleteUserInteractorTests
         public Task<User?> GetByEmailAsync(string email)
         {
             LookupCount++;
-            var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.Email == email);
+            var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.NormalizedEmail == email);
             return Task.FromResult(user);
         }
 
         public Task<User?> GetByLoginAsync(string login)
         {
             LookupCount++;
-            var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.Login == login);
+            var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.NormalizedLogin == login);
             return Task.FromResult(user);
         }
 
         public Task<User?> GetByLoginOrEmailAsync(string loginOrEmail)
         {
             LookupCount++;
-            var user = Items.FirstOrDefault(item => item.DeletedAt is null && (item.Login == loginOrEmail || item.Email == loginOrEmail));
+            var user = Items.FirstOrDefault(item => item.DeletedAt is null && (item.NormalizedLogin == loginOrEmail || item.NormalizedEmail == loginOrEmail));
             return Task.FromResult(user);
         }
 
@@ -87,7 +87,7 @@ public class DeleteUserInteractorTests
 
         public Task<bool> ExistsDeletedByLoginAsync(string login)
         {
-            var exists = Items.Any(item => item.DeletedAt is not null && item.Login == login);
+            var exists = Items.Any(item => item.DeletedAt is not null && item.NormalizedLogin == login);
             return Task.FromResult(exists);
         }
 

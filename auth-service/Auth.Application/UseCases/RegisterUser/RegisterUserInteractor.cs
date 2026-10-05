@@ -34,7 +34,7 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
         var user = User.Create(request.Login, request.FullName, request.Email, passwordHash);
         var now = DateTimeOffset.UtcNow;
 
-        var loginOwner = await _userRepository.GetByLoginAsync(user.Login);
+        var loginOwner = await _userRepository.GetByLoginAsync(user.NormalizedLogin);
         var loginOwnerIsAbandoned = loginOwner is not null && await IsAbandonedAsync(loginOwner, now);
 
         // Login ocupado pode ser revelado: quem escolhe o login precisa saber que ele nao esta disponivel.
@@ -44,12 +44,12 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
         }
 
         // Login de conta excluida nunca e reaproveitado, pra ninguem se passar pelo dono antigo.
-        if (loginOwner is null && await _userRepository.ExistsDeletedByLoginAsync(user.Login))
+        if (loginOwner is null && await _userRepository.ExistsDeletedByLoginAsync(user.NormalizedLogin))
         {
             throw new DomainException("Login already in use");
         }
 
-        var emailOwner = await _userRepository.GetByEmailAsync(user.Email);
+        var emailOwner = await _userRepository.GetByEmailAsync(user.NormalizedEmail);
         var emailOwnerIsAbandoned = emailOwner is not null && await IsAbandonedAsync(emailOwner, now);
 
         // E-mail ocupado termina sem erro e sem criar nada: o chamador nao pode descobrir se o e-mail tem conta.

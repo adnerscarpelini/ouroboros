@@ -4,6 +4,7 @@ using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Application.Settings;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
+using Ouroboros.Auth.Domain.Policies;
 
 public sealed class LoginInteractor : ILoginUseCase
 {
@@ -37,7 +38,7 @@ public sealed class LoginInteractor : ILoginUseCase
         var now = DateTimeOffset.UtcNow;
         var user = string.IsNullOrWhiteSpace(request.Login)
             ? null
-            : await _userRepository.GetByLoginAsync(request.Login.Trim());
+            : await _userRepository.GetByLoginAsync(IdentityPolicy.Normalize(request.Login));
         var canVerifyRealHash = user is not null && !user.IsLockedOut(now);
         var hash = canVerifyRealHash ? user!.PasswordHash : _passwordHasher.DummyHash;
         var passwordMatches = _passwordHasher.Verify(request.Password ?? string.Empty, hash);

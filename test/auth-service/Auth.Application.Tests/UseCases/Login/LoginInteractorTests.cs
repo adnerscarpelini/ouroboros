@@ -63,19 +63,19 @@ public class LoginInteractorTests
 
         public Task<User?> GetByEmailAsync(string email)
         {
-            var user = Items.FirstOrDefault(item => item.Email == email);
+            var user = Items.FirstOrDefault(item => item.NormalizedEmail == email);
             return Task.FromResult(user);
         }
 
         public Task<User?> GetByLoginAsync(string login)
         {
-            var user = Items.FirstOrDefault(item => item.Login == login);
+            var user = Items.FirstOrDefault(item => item.NormalizedLogin == login);
             return Task.FromResult(user);
         }
 
         public Task<User?> GetByLoginOrEmailAsync(string loginOrEmail)
         {
-            var user = Items.FirstOrDefault(item => item.Login == loginOrEmail || item.Email == loginOrEmail);
+            var user = Items.FirstOrDefault(item => item.NormalizedLogin == loginOrEmail || item.NormalizedEmail == loginOrEmail);
             return Task.FromResult(user);
         }
 

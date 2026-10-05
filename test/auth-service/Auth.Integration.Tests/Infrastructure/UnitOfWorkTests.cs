@@ -94,8 +94,8 @@ public sealed class UnitOfWorkTests : IAsyncLifetime
     private static Task InsertUserAsync(DbSession session, string login)
     {
         const string sql = """
-            INSERT INTO auth.users (external_id, created_at, login, full_name, email, email_confirmed, password_hash, password_changed_at, active, role)
-            VALUES (NEWID(), SYSDATETIMEOFFSET(), @Login, 'Uow Test', @Email, 0, 'hash', SYSDATETIMEOFFSET(), 0, 'User');
+            INSERT INTO auth.users (external_id, created_at, login, normalized_login, full_name, email, normalized_email, email_confirmed, password_hash, password_changed_at, active, role)
+            VALUES (NEWID(), SYSDATETIMEOFFSET(), @Login, UPPER(@Login), 'Uow Test', @Email, UPPER(@Email), 0, 'hash', SYSDATETIMEOFFSET(), 0, 'User');
             """;
 
         return session.ExecuteAsync(sql, new { Login = login, Email = $"{login}@example.com" });

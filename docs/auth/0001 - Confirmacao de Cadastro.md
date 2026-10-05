@@ -56,7 +56,7 @@ Todos devolvem `400 {"error": "..."}`, com o motivo logado em `Warning` no Seq.
 
 ## Login e e-mail já usados
 
-A checagem ignora contas abandonadas (ver abaixo).
+A checagem ignora contas abandonadas (ver abaixo) e compara login e e-mail sem diferenciar maiúsculas, pelos valores normalizados (ver `docs/auth/0009 - Politica de Identidade.md`). O login também precisa seguir o formato permitido nessa política.
 
 Contas excluídas (ver `docs/auth/0007 - Exclusao de Conta.md`) têm tratamento próprio:
 

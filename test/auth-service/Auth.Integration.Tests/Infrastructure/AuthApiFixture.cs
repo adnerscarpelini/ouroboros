@@ -2,11 +2,11 @@ namespace Ouroboros.Auth.Integration.Tests.Infrastructure;
 
 using System.Net;
 using Dapper;
-using Npgsql;
-using Testcontainers.PostgreSql;
+using Microsoft.Data.SqlClient;
+using Testcontainers.MsSql;
 using Xunit;
 
-// Um PostgreSQL descartavel e uma API em memoria por execucao, compartilhados pela collection.
+// Um SQL Server descartavel e uma API em memoria por execucao, compartilhados pela collection.
 public sealed class AuthApiFixture : IAsyncLifetime
 {
     public const string TrustedProxyIp = "10.0.0.1";
@@ -16,7 +16,7 @@ public sealed class AuthApiFixture : IAsyncLifetime
 
     private static int _nextIp;
 
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine")
+    private readonly MsSqlContainer _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest")
         .Build();
 
     public AuthApiFactory Factory { get; private set; } = null!;
@@ -51,21 +51,16 @@ public sealed class AuthApiFixture : IAsyncLifetime
     public async Task ResetDatabaseAsync()
     {
         const string sql = """
-            DO $$
-            DECLARE tables text;
-            BEGIN
-                SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
-                INTO tables
-                FROM pg_tables
-                WHERE schemaname = 'auth' AND tablename <> 'schemaversions';
+            DELETE FROM auth.refresh_tokens;
+            DELETE FROM auth.tokens;
+            DELETE FROM auth.users;
 
-                IF tables IS NOT NULL THEN
-                    EXECUTE 'TRUNCATE ' || tables || ' RESTART IDENTITY CASCADE';
-                END IF;
-            END $$;
+            DBCC CHECKIDENT ('auth.refresh_tokens', RESEED, 0) WITH NO_INFOMSGS;
+            DBCC CHECKIDENT ('auth.tokens', RESEED, 0) WITH NO_INFOMSGS;
+            DBCC CHECKIDENT ('auth.users', RESEED, 0) WITH NO_INFOMSGS;
             """;
 
-        await using var connection = new NpgsqlConnection(ConnectionString);
+        await using var connection = new SqlConnection(ConnectionString);
         await connection.ExecuteAsync(sql);
     }
 }

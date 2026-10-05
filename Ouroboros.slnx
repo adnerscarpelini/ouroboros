@@ -24,8 +24,8 @@
     <File Path="docs/auth/0007 - Exclusao de Conta.md" />
     <File Path="docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md" />
   </Folder>
-  <Folder Name="/docker/postgres/init/">
-    <File Path="docker/postgres/init/01-create-auth-db.sh" />
+  <Folder Name="/docker/sqlserver/init/">
+    <File Path="docker/sqlserver/init/01-create-auth-db.sh" />
   </Folder>
 
   <Folder Name="/specs/2026/">

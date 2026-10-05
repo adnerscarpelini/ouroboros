@@ -1,27 +1,41 @@
 name: ouroboros
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: ouroboros-postgres
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ouroboros-sqlserver
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_SUPERUSER}
-      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
-      POSTGRES_DB: postgres
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD}
+    ports:
+      - "${SQLSERVER_PORT}:1433"
+    volumes:
+      - ouroboros-sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  # SQL Server nao tem /docker-entrypoint-initdb.d: este servico de uso unico cria banco e login do auth-service.
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ouroboros-sqlserver-init
+    restart: "no"
+    environment:
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD}
       AUTH_DB_NAME: ${AUTH_DB_NAME}
       AUTH_DB_USER: ${AUTH_DB_USER}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
-    ports:
-      - "${POSTGRES_PORT}:5432"
     volumes:
-      - ouroboros-postgres-data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ./docker/sqlserver/init:/init:ro
+    entrypoint: ["/bin/bash", "/init/01-create-auth-db.sh"]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
 
   seq:
     image: datalust/seq:latest
@@ -44,19 +58,19 @@ services:
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${AUTH_DB_NAME};Username=${AUTH_DB_USER};Password=${AUTH_DB_PASSWORD}
+      ConnectionStrings__Default: Server=sqlserver,1433;Database=${AUTH_DB_NAME};User Id=${AUTH_DB_USER};Password=${AUTH_DB_PASSWORD};Encrypt=True;TrustServerCertificate=True
       Seq__ServerUrl: http://seq:5341
       Jwt__SigningKey: ${AUTH_JWT_SIGNING_KEY}
     ports:
       - "8082:8082"
     depends_on:
-      postgres:
-        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
       seq:
         condition: service_started
 
 volumes:
-  ouroboros-postgres-data:
-    name: ouroboros-postgres-data
+  ouroboros-sqlserver-data:
+    name: ouroboros-sqlserver-data
   ouroboros-seq-data:
     name: ouroboros-seq-data

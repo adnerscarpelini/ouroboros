@@ -7,7 +7,7 @@ public static class MigrationRunner
     public static void Run(string connectionString)
     {
         var upgrader = DeployChanges.To
-            .PostgresqlDatabase(connectionString)
+            .SqlDatabase(connectionString)
             .WithScriptsEmbeddedInAssembly(typeof(MigrationRunner).Assembly)
             .LogToConsole()
             .Build();

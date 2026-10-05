@@ -10,10 +10,10 @@ O usuário pediu a exclusão da conta do usuário. A exclusão deve ser lógica,
 
 ## Análise
 
-Extensão do `auth-service`, sem serviço novo. Referências: soft delete com índice único parcial do PostgreSQL, o endpoint `DELETE /users/{id}` do Microsoft Graph, e o OWASP Authentication Cheat Sheet para a reautenticação antes de uma ação destrutiva.
+Extensão do `auth-service`, sem serviço novo. Referências: soft delete com índice único filtrado do SQL Server, o endpoint `DELETE /users/{id}` do Microsoft Graph, e o OWASP Authentication Cheat Sheet para a reautenticação antes de uma ação destrutiva.
 
 Decisões:
-1. **`deleted_at timestamptz` em vez de um campo `deleted` true/false.** Registra se a conta foi excluída e também quando. Na exclusão, `active` passa para `false`.
+1. **`deleted_at datetimeoffset` em vez de um campo `deleted` true/false.** Registra se a conta foi excluída e também quando. Na exclusão, `active` passa para `false`.
 2. **Reaproveitamento do e-mail por índice único parcial.** `users_email_key` passa a valer só para `deleted_at IS NULL`. O e-mail continua gravado na conta excluída, para auditoria. Descartadas: limpar o e-mail, que apaga o rastro de quem era o dono, e gravar um valor padrão, que é um dado falso em coluna de e-mail.
 3. **Login nunca é reaproveitado.** `users_login_key` continua valendo também para contas excluídas. Assim ninguém pega o login de uma conta excluída para se passar pelo dono antigo. Novo cadastro com o login de uma conta excluída devolve `400 Login already in use`.
 4. **Conta excluída se comporta como inexistente.** As buscas do repositório ignoram contas excluídas. Consequências:
@@ -51,7 +51,7 @@ Limitações conhecidas (registrar na doc):
 - [x] **Dev** — Criar a política de rate limiting `user-delete` (5 a cada 15 min por IP) e aplicar no endpoint
 - [x] **Dev** — Garantir que login, refresh, recuperação de senha, consulta e cadastro tratem a conta excluída conforme a decisão 4 (o cadastro bloqueia o login e libera o e-mail)
 - [x] **Dev** — Atualizar a collection Postman com o novo request Delete User, usando Bearer token e senha no body
-- [x] **DBA** — Criar a migration com a coluna `deleted_at timestamptz` em `auth.users` e recriar `users_email_key` como índice único parcial (`WHERE deleted_at IS NULL`). `users_login_key` fica como está
+- [x] **DBA** — Criar a migration com a coluna `deleted_at datetimeoffset` em `auth.users` e recriar `users_email_key` como índice único parcial (`WHERE deleted_at IS NULL`). `users_login_key` fica como está
 - [x] **DBA** — Ajustar o `DapperUserRepository` (persistir e ler `deleted_at`):
   - As buscas por externalId, e-mail, login e login-ou-e-mail filtram `deleted_at IS NULL`.
   - Criar uma checagem de login que inclui as contas excluídas, para o cadastro.

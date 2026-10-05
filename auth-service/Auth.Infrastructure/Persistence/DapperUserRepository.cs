@@ -1,12 +1,21 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
+using Ouroboros.Auth.Domain.Exceptions;
 
 public sealed class DapperUserRepository : IUserRepository
 {
+    // Numeros de erro do SQL Server: 2601 = indice unico, 2627 = constraint unica.
+    private const int UniqueIndexViolation = 2601;
+    private const int UniqueConstraintViolation = 2627;
+
+    private const string LoginIndexName = "users_normalized_login_key";
+    private const string EmailIndexName = "users_normalized_email_key";
+
     private readonly DbSession _session;
     private readonly ILogger<DapperUserRepository> _logger;
 
@@ -61,28 +70,47 @@ public sealed class DapperUserRepository : IUserRepository
             );
             """;
 
-        await _session.ExecuteAsync(
-            sql,
-            new
+        try
+        {
+            await _session.ExecuteAsync(
+                sql,
+                new
+                {
+                    user.ExternalId,
+                    user.CreatedAt,
+                    user.UpdatedAt,
+                    user.Login,
+                    user.NormalizedLogin,
+                    user.FullName,
+                    user.Email,
+                    user.NormalizedEmail,
+                    user.EmailConfirmed,
+                    user.PasswordHash,
+                    user.PasswordChangedAt,
+                    user.Active,
+                    user.LastLoginAt,
+                    Role = user.Role.ToString(),
+                    user.DeletedAt,
+                    user.AccessFailedCount,
+                    user.LockoutEnd,
+                });
+        }
+        catch (SqlException e) when (e.Number is UniqueIndexViolation or UniqueConstraintViolation)
+        {
+            // O indice unico e a garantia final contra cadastros simultaneos. SqlException nao sai da Infrastructure.
+            // A excecao nova nao leva a original junto: a mensagem do SQL Server traz o valor duplicado (login/e-mail).
+            if (e.Message.Contains(LoginIndexName, StringComparison.OrdinalIgnoreCase))
             {
-                user.ExternalId,
-                user.CreatedAt,
-                user.UpdatedAt,
-                user.Login,
-                user.NormalizedLogin,
-                user.FullName,
-                user.Email,
-                user.NormalizedEmail,
-                user.EmailConfirmed,
-                user.PasswordHash,
-                user.PasswordChangedAt,
-                user.Active,
-                user.LastLoginAt,
-                Role = user.Role.ToString(),
-                user.DeletedAt,
-                user.AccessFailedCount,
-                user.LockoutEnd,
-            });
+                throw new DuplicateLoginException();
+            }
+
+            if (e.Message.Contains(EmailIndexName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new DuplicateEmailException();
+            }
+
+            throw;
+        }
     }
 
     public async Task<User?> GetByExternalIdAsync(Guid externalId)

@@ -1,7 +1,7 @@
 # 2026092508 - Politica de identidade de login e email
 
 **Data:** 25/09/2026
-**Status:** Em andamento
+**Status:** Concluido
 **Servico(s):** auth-service
 
 ## Solicitação

@@ -1,6 +1,7 @@
 namespace Ouroboros.Auth.Application.Gateways;
 
 using Ouroboros.Auth.Domain.Entities;
+using Ouroboros.Auth.Domain.Exceptions;
 
 /// <remarks>
 /// As buscas ignoram contas excluidas (exclusao logica): pra aplicacao, uma conta excluida nao existe.
@@ -8,6 +9,8 @@ using Ouroboros.Auth.Domain.Entities;
 /// </remarks>
 public interface IUserRepository
 {
+    /// <exception cref="DuplicateLoginException">O login normalizado ja pertence a outra conta.</exception>
+    /// <exception cref="DuplicateEmailException">O e-mail normalizado ja pertence a outra conta ativa.</exception>
     Task AddAsync(User user);
 
     Task<User?> GetByExternalIdAsync(Guid externalId);

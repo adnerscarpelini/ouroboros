@@ -66,6 +66,14 @@ Contas excluídas (ver `docs/auth/0007 - Exclusao de Conta.md`) têm tratamento 
 - **Login usado:** `400 Login already in use`. Quem escolhe o login precisa saber que ele está ocupado.
 - **E-mail usado:** mesma resposta `202` do sucesso. Nenhum usuário ou token é criado e fica um `Warning` no Seq (`User registration ignored: email already in use`), sem o e-mail. Quando existir envio de e-mail, o dono deve ser avisado da tentativa (`TODO` no `RegisterUserInteractor`).
 
+## Atomicidade e cadastros simultâneos
+
+- **Uma transação.** A remoção dos cadastros abandonados, a inserção do usuário e a inserção do token de confirmação rodam dentro de uma só unidade de trabalho (`IUnitOfWork`, ver `docs/project/0001 - Arquitetura.md`). Se qualquer passo falhar, nada é gravado: o abandonado continua existindo e o usuário novo não existe. O token só é devolvido (e logado) depois do commit.
+- **Checagem prévia + índice único.** A checagem prévia dá a resposta certa no caso comum. Os índices únicos `users_normalized_login_key` e `users_normalized_email_key` são a garantia final quando dois cadastros passam juntos pela checagem.
+- **Tradução na Infrastructure.** `DapperUserRepository.AddAsync` captura a violação (`SqlException` 2601 ou 2627), identifica o índice pelo nome e lança `DuplicateLoginException` ou `DuplicateEmailException` (Domain). Qualquer outra constraint mantém o erro original. `SqlException` não sai da Infrastructure.
+- **Contratos mantidos.** Dois cadastros simultâneos com o mesmo login: um `202` e um `400 Login already in use`. Com o mesmo e-mail: dois `202` e uma única conta. O interactor trata `DuplicateEmailException` depois do rollback e devolve a mesma resposta do caso "e-mail ocupado", então não existe caminho que diferencie os dois.
+- **Remoção de abandonado em corrida.** Se duas requisições tentam remover o mesmo cadastro abandonado, o `DELETE` que afeta 0 linhas não é erro. O índice único decide quem ganha a inserção.
+
 ## Cadastro abandonado
 
 Uma conta é **abandonada** quando o e-mail nunca foi confirmado e ela não tem token de confirmação pendente (o token expirou, ou seja, passaram as 24h).
@@ -93,7 +101,6 @@ Limitações conhecidas:
 - **Login enumerável.** O `400 Login already in use` revela que um login existe. É aceito: o dado protegido é o e-mail.
 - **Diferença de tempo.** Com e-mail novo a requisição grava no banco e demora um pouco mais. Pela diferença de tempo ainda dá pra inferir se um e-mail existe. Com o envio de e-mail via mensageria (assíncrono), essa diferença deve cair.
 - **Pre-account takeover.** Um atacante pode cadastrar o e-mail da vítima com uma senha que só ele sabe. Se a vítima clicar no link de confirmação, a conta fica ativa com a senha do atacante. A mitigação de mercado é "confirma o e-mail primeiro, define a senha depois", que ainda não foi feita.
-- **Cadastros simultâneos** com o mesmo login ou e-mail: o índice único do banco barra o segundo, que recebe `500`.
 
 ## Tabela `auth.tokens`
 

@@ -13,17 +13,20 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenRepository _tokenRepository;
     private readonly ITokenGenerator _tokenGenerator;
+    private readonly IUnitOfWork _unitOfWork;
 
     public RegisterUserInteractor(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         ITokenRepository tokenRepository,
-        ITokenGenerator tokenGenerator)
+        ITokenGenerator tokenGenerator,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _tokenRepository = tokenRepository;
         _tokenGenerator = tokenGenerator;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<RegisterUserResponse> ExecuteAsync(RegisterUserRequest request)
@@ -34,19 +37,36 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
         var user = User.Create(request.Login, request.FullName, request.Email, passwordHash);
         var now = DateTimeOffset.UtcNow;
 
+        try
+        {
+            // Remocoes de abandonados, usuario e token valem juntos ou nao valem. O token so e devolvido depois do commit.
+            return await _unitOfWork.ExecuteAsync(() => RegisterAsync(user, now));
+        }
+        catch (DuplicateEmailException)
+        {
+            // Cadastro simultaneo com o mesmo e-mail: o indice unico barrou este, apos o rollback.
+            // Mesma resposta do caso "e-mail ocupado", pra nao existir caminho que diferencie os dois.
+            return new RegisterUserResponse(null, null);
+        }
+    }
+
+    private async Task<RegisterUserResponse> RegisterAsync(
+        User user,
+        DateTimeOffset now)
+    {
         var loginOwner = await _userRepository.GetByLoginAsync(user.NormalizedLogin);
         var loginOwnerIsAbandoned = loginOwner is not null && await IsAbandonedAsync(loginOwner, now);
 
         // Login ocupado pode ser revelado: quem escolhe o login precisa saber que ele nao esta disponivel.
         if (loginOwner is not null && !loginOwnerIsAbandoned)
         {
-            throw new DomainException("Login already in use");
+            throw new DuplicateLoginException();
         }
 
         // Login de conta excluida nunca e reaproveitado, pra ninguem se passar pelo dono antigo.
         if (loginOwner is null && await _userRepository.ExistsDeletedByLoginAsync(user.NormalizedLogin))
         {
-            throw new DomainException("Login already in use");
+            throw new DuplicateLoginException();
         }
 
         var emailOwner = await _userRepository.GetByEmailAsync(user.NormalizedEmail);

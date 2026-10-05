@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.RegisterUser;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
@@ -24,8 +25,16 @@ public class RegisterUserInteractorTests
         }
         public List<User> Items { get; } = new();
 
+        // Simula o indice unico barrando o insert num cadastro simultaneo.
+        public Exception? AddException { get; set; }
+
         public Task AddAsync(User user)
         {
+            if (AddException is not null)
+            {
+                throw AddException;
+            }
+
             Items.Add(user);
             return Task.CompletedTask;
         }
@@ -95,8 +104,15 @@ public class RegisterUserInteractorTests
     {
         public List<Token> Items { get; } = new();
 
+        public Exception? AddException { get; set; }
+
         public Task AddAsync(Token token)
         {
+            if (AddException is not null)
+            {
+                throw AddException;
+            }
+
             Items.Add(token);
             return Task.CompletedTask;
         }
@@ -176,7 +192,7 @@ public class RegisterUserInteractorTests
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
 
@@ -188,7 +204,7 @@ public class RegisterUserInteractorTests
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
 
@@ -206,7 +222,7 @@ public class RegisterUserInteractorTests
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "not-an-email", "S3cret!1")));
         Assert.Empty(tokenRepository.Items);
@@ -216,7 +232,7 @@ public class RegisterUserInteractorTests
     public async Task ShouldRegisterUserInactiveWhenDataIsValid()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
 
@@ -233,7 +249,7 @@ public class RegisterUserInteractorTests
     public async Task ShouldThrowDomainExceptionWhenLoginIsInvalid()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("   ", "John Doe", "jdoe@example.com", "S3cret!1")));
         Assert.Empty(repository.Items);
@@ -243,23 +259,23 @@ public class RegisterUserInteractorTests
     public async Task ShouldThrowDomainExceptionWhenEmailIsInvalid()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "not-an-email", "S3cret!1")));
         Assert.Empty(repository.Items);
     }
 
     [Fact]
-    public async Task ShouldThrowDomainExceptionWhenLoginBelongsToConfirmedUser()
+    public async Task ShouldThrowDuplicateLoginExceptionWhenLoginBelongsToConfirmedUser()
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
         var existing = CreateExistingUser("jdoe", "jdoe@example.com");
         existing.ConfirmEmail();
         userRepository.Items.Add(existing);
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "Another Name", "other@example.com", "S3cret!1")));
+        var exception = await Assert.ThrowsAsync<DuplicateLoginException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "Another Name", "other@example.com", "S3cret!1")));
 
         Assert.Equal("Login already in use", exception.Message);
         Assert.Same(existing, Assert.Single(userRepository.Items));
@@ -267,16 +283,16 @@ public class RegisterUserInteractorTests
     }
 
     [Fact]
-    public async Task ShouldThrowDomainExceptionWhenLoginBelongsToPendingRegistration()
+    public async Task ShouldThrowDuplicateLoginExceptionWhenLoginBelongsToPendingRegistration()
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
         var existing = CreateExistingUser("jdoe", "jdoe@example.com");
         userRepository.Items.Add(existing);
         tokenRepository.Items.Add(CreateConfirmationToken(existing.ExternalId, DateTimeOffset.UtcNow.AddHours(1)));
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
-        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "Another Name", "other@example.com", "S3cret!1")));
+        await Assert.ThrowsAsync<DuplicateLoginException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "Another Name", "other@example.com", "S3cret!1")));
 
         Assert.Same(existing, Assert.Single(userRepository.Items));
         Assert.Single(tokenRepository.Items);
@@ -290,7 +306,7 @@ public class RegisterUserInteractorTests
         var existing = CreateExistingUser("jdoe", "jdoe@example.com");
         existing.ConfirmEmail();
         userRepository.Items.Add(existing);
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("another", "Another Name", "jdoe@example.com", "S3cret!1"));
 
@@ -308,7 +324,7 @@ public class RegisterUserInteractorTests
         var existing = CreateExistingUser("jdoe", "jdoe@example.com");
         userRepository.Items.Add(existing);
         tokenRepository.Items.Add(CreateConfirmationToken(existing.ExternalId, DateTimeOffset.UtcNow.AddHours(1)));
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("another", "Another Name", "jdoe@example.com", "S3cret!1"));
 
@@ -326,7 +342,7 @@ public class RegisterUserInteractorTests
         var abandoned = CreateExistingUser("squatter", "jdoe@example.com");
         userRepository.Items.Add(abandoned);
         tokenRepository.Items.Add(CreateConfirmationToken(abandoned.ExternalId, DateTimeOffset.UtcNow.AddHours(-1)));
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
 
@@ -342,7 +358,7 @@ public class RegisterUserInteractorTests
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
         userRepository.Items.Add(CreateExistingUser("jdoe", "old@example.com"));
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
 
@@ -358,7 +374,7 @@ public class RegisterUserInteractorTests
         var tokenRepository = new FakeTokenRepository();
         userRepository.Items.Add(CreateExistingUser("jdoe", "old@example.com"));
         userRepository.Items.Add(CreateExistingUser("squatter", "jdoe@example.com"));
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
 
@@ -377,7 +393,7 @@ public class RegisterUserInteractorTests
         deleted.ConfirmEmail();
         deleted.Delete();
         userRepository.Items.Add(deleted);
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
         var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
 
@@ -390,7 +406,7 @@ public class RegisterUserInteractorTests
     }
 
     [Fact]
-    public async Task ShouldThrowDomainExceptionWhenLoginBelongsToDeletedUser()
+    public async Task ShouldThrowDuplicateLoginExceptionWhenLoginBelongsToDeletedUser()
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
@@ -398,9 +414,9 @@ public class RegisterUserInteractorTests
         deleted.ConfirmEmail();
         deleted.Delete();
         userRepository.Items.Add(deleted);
-        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork());
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1")));
+        var exception = await Assert.ThrowsAsync<DuplicateLoginException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1")));
 
         Assert.Equal("Login already in use", exception.Message);
         Assert.Same(deleted, Assert.Single(userRepository.Items));
@@ -408,10 +424,104 @@ public class RegisterUserInteractorTests
     }
 
     [Fact]
+    public async Task ShouldCommitOnceWhenUserIsRegistered()
+    {
+        var unitOfWork = new FakeUnitOfWork();
+        var interactor = new RegisterUserInteractor(new FakeUserRepository(), new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), unitOfWork);
+
+        await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
+
+        Assert.Equal(1, unitOfWork.Commits);
+        Assert.Equal(0, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldReturnGenericResponseWithoutTokenWhenRepositoryReportsDuplicateEmail()
+    {
+        var userRepository = new FakeUserRepository { AddException = new DuplicateEmailException() };
+        var tokenRepository = new FakeTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), unitOfWork);
+
+        var response = await interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1"));
+
+        Assert.Null(response.UserId);
+        Assert.Null(response.EmailConfirmationToken);
+        Assert.Empty(tokenRepository.Items);
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldReturnSameResponseForDuplicateEmailRaceAndOccupiedEmail()
+    {
+        var occupied = new FakeUserRepository();
+        var existing = CreateExistingUser("owner", "jdoe@example.com");
+        existing.ConfirmEmail();
+        occupied.Items.Add(existing);
+        var occupiedInteractor = new RegisterUserInteractor(occupied, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
+        var raceInteractor = new RegisterUserInteractor(
+            new FakeUserRepository { AddException = new DuplicateEmailException() },
+            new FakePasswordHasher(),
+            new FakeTokenRepository(),
+            new FakeTokenGenerator(),
+            new FakeUnitOfWork());
+        var request = new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1");
+
+        var occupiedResponse = await occupiedInteractor.ExecuteAsync(request);
+        var raceResponse = await raceInteractor.ExecuteAsync(request);
+
+        Assert.Equal(occupiedResponse, raceResponse);
+    }
+
+    [Fact]
+    public async Task ShouldThrowLoginAlreadyInUseWhenRepositoryReportsDuplicateLogin()
+    {
+        var userRepository = new FakeUserRepository { AddException = new DuplicateLoginException() };
+        var tokenRepository = new FakeTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), unitOfWork);
+
+        var exception = await Assert.ThrowsAsync<DuplicateLoginException>(() =>
+            interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1")));
+
+        Assert.Equal("Login already in use", exception.Message);
+        Assert.Empty(tokenRepository.Items);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackAndPropagateWhenTokenInsertFails()
+    {
+        var tokenRepository = new FakeTokenRepository { AddException = new InvalidOperationException("forced failure") };
+        var unitOfWork = new FakeUnitOfWork();
+        var interactor = new RegisterUserInteractor(new FakeUserRepository(), new FakePasswordHasher(), tokenRepository, new FakeTokenGenerator(), unitOfWork);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldPropagateOtherRepositoryErrorsUnchanged()
+    {
+        var failure = new InvalidOperationException("other constraint");
+        var userRepository = new FakeUserRepository { AddException = failure };
+        var interactor = new RegisterUserInteractor(userRepository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
+
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3cret!1")));
+
+        Assert.Same(failure, thrown);
+    }
+
+    [Fact]
     public async Task ShouldThrowDomainExceptionWhenPasswordIsTooShort()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3c!1")));
         Assert.Empty(repository.Items);
@@ -421,7 +531,7 @@ public class RegisterUserInteractorTests
     public async Task ShouldThrowDomainExceptionWhenPasswordHasNoUppercaseLetter()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "s3cret!1")));
         Assert.Empty(repository.Items);
@@ -431,7 +541,7 @@ public class RegisterUserInteractorTests
     public async Task ShouldThrowDomainExceptionWhenPasswordHasNoLowercaseLetter()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "S3CRET!1")));
         Assert.Empty(repository.Items);
@@ -441,7 +551,7 @@ public class RegisterUserInteractorTests
     public async Task ShouldThrowDomainExceptionWhenPasswordHasNoDigit()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "Secret!!")));
         Assert.Empty(repository.Items);
@@ -451,7 +561,7 @@ public class RegisterUserInteractorTests
     public async Task ShouldThrowDomainExceptionWhenPasswordHasNoSpecialCharacter()
     {
         var repository = new FakeUserRepository();
-        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator());
+        var interactor = new RegisterUserInteractor(repository, new FakePasswordHasher(), new FakeTokenRepository(), new FakeTokenGenerator(), new FakeUnitOfWork());
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RegisterUserRequest("jdoe", "John Doe", "jdoe@example.com", "Secret123")));
         Assert.Empty(repository.Items);

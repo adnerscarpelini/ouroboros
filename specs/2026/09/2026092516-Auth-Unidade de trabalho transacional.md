@@ -1,7 +1,7 @@
 # 2026092516 - Unidade de trabalho transacional
 
 **Data:** 25/09/2026
-**Status:** Em andamento
+**Status:** Concluido
 **Servico(s):** auth-service
 
 ## Solicitação

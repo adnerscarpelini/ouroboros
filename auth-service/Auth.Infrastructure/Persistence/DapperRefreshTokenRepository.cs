@@ -1,7 +1,7 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 
@@ -18,7 +18,6 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
     {
         const string sql = """
             INSERT INTO auth.refresh_tokens (
-                id,
                 external_id,
                 created_at,
                 updated_at,
@@ -28,7 +27,6 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 revoked_at
             )
             SELECT
-                nextval('auth.refresh_tokens_id_seq'),
                 @ExternalId,
                 @CreatedAt,
                 @UpdatedAt,
@@ -40,7 +38,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
             WHERE users.external_id = @UserExternalId;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var affectedRows = await connection.ExecuteAsync(
             sql,
@@ -64,7 +62,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
     public async Task<RefreshToken?> GetByHashAsync(string tokenHash)
     {
         const string sql = """
-            SELECT
+            SELECT TOP 1
                 refreshTokens.id,
                 refreshTokens.external_id,
                 refreshTokens.created_at,
@@ -79,11 +77,10 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 auth.users AS users
                 ON users.id = refreshTokens.user_id
             WHERE
-                refreshTokens.token_hash = @TokenHash
-            LIMIT 1;
+                refreshTokens.token_hash = @TokenHash;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var row = await connection.QuerySingleOrDefaultAsync<RefreshTokenRow>(sql, new { TokenHash = tokenHash });
 
@@ -95,12 +92,12 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
         return RefreshToken.Rehydrate(
             row.Id,
             row.ExternalId,
-            new DateTimeOffset(row.CreatedAt),
-            ToDateTimeOffset(row.UpdatedAt),
+            row.CreatedAt,
+            row.UpdatedAt,
             row.UserExternalId,
             row.TokenHash,
-            new DateTimeOffset(row.ExpiresAt),
-            ToDateTimeOffset(row.RevokedAt));
+            row.ExpiresAt,
+            row.RevokedAt);
     }
 
     public async Task<bool> TryRevokeAsync(RefreshToken refreshToken)
@@ -116,7 +113,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 AND revoked_at IS NULL;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var affectedRows = await connection.ExecuteAsync(
             sql,
@@ -133,19 +130,20 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
     public async Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
     {
         const string sql = """
-            UPDATE auth.refresh_tokens AS refreshTokens
+            UPDATE refreshTokens
             SET
                 updated_at = @RevokedAt,
                 revoked_at = @RevokedAt
-            FROM auth.users AS users
+            FROM auth.refresh_tokens AS refreshTokens
+            INNER JOIN auth.users AS users
+                ON users.id = refreshTokens.user_id
             WHERE
-                users.id = refreshTokens.user_id
-                AND users.external_id = @UserExternalId
+                users.external_id = @UserExternalId
                 AND refreshTokens.revoked_at IS NULL
                 AND refreshTokens.expires_at > @RevokedAt;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         await connection.ExecuteAsync(
             sql,
@@ -156,33 +154,23 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
             });
     }
 
-    private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
 
-        return new DateTimeOffset(value.Value);
-    }
-
-    // Npgsql le timestamptz como DateTime (Kind=Utc); a conversao pra DateTimeOffset e feita no mapeamento.
     private sealed class RefreshTokenRow
     {
         public long Id { get; init; }
 
         public Guid ExternalId { get; init; }
 
-        public DateTime CreatedAt { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
 
-        public DateTime? UpdatedAt { get; init; }
+        public DateTimeOffset? UpdatedAt { get; init; }
 
         public Guid UserExternalId { get; init; }
 
         public string TokenHash { get; init; } = null!;
 
-        public DateTime ExpiresAt { get; init; }
+        public DateTimeOffset ExpiresAt { get; init; }
 
-        public DateTime? RevokedAt { get; init; }
+        public DateTimeOffset? RevokedAt { get; init; }
     }
 }

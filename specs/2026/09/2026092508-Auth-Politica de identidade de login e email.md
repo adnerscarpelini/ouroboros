@@ -27,7 +27,7 @@ Decisões:
    - `users_normalized_email_key` é parcial, `WHERE deleted_at IS NULL`.
 
    Os índices antigos `users_login_key` e `users_email_key` são removidos.
-6. **Migration:** adiciona as colunas, preenche com `upper(btrim(...))`, aplica `NOT NULL` e cria os índices. Se houver colisão, a migration falha com mensagem clara e a resolução é manual. O banco ainda é de desenvolvimento, e contas nunca são unidas automaticamente. O `upper()` do PostgreSQL pode diferir do `ToUpperInvariant()` em caracteres não ASCII de e-mails antigos. Esse risco é aceito, porque os dados atuais são de teste.
+6. **Migration:** adiciona as colunas, preenche com `UPPER(TRIM(...))`, aplica `NOT NULL` e cria os índices. Se houver colisão, a migration falha com mensagem clara e a resolução é manual. O banco ainda é de desenvolvimento, e contas nunca são unidas automaticamente. O `UPPER()` do SQL Server depende da colação e pode diferir do `ToUpperInvariant()` em caracteres não ASCII de e-mails antigos. Esse risco é aceito, porque os dados atuais são de teste.
 7. **Todo ponto de busca usa o valor normalizado:**
    - o cadastro, inclusive a checagem de login de conta excluída;
    - o login;

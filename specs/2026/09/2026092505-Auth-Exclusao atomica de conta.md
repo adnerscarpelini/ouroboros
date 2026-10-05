@@ -14,13 +14,13 @@ Depende de 2026092516 (unidade de trabalho). As regras da spec 2026092306 contin
 
 Decisões:
 1. **Uma transação** para a exclusão lógica, a revogação dos refresh tokens e a invalidação dos tokens pendentes de confirmação e de reset.
-2. **Último Admin sob concorrência.** Quando o alvo é Admin ativo, a contagem de Admins ativos roda com `SELECT ... FOR UPDATE` sobre essas linhas, dentro da transação. Duas exclusões simultâneas de Admins ficam em fila, e a segunda já enxerga a contagem reduzida. A troca de perfil (2026092520) reaproveita o mesmo método para o rebaixamento.
+2. **Último Admin sob concorrência.** Quando o alvo é Admin ativo, a contagem de Admins ativos roda com `SELECT ... WITH (UPDLOCK, HOLDLOCK)` sobre essas linhas, dentro da transação. Duas exclusões simultâneas de Admins ficam em fila, e a segunda já enxerga a contagem reduzida. A troca de perfil (2026092520) reaproveita o mesmo método para o rebaixamento.
 3. **Falha de senha conta para o bloqueio** (2026092501). Ela é gravada fora da transação da exclusão, para não ser desfeita pelo rollback.
 4. A autorização pelo perfil gravado no banco, em vez do claim, está na spec 2026092510.
 
 ## Tarefas
 
 - [ ] **Dev** — Executar `Delete()`, a atualização do usuário, `RevokeAllActiveByUserAsync` e as duas `InvalidatePendingByUserAsync` dentro do `IUnitOfWork`, mantendo reautenticação e autorização antes da transação
-- [ ] **DBA** — Trocar `CountActiveAdminsAsync` por uma contagem com bloqueio (`FOR UPDATE`) para uso dentro da transação
+- [ ] **DBA** — Trocar `CountActiveAdminsAsync` por uma contagem com bloqueio (`WITH (UPDLOCK, HOLDLOCK)`) para uso dentro da transação
 - [ ] **Tester** — Integração: falha forçada na revogação → conta continua ativa e tokens intactos; dois Admins, cada um excluindo o outro ao mesmo tempo → exatamente um sucesso e um `400`
 - [ ] **Tech Writer** — Atualizar `docs/auth/0007 - Exclusao de Conta.md` com a garantia de consistência e a regra concorrente do último Admin

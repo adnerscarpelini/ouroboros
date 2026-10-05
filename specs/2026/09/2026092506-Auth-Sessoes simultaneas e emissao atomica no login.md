@@ -14,7 +14,7 @@ Depende de 2026092516 (unidade de trabalho). Muda a regra "uma sessão ativa por
 
 Decisões:
 1. **Várias sessões simultâneas.** O login deixa de revogar as sessões anteriores. Cada dispositivo tem a sua.
-2. **Sessão = família de refresh tokens.** Uma nova coluna `session_id uuid` em `auth.refresh_tokens`. O login cria um `session_id` novo, e o refresh herda o da sessão (2026092507). Isso permite encerrar uma sessão inteira, e não só um token.
+2. **Sessão = família de refresh tokens.** Uma nova coluna `session_id uniqueidentifier` em `auth.refresh_tokens`. O login cria um `session_id` novo, e o refresh herda o da sessão (2026092507). Isso permite encerrar uma sessão inteira, e não só um token.
 3. **Claim `sid` no access token**, com o `session_id`. Com ele o serviço sabe qual é a sessão atual: a troca de senha (2026092517) preserva a sessão de quem trocou.
 4. **Limite de 10 sessões ativas por usuário** (`Sessions:MaxActivePerUser`, padrão 10, validado no startup). No 11º login, a sessão ativa mais antiga é revogada na mesma transação. Isso contém o crescimento por script ou abuso. Logins concorrentes **não** são serializados: exceder o limite por uma sessão durante um instante não tem risco.
 5. **Encerrar todas as sessões: `POST /api/auth/logout-all`** com `[Authorize]`. Revoga todos os refresh tokens ativos do `sub` e responde `204`. Os access tokens já emitidos valem até expirar (no máximo 15 min), e essa limitação fica documentada. O `POST /api/auth/logout` atual passa a encerrar só a sessão do refresh token enviado.
@@ -30,7 +30,7 @@ O login continua público, com os limites da 2026092501, erro genérico e senha 
 - [ ] **Dev** — Criar `User.RegisterLogin(now)` e executar dentro do `IUnitOfWork` a gravação do refresh token, a revogação da sessão mais antiga acima do limite, a atualização do usuário (`last_login_at` e contador zerado), devolvendo os tokens só depois do commit
 - [ ] **Dev** — Criar a opção validada `Sessions:MaxActivePerUser` (padrão 10)
 - [ ] **Dev** — Criar o caso de uso `LogoutAll` e o endpoint `POST /api/auth/logout-all` (`[Authorize]`, `204`); atualizar a collection Postman
-- [ ] **DBA** — Migration: `session_id uuid` em `auth.refresh_tokens` com backfill, `NOT NULL` e índice `(user_id, session_id)`; persistir e ler `session_id` no `DapperRefreshTokenRepository`
+- [ ] **DBA** — Migration: `session_id uniqueidentifier` em `auth.refresh_tokens` com backfill, `NOT NULL` e índice `(user_id, session_id)`; persistir e ler `session_id` no `DapperRefreshTokenRepository`
 - [ ] **DBA** — Criar no repositório a contagem de sessões ativas por usuário e a revogação da sessão ativa mais antiga
 - [ ] **Tester** — Unitários: login não revoga sessões anteriores; 11º login revoga a mais antiga; `LastLoginAt` gravado; contador de falhas zerado; token traz `sid`; logout-all revoga todas
 - [ ] **Tester** — Integração: dois logins → duas sessões válidas; falha forçada na atualização do usuário → nenhum refresh token criado; logout de uma sessão não afeta a outra

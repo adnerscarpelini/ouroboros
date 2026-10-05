@@ -126,7 +126,7 @@ Sem `<PackageReference>` nenhuma — zero dependencias, nem de framework de test
 </Project>
 ```
 
-> Enquanto a persistencia ainda for o `ConcurrentDictionary` temporario (ver item 10), este `.csproj` fica assim, sem pacotes NuGet. `Dapper`/`Npgsql`/`dbup-postgresql` so entram quando o banco for de fato plugado.
+> Enquanto a persistencia ainda for o `ConcurrentDictionary` temporario (ver item 10), este `.csproj` fica assim, sem pacotes NuGet. `Dapper`/`Microsoft.Data.SqlClient`/`dbup-sqlserver` so entram quando o banco for de fato plugado.
 
 ## 5. `{servico}-service/{Servico}.Api/{Servico}.Api.csproj`
 

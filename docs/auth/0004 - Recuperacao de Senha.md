@@ -118,7 +118,7 @@ Usa a tabela genérica `auth.tokens` (ver `docs/auth/0001 - Confirmacao de Cadas
 - **Usado:** `used_at` preenchido na redefinição.
 - **Invalidado:** `expires_at` antecipado pro instante de uma nova solicitação (e `updated_at` atualizado). A tabela não tem coluna de revogação, e preencher `used_at` diria que o token foi usado, o que não é verdade. Tokens de outros tipos (ex.: `EmailConfirmation`) não são afetados.
 
-Pra ver os tokens de um usuário no Postgres local:
+Pra ver os tokens de um usuário no SQL Server local:
 
 ```sql
 SELECT t.type, t.created_at, t.expires_at, t.used_at

@@ -10,7 +10,7 @@ Na validação de maturidade do auth-service, a configuração apareceu pensada 
 
 ## Análise
 
-Extensão do `auth-service` e da infraestrutura do monorepo. Referências: guias do ASP.NET Core para hospedagem atrás de proxy e para configuração key-per-file, imagens .NET sem root (`APP_UID`) e o princípio do menor privilégio no PostgreSQL.
+Extensão do `auth-service` e da infraestrutura do monorepo. Referências: guias do ASP.NET Core para hospedagem atrás de proxy e para configuração key-per-file, imagens .NET sem root (`APP_UID`) e o princípio do menor privilégio no SQL Server.
 
 Decisões:
 1. **Dois perfis.** O `docker-compose.yml` continua sendo o de desenvolvimento. Produção usa o override `docker-compose.prod.yml` com `appsettings.Production.json` e `ASPNETCORE_ENVIRONMENT=Production`.
@@ -27,10 +27,10 @@ Decisões:
    - Isso resolve a corrida entre réplicas.
    - Localmente, basta rodar `dotnet run -- migrate` antes.
 8. **Papéis de banco separados (menor privilégio):**
-   - `auth_migrator` é dono do schema e faz DDL. Só o `migrate` usa esse papel.
-   - `auth_service` só tem DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) e uso das sequences, com `ALTER DEFAULT PRIVILEGES` para as tabelas futuras.
+   - `auth_migrator` é dono do schema e faz DDL (`db_owner` no banco do serviço). Só o `migrate` usa esse papel.
+   - `auth_service` só tem DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`), via `GRANT` no schema `auth`, que vale também para as tabelas futuras. As colunas `IDENTITY` não exigem permissão extra.
 
-   Isso é a base da tabela de auditoria só de inserção (2026092519). Os bancos de dev já existentes precisam de transferência de ownership (script documentado) ou de recriação do volume.
+   Isso é a base da tabela de auditoria só de inserção (2026092519). Os bancos de dev já existentes precisam de transferência de ownership (`ALTER AUTHORIZATION`, script documentado) ou de recriação do volume.
 9. **Seq em produção:** sem porta publicada, ingestão com API key (`Seq:ApiKey`) e UI com autenticação.
 10. **`AllowedHosts`** restrito ao domínio público em produção.
 
@@ -41,6 +41,6 @@ Decisões:
 - [ ] **Dev** — Logar os tokens de confirmação e de reset só quando o ambiente for `Development`
 - [ ] **Dev** — Adicionar `USER $APP_UID` ao estágio final do Dockerfile
 - [ ] **Dev** — Tirar `MigrationRunner.Run` do startup e criar o comando `migrate`; adicionar o serviço `auth-migrate` ao Compose, com a API dependendo dele
-- [ ] **DBA** — Atualizar `docker/postgres/init/01-create-auth-db.sh` e `.env.example` com os papéis `auth_migrator` (DDL, dono) e `auth_service` (só DML, com default privileges); escrever o script de transferência de ownership para bancos existentes
+- [ ] **DBA** — Atualizar `docker/sqlserver/init/01-create-auth-db.sh` e `.env.example` com os papéis `auth_migrator` (DDL, dono) e `auth_service` (só DML, com `GRANT` no schema); escrever o script de transferência de ownership para bancos existentes
 - [ ] **Tester** — Integração: Swagger indisponível fora de Development; token não logado fora de Development; startup falha sem segredo obrigatório; `auth_service` não consegue executar DDL
 - [ ] **Tech Writer** — Atualizar `docs/project/0002 - Docker.md` com os perfis de dev e prod, o comando `migrate`, os papéis de banco, os segredos, a topologia TLS/proxy e o acesso ao Seq; registrar que o serviço não está pronto para produção sem envio de e-mail

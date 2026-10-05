@@ -27,19 +27,21 @@ A vida curta do access token é o que limita essa janela (ver `docs/auth/0002 - 
 ## Promover um Admin
 
 1. O usuário precisa já estar cadastrado e com o e-mail confirmado.
-2. Conecte no banco do `auth-service` com a role dona dele. Localmente, via Docker:
+2. Conecte no banco do `auth-service` com o login dono dele (`auth_service`). Localmente, via Docker (a senha é a `AUTH_DB_PASSWORD` do `.env`):
    ```
-   docker exec -it ouroboros-postgres psql -U auth_service -d ouroboros_auth
+   docker exec -it ouroboros-sqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U auth_service -d ouroboros_auth
    ```
+   No `sqlcmd`, cada comando só executa depois de uma linha com `GO`. Alternativamente, use o SSMS ou o Azure Data Studio em `localhost,1433`.
 3. Promova pelo login:
    ```sql
    UPDATE auth.users
    SET
        role = 'Admin',
-       updated_at = now()
+       updated_at = SYSDATETIMEOFFSET()
    WHERE login = 'jdoe';
+   GO
    ```
-   Confira que a saída foi `UPDATE 1`.
+   Confira que a saída foi `(1 rows affected)`.
 4. O usuário faz login de novo (ou refresh) para receber um token com `role = Admin`.
 
 Para rebaixar, use o mesmo `UPDATE` com `role = 'User'` e revogue as sessões ativas:
@@ -47,18 +49,19 @@ Para rebaixar, use o mesmo `UPDATE` com `role = 'User'` e revogue as sessões at
 ```sql
 UPDATE auth.refresh_tokens
 SET
-    revoked_at = now(),
-    updated_at = now()
+    revoked_at = SYSDATETIMEOFFSET(),
+    updated_at = SYSDATETIMEOFFSET()
 WHERE
     user_id = (SELECT users.id FROM auth.users AS users WHERE users.login = 'jdoe')
     AND revoked_at IS NULL;
+GO
 ```
 
 Em ambiente compartilhado ou de produção, a promoção é uma mudança de acesso. Faça com registro de quem pediu e quem aprovou.
 
 ## Banco
 
-- Coluna `role text NOT NULL DEFAULT 'User'` em `auth.users`.
+- Coluna `role nvarchar(20) NOT NULL DEFAULT 'User'` em `auth.users`.
 - `CHECK (role IN ('User', 'Admin'))`: o banco rejeita qualquer outro valor, inclusive vindo de SQL manual.
 - Grava o nome do enum `UserRole` como texto. Para um perfil novo, adicione o valor ao enum **e** uma migration nova ajustando o `CHECK`.
 - Usuários que já existiam antes da migration receberam `User` pelo `DEFAULT`.

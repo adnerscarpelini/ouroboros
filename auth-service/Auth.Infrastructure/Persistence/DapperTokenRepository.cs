@@ -1,7 +1,7 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 
@@ -18,7 +18,6 @@ public sealed class DapperTokenRepository : ITokenRepository
     {
         const string sql = """
             INSERT INTO auth.tokens (
-                id,
                 external_id,
                 created_at,
                 updated_at,
@@ -29,7 +28,6 @@ public sealed class DapperTokenRepository : ITokenRepository
                 used_at
             )
             SELECT
-                nextval('auth.tokens_id_seq'),
                 @ExternalId,
                 @CreatedAt,
                 @UpdatedAt,
@@ -42,7 +40,7 @@ public sealed class DapperTokenRepository : ITokenRepository
             WHERE users.external_id = @UserExternalId;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var affectedRows = await connection.ExecuteAsync(
             sql,
@@ -67,7 +65,7 @@ public sealed class DapperTokenRepository : ITokenRepository
     public async Task<Token?> GetByHashAsync(string tokenHash, TokenType type)
     {
         const string sql = """
-            SELECT
+            SELECT TOP 1
                 tokens.id,
                 tokens.external_id,
                 tokens.created_at,
@@ -84,11 +82,10 @@ public sealed class DapperTokenRepository : ITokenRepository
                 ON users.id = tokens.user_id
             WHERE
                 tokens.token_hash = @TokenHash
-                AND tokens.type = @Type
-            LIMIT 1;
+                AND tokens.type = @Type;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var row = await connection.QuerySingleOrDefaultAsync<TokenRow>(
             sql,
@@ -106,13 +103,13 @@ public sealed class DapperTokenRepository : ITokenRepository
         return Token.Rehydrate(
             row.Id,
             row.ExternalId,
-            new DateTimeOffset(row.CreatedAt),
-            ToDateTimeOffset(row.UpdatedAt),
+            row.CreatedAt,
+            row.UpdatedAt,
             row.UserExternalId,
             Enum.Parse<TokenType>(row.Type),
             row.TokenHash,
-            new DateTimeOffset(row.ExpiresAt),
-            ToDateTimeOffset(row.UsedAt));
+            row.ExpiresAt,
+            row.UsedAt);
     }
 
     public async Task<bool> ExistsPendingByUserAsync(
@@ -121,7 +118,7 @@ public sealed class DapperTokenRepository : ITokenRepository
         DateTimeOffset now)
     {
         const string sql = """
-            SELECT EXISTS (
+            SELECT CASE WHEN EXISTS (
                 SELECT 1
                 FROM
                     auth.tokens AS tokens
@@ -133,10 +130,10 @@ public sealed class DapperTokenRepository : ITokenRepository
                     AND tokens.type = @Type
                     AND tokens.used_at IS NULL
                     AND tokens.expires_at > @Now
-            );
+            ) THEN 1 ELSE 0 END;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         return await connection.ExecuteScalarAsync<bool>(
             sql,
@@ -160,7 +157,7 @@ public sealed class DapperTokenRepository : ITokenRepository
                 external_id = @ExternalId;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         await connection.ExecuteAsync(
             sql,
@@ -186,7 +183,7 @@ public sealed class DapperTokenRepository : ITokenRepository
                 AND used_at IS NULL;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var affectedRows = await connection.ExecuteAsync(
             sql,
@@ -207,20 +204,21 @@ public sealed class DapperTokenRepository : ITokenRepository
     {
         // Nao existe coluna de revogacao em auth.tokens: invalidar = antecipar a expiracao pro instante atual.
         const string sql = """
-            UPDATE auth.tokens AS tokens
+            UPDATE tokens
             SET
                 updated_at = @InvalidatedAt,
                 expires_at = @InvalidatedAt
-            FROM auth.users AS users
+            FROM auth.tokens AS tokens
+            INNER JOIN auth.users AS users
+                ON users.id = tokens.user_id
             WHERE
-                users.id = tokens.user_id
-                AND users.external_id = @UserExternalId
+                users.external_id = @UserExternalId
                 AND tokens.type = @Type
                 AND tokens.used_at IS NULL
                 AND tokens.expires_at > @InvalidatedAt;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         await connection.ExecuteAsync(
             sql,
@@ -232,26 +230,16 @@ public sealed class DapperTokenRepository : ITokenRepository
             });
     }
 
-    private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
 
-        return new DateTimeOffset(value.Value);
-    }
-
-    // Npgsql le timestamptz como DateTime (Kind=Utc); a conversao pra DateTimeOffset e feita no mapeamento.
     private sealed class TokenRow
     {
         public long Id { get; init; }
 
         public Guid ExternalId { get; init; }
 
-        public DateTime CreatedAt { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
 
-        public DateTime? UpdatedAt { get; init; }
+        public DateTimeOffset? UpdatedAt { get; init; }
 
         public Guid UserExternalId { get; init; }
 
@@ -259,8 +247,8 @@ public sealed class DapperTokenRepository : ITokenRepository
 
         public string TokenHash { get; init; } = null!;
 
-        public DateTime ExpiresAt { get; init; }
+        public DateTimeOffset ExpiresAt { get; init; }
 
-        public DateTime? UsedAt { get; init; }
+        public DateTimeOffset? UsedAt { get; init; }
     }
 }

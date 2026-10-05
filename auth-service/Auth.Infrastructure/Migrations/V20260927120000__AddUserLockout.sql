@@ -1,3 +1,3 @@
 ALTER TABLE auth.users
-    ADD COLUMN access_failed_count integer NOT NULL DEFAULT 0,
-    ADD COLUMN lockout_end timestamptz;
+    ADD access_failed_count int NOT NULL CONSTRAINT users_access_failed_count_default DEFAULT 0,
+        lockout_end datetimeoffset NULL;

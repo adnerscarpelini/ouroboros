@@ -21,7 +21,7 @@ Decisões:
    - e-mail não confirmado → `400`;
    - `role` aceita só `User` ou `Admin` (allowlist). Outro valor → `400`;
    - valor igual ao atual → `204` sem mudança (idempotente).
-5. **O último Admin ativo não pode ser rebaixado**, nem por ele mesmo. A tentativa devolve `400`. O bloqueio é o mesmo `FOR UPDATE` da 2026092505.
+5. **O último Admin ativo não pode ser rebaixado**, nem por ele mesmo. A tentativa devolve `400`. O bloqueio é o mesmo bloqueio (`UPDLOCK, HOLDLOCK`) da 2026092505.
 6. **As sessões do alvo não são revogadas.** O refresh gera tokens com o perfil do banco, e as ações privilegiadas leem o banco (2026092510).
 7. **Rate limit `user-role-change`:** 5 por IP a cada 15 min.
 8. **O primeiro Admin continua sendo criado por SQL**, pelo runbook de `0005`. Não haverá endpoint nem variável de ambiente de bootstrap, para que não exista porta de entrada de privilégio fora do fluxo autenticado. Quem pode rodar SQL no banco já é, por definição, operador.
@@ -31,7 +31,7 @@ Decisões:
 
 - [ ] **Dev** — Criar `User.ChangeRole(role)` no domínio e o caso de uso `ChangeUserRole` (autorização pelo banco, reautenticação com bloqueio, validações do alvo, regra do último Admin, transação)
 - [ ] **Dev** — Criar o endpoint `PUT /api/users/{externalId}/role` (`[Authorize]`) e a política de rate limit `user-role-change`; atualizar a collection Postman
-- [ ] **DBA** — Reaproveitar a contagem de Admins ativos com `FOR UPDATE` (2026092505) no rebaixamento; persistir `role` no update
+- [ ] **DBA** — Reaproveitar a contagem de Admins ativos com `UPDLOCK, HOLDLOCK` (2026092505) no rebaixamento; persistir `role` no update
 - [ ] **Tester** — Unitários: `User` → `403` sem consultar o alvo; senha errada; alvo inexistente, excluído e não confirmado; valor fora da allowlist; valor igual (idempotente); rebaixar o último Admin ativo, inclusive a si mesmo
 - [ ] **Tester** — Integração: promoção seguida de refresh → token com `role=Admin`; o Admin rebaixado perde o privilégio na hora, mesmo com token antigo (2026092510); dois rebaixamentos simultâneos dos dois últimos Admins → um falha
 - [ ] **Tech Writer** — Atualizar `docs/auth/0005 - Perfis de Acesso.md`: novo endpoint, regras, e o SQL só como runbook de bootstrap do primeiro Admin

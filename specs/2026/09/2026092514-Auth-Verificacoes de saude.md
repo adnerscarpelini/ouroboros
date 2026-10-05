@@ -13,7 +13,7 @@ Na validação de maturidade do auth-service, faltavam endpoints de saúde para 
 Extensão do `auth-service`. Referências: Health Checks do ASP.NET Core e as sondas liveness/readiness do Kubernetes.
 
 Decisões:
-1. **`GET /health/live`** não depende de nada: só confirma que o processo responde. **`GET /health/ready`** confere o PostgreSQL com um `SELECT 1` de timeout de 2 s, via `AddHealthChecks`.
+1. **`GET /health/live`** não depende de nada: só confirma que o processo responde. **`GET /health/ready`** confere o SQL Server com um `SELECT 1` de timeout de 2 s, via `AddHealthChecks`.
 2. **A resposta traz só o status:** `Healthy` com `200` ou `Unhealthy` com `503`. Nada de mensagem de exceção, connection string ou nome de host.
 3. **Os endpoints ficam:**
    - anônimos;
@@ -25,7 +25,7 @@ Decisões:
 
 ## Tarefas
 
-- [ ] **Dev** — Registrar os health checks com a verificação do PostgreSQL e mapear `/health/live` (sem checks) e `/health/ready` (com o banco), anônimos, fora do rate limit e com resposta só de status
+- [ ] **Dev** — Registrar os health checks com a verificação do SQL Server e mapear `/health/live` (sem checks) e `/health/ready` (com o banco), anônimos, fora do rate limit e com resposta só de status
 - [ ] **Dev** — Filtrar as requisições de health do `UseSerilogRequestLogging` quando bem-sucedidas
 - [ ] **Tester** — Integração: `live` e `ready` com `200` e o banco no ar; `ready` com `503` e `live` com `200` com o banco parado; o corpo não contém detalhes internos
 - [ ] **Tech Writer** — Criar doc em `docs/project/` com a semântica de cada endpoint, o uso em sondas de orquestrador e a restrição de acesso externo

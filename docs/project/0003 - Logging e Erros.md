@@ -2,7 +2,7 @@
 
 ## Decisão
 
-Log de aplicação (incluindo erro/exceção) usa **Serilog** gerando log estruturado, com **Seq** como destino/visualizador — não uma tabela de erros no Postgres.
+Log de aplicação (incluindo erro/exceção) usa **Serilog** gerando log estruturado, com **Seq** como destino/visualizador — não uma tabela de erros no SQL Server.
 
 Por quê:
 
@@ -12,12 +12,12 @@ Por quê:
 
 ## Seq no docker-compose
 
-O serviço `seq` já está no `docker-compose.yml` da raiz, ao lado do `postgres`.
+O serviço `seq` já está no `docker-compose.yml` da raiz, ao lado do `sqlserver`.
 
 - Imagem `datalust/seq:latest`.
 - UI web na porta `${SEQ_UI_PORT}` do host (padrão `8081`), mapeada pra porta `80` do container.
 - Ingestão de log (onde o Serilog vai apontar via sink HTTP) na porta `${SEQ_INGESTION_PORT}` do host (padrão `5341`), mesma porta dentro e fora do container.
-- Dados persistidos no volume nomeado `ouroboros-seq-data`, sobrevive a `docker compose down` (mesma regra do `ouroboros-postgres-data`, ver `docs/project/0002 - Docker.md`).
+- Dados persistidos no volume nomeado `ouroboros-seq-data`, sobrevive a `docker compose down` (mesma regra do `ouroboros-sqlserver-data`, ver `docs/project/0002 - Docker.md`).
 - O Seq exige senha de admin no primeiro start do volume — vem de `SEQ_FIRSTRUN_ADMINPASSWORD`, preenchida a partir de `SEQ_ADMIN_PASSWORD` no `.env`. Só vale pro bootstrap inicial: se você trocar a senha pela UI depois, o valor real passa a ser o que você definiu lá, não mais o do `.env` (só volta a valer se o volume `ouroboros-seq-data` for recriado do zero).
 
 Setup local:

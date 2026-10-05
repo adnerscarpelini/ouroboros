@@ -1,8 +1,8 @@
 namespace Ouroboros.Auth.Infrastructure.Persistence;
 
 using Dapper;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 
@@ -23,7 +23,6 @@ public sealed class DapperUserRepository : IUserRepository
     {
         const string sql = """
             INSERT INTO auth.users (
-                id,
                 external_id,
                 created_at,
                 updated_at,
@@ -41,7 +40,6 @@ public sealed class DapperUserRepository : IUserRepository
                 lockout_end
             )
             VALUES (
-                nextval('auth.users_id_seq'),
                 @ExternalId,
                 @CreatedAt,
                 @UpdatedAt,
@@ -60,7 +58,7 @@ public sealed class DapperUserRepository : IUserRepository
             );
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         await connection.ExecuteAsync(
             sql,
@@ -110,7 +108,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { ExternalId = externalId });
 
@@ -143,7 +141,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { Email = email });
 
@@ -176,7 +174,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { Login = login });
 
@@ -187,7 +185,7 @@ public sealed class DapperUserRepository : IUserRepository
     {
         // Se o valor bater com o login de um usuario e o e-mail de outro, o login tem prioridade.
         const string sql = """
-            SELECT
+            SELECT TOP 1
                 users.id,
                 users.external_id,
                 users.created_at,
@@ -208,11 +206,10 @@ public sealed class DapperUserRepository : IUserRepository
             WHERE
                 (users.login = @LoginOrEmail OR users.email = @LoginOrEmail)
                 AND users.deleted_at IS NULL
-            ORDER BY (users.login = @LoginOrEmail) DESC
-            LIMIT 1;
+            ORDER BY CASE WHEN users.login = @LoginOrEmail THEN 0 ELSE 1 END;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         var row = await connection.QuerySingleOrDefaultAsync<UserRow>(sql, new { LoginOrEmail = loginOrEmail });
 
@@ -238,7 +235,7 @@ public sealed class DapperUserRepository : IUserRepository
                 external_id = @ExternalId;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         await connection.ExecuteAsync(
             sql,
@@ -276,16 +273,16 @@ public sealed class DapperUserRepository : IUserRepository
                     ELSE NULL
                 END,
                 updated_at = @Now
+            OUTPUT inserted.lockout_end
             WHERE
                 external_id = @ExternalId
                 AND deleted_at IS NULL
-                AND (lockout_end IS NULL OR lockout_end <= @Now)
-            RETURNING lockout_end;
+                AND (lockout_end IS NULL OR lockout_end <= @Now);
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
-        var lockoutEnd = await connection.QuerySingleOrDefaultAsync<DateTime?>(
+        var lockoutEnd = await connection.QuerySingleOrDefaultAsync<DateTimeOffset?>(
             sql,
             new
             {
@@ -320,7 +317,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND (lockout_end IS NULL OR lockout_end <= @Now);
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         return await connection.ExecuteAsync(sql, new { ExternalId = externalId, Now = now }) == 1;
     }
@@ -336,7 +333,7 @@ public sealed class DapperUserRepository : IUserRepository
                 AND deleted_at IS NULL;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         await connection.ExecuteAsync(sql, new { ExternalId = externalId });
     }
@@ -344,16 +341,16 @@ public sealed class DapperUserRepository : IUserRepository
     public async Task<bool> ExistsDeletedByLoginAsync(string login)
     {
         const string sql = """
-            SELECT EXISTS (
+            SELECT CASE WHEN EXISTS (
                 SELECT 1
                 FROM auth.users AS users
                 WHERE
                     users.login = @Login
                     AND users.deleted_at IS NOT NULL
-            );
+            ) THEN 1 ELSE 0 END;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         return await connection.ExecuteScalarAsync<bool>(sql, new { Login = login });
     }
@@ -365,11 +362,11 @@ public sealed class DapperUserRepository : IUserRepository
             FROM auth.users AS users
             WHERE
                 users.role = @Role
-                AND users.active
+                AND users.active = 1
                 AND users.deleted_at IS NULL;
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
 
         return await connection.ExecuteScalarAsync<int>(sql, new { Role = nameof(UserRole.Admin) });
     }
@@ -384,42 +381,32 @@ public sealed class DapperUserRepository : IUserRepository
         return User.Rehydrate(
             row.Id,
             row.ExternalId,
-            new DateTimeOffset(row.CreatedAt),
-            ToDateTimeOffset(row.UpdatedAt),
+            row.CreatedAt,
+            row.UpdatedAt,
             row.Login,
             row.FullName,
             row.Email,
             row.EmailConfirmed,
             row.PasswordHash,
-            new DateTimeOffset(row.PasswordChangedAt),
+            row.PasswordChangedAt,
             row.Active,
-            ToDateTimeOffset(row.LastLoginAt),
+            row.LastLoginAt,
             Enum.Parse<UserRole>(row.Role),
-            ToDateTimeOffset(row.DeletedAt),
+            row.DeletedAt,
             row.AccessFailedCount,
-            ToDateTimeOffset(row.LockoutEnd));
+            row.LockoutEnd);
     }
 
-    private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
 
-        return new DateTimeOffset(value.Value);
-    }
-
-    // Npgsql le timestamptz como DateTime (Kind=Utc); a conversao pra DateTimeOffset e feita no mapeamento.
     private sealed class UserRow
     {
         public long Id { get; init; }
 
         public Guid ExternalId { get; init; }
 
-        public DateTime CreatedAt { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
 
-        public DateTime? UpdatedAt { get; init; }
+        public DateTimeOffset? UpdatedAt { get; init; }
 
         public string Login { get; init; } = null!;
 
@@ -431,19 +418,19 @@ public sealed class DapperUserRepository : IUserRepository
 
         public string PasswordHash { get; init; } = null!;
 
-        public DateTime PasswordChangedAt { get; init; }
+        public DateTimeOffset PasswordChangedAt { get; init; }
 
         public bool Active { get; init; }
 
-        public DateTime? LastLoginAt { get; init; }
+        public DateTimeOffset? LastLoginAt { get; init; }
 
         // Gravado como texto (nome do enum) pra casar com o CHECK da coluna e ficar legivel em SQL.
         public string Role { get; init; } = null!;
 
-        public DateTime? DeletedAt { get; init; }
+        public DateTimeOffset? DeletedAt { get; init; }
 
         public int AccessFailedCount { get; init; }
 
-        public DateTime? LockoutEnd { get; init; }
+        public DateTimeOffset? LockoutEnd { get; init; }
     }
 }

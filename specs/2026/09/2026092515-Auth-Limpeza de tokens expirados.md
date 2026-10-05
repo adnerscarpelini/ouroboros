@@ -10,16 +10,16 @@ Na validação de maturidade do auth-service, `auth.tokens` e `auth.refresh_toke
 
 ## Análise
 
-Extensão do `auth-service`. A prioridade é baixa, porque o volume atual é pequeno. Referências: `BackgroundService` do .NET e advisory locks do PostgreSQL.
+Extensão do `auth-service`. A prioridade é baixa, porque o volume atual é pequeno. Referências: `BackgroundService` do .NET e application locks do SQL Server (`sp_getapplock`).
 
 Decisões:
 1. **`ExpiredTokenCleanupService`**, um `BackgroundService` no próprio auth-service, roda a cada 1 h.
-2. **Uma execução por vez entre réplicas.** O serviço usa `pg_try_advisory_lock` com uma chave fixa. A réplica que não consegue o lock pula o ciclo.
+2. **Uma execução por vez entre réplicas.** O serviço usa `sp_getapplock` (modo `Exclusive`, `@LockTimeout = 0`) com um recurso fixo. A réplica que não consegue o lock pula o ciclo.
 3. **Retenção de 30 dias depois de expirar.** São apagadas as linhas das duas tabelas com `expires_at < now() - 30 dias`.
    - Tokens ativos nunca são tocados.
    - Tokens revogados que ainda não expiraram também ficam, porque a detecção de reuso (2026092507) precisa deles até expirarem.
    - O histórico de longo prazo fica na auditoria (2026092519).
-4. **Em lotes de 1.000** (`DELETE ... WHERE id IN (SELECT id ... LIMIT 1000)`). Cada lote é uma transação curta, e o ciclo segue até não sobrar nada. Isso evita locks longos.
+4. **Em lotes de 1.000** (`DELETE TOP (1000) ... WHERE ...`). Cada lote é uma transação curta, e o ciclo segue até não sobrar nada. Isso evita locks longos.
 5. **Índice em `expires_at`** nas duas tabelas.
 6. **Configuração `TokenCleanup:Enabled`, `Interval`, `Retention` e `BatchSize`**, validada no startup. Fica desligada nos testes de integração, exceto nos da própria limpeza.
 7. **Observabilidade.** Cada ciclo loga em `Information` a contagem por tabela, nunca valores de token. Uma falha gera `Error`, e o serviço tenta de novo no ciclo seguinte.

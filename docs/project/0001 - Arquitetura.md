@@ -9,7 +9,7 @@ Ouroboros é um monorepo de estudo pra praticar microsserviços com Clean Archit
 - Solution única `Ouroboros.slnx` (formato novo do .NET 10) na raiz, agregando os projetos de todos os serviços
 - xUnit
 - Sem ORM completo (nada de Entity Framework Core com change tracking, nem NHibernate) — persistência via Dapper
-- PostgreSQL — sobe via `docker-compose.yml` na raiz (ver `docs/project/0002 - Docker.md`); `auth-service` será o primeiro serviço a usar, banco `ouroboros_auth` já criado
+- SQL Server — sobe via `docker-compose.yml` na raiz (ver `docs/project/0002 - Docker.md`); `auth-service` será o primeiro serviço a usar, banco `ouroboros_auth` já criado
 
 ## A regra de dependência
 
@@ -23,7 +23,7 @@ Dependências de código só podem apontar pra dentro, em direção ao domínio:
 ```
 
 - `Domain` não sabe que `Application` existe. `Application` não sabe que `Infrastructure` ou `Api` existem.
-- Frameworks (ASP.NET Core, Dapper, Npgsql) ficam sempre na borda externa (`Infrastructure`/`Api`), nunca no centro.
+- Frameworks (ASP.NET Core, Dapper, Microsoft.Data.SqlClient) ficam sempre na borda externa (`Infrastructure`/`Api`), nunca no centro.
 - Isso permite trocar banco de dados ou framework web no futuro sem tocar em regra de negócio.
 
 ## Os 4 projetos de cada serviço
@@ -41,7 +41,7 @@ Regras por projeto:
 
 - **Domain** — entidades criadas por construtor privado + método estático `Create(...)`, que valida e lança `DomainException` quando inválido. Toda entidade persistida estende uma classe base `Entity` (id interno, `ExternalId`, `CreatedAt`, `UpdatedAt`), declarada localmente em cada serviço.
 - **Application** — cada caso de uso mora em `UseCases/{Nome}/` com 4 tipos: `I{Nome}UseCase` (interface), `{Nome}Request`/`{Nome}Response` (records), `{Nome}Interactor` (implementação). A entidade de domínio nunca sai da application; quem chama um caso de uso só vê Request/Response. Métodos são assíncronos (`Task`/`Task<T>`, sufixo `Async`).
-- **Infrastructure** — implementa os gateways da application. Um serviço sem banco ainda configurado guarda dados num `ConcurrentDictionary` marcado com `TODO`, com o SQL planejado comentado; assim que o banco entra, usa SQL nativo via Dapper sobre `NpgsqlConnection` — nunca ORM completo.
+- **Infrastructure** — implementa os gateways da application. Um serviço sem banco ainda configurado guarda dados num `ConcurrentDictionary` marcado com `TODO`, com o SQL planejado comentado; assim que o banco entra, usa SQL nativo via Dapper sobre `SqlConnection` — nunca ORM completo.
 - **Api** — único projeto com ASP.NET Core. Uma classe estática `UseCaseConfiguration` monta manualmente, via extensão de `IServiceCollection`, os repositórios e casos de uso — os outros 3 projetos não têm nenhuma dependência do ASP.NET Core.
 
 ## Regras que nunca podem ser quebradas
@@ -54,8 +54,8 @@ Regras por projeto:
 
 ## Banco de dados
 
-- SGBD: PostgreSQL, uma única instância compartilhada entre serviços.
-- Cada serviço terá seu próprio banco lógico: `ouroboros_<servico>` (ex.: `auth-service` → `ouroboros_auth`), com role própria — isso isola os serviços entre si.
+- SGBD: SQL Server, uma única instância compartilhada entre serviços.
+- Cada serviço terá seu próprio banco lógico: `ouroboros_<servico>` (ex.: `auth-service` → `ouroboros_auth`), com login/usuário próprio — isso isola os serviços entre si.
 - Tabelas de negócio ficam no schema `<servico>` (ex.: `auth.users`).
 - Migrations são arquivos `.sql` escritos à mão, aplicadas com DbUp, nomeadas `V<AAAAMMDDHHMMSS>__Descricao.sql`, guardadas em `{Servico}.Infrastructure/Migrations/` (embutidas no assembly). Detalhes na skill `ouroboros-dba`.
 - Uso do Docker (comandos, como cada serviço ganha seu próprio banco) em `docs/project/0002 - Docker.md`.

@@ -14,7 +14,7 @@ Novo projeto de teste do `auth-service`. Referências: integration tests do ASP.
 
 Decisões:
 1. **Projeto `test/auth-service/Auth.Integration.Tests`**, com xUnit como os atuais, incluído na solution.
-2. **PostgreSQL real e descartável** via `Testcontainers.PostgreSql`, com a imagem `postgres:16-alpine`, a mesma do Compose. Um container por execução (collection fixture), com migrations aplicadas pelo `MigrationRunner`.
+2. **SQL Server real e descartável** via `Testcontainers.MsSql`, com a imagem `mcr.microsoft.com/mssql/server:2022-latest`, a mesma do Compose. Um container por execução (collection fixture), com migrations aplicadas pelo `MigrationRunner`.
 3. **API em memória** via `WebApplicationFactory<Program>` (`Microsoft.AspNetCore.Mvc.Testing`), com `public partial class Program` exposto. A configuração de teste injeta a connection string do container, uma chave de assinatura de teste e limites de rate limit ajustáveis (2026092501).
 4. **A connection string do teste precisa valer já no startup.** O `Program.cs` roda as migrations antes do `builder.Build()`. A configuração de teste é injetada com `UseSetting` para ser vista nesse ponto. Quando a 2026092511 tirar as migrations do startup, isso fica mais simples.
 5. **Isolamento.** O banco é zerado entre testes com `TRUNCATE ... RESTART IDENTITY CASCADE` das tabelas do schema `auth`, exceto o journal do DbUp. Os testes da mesma collection não rodam em paralelo.

@@ -82,7 +82,17 @@ public class {CasoDeUso}InteractorTests
 
 ## Specs
 
-Se a mudanca testada vier de uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md) (`specs/{ano}/{mes}/{codigo}-{Titulo}.md`), marque a caixa da sua tarefa (`**Tester** — ...`) nessa spec (`- [ ]` → `- [x]`) depois de escrever/validar o teste.
+Se a mudanca testada vier de uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md) (pasta `specs/{codigo}-{ServicoTag}-{Titulo}/`), registre as evidencias e marque a caixa da sua tarefa (`**Tester** — ...`) no `tasks.md` dela (`- [ ]` → `- [x]`) depois de escrever/validar o teste.
+
+### Evidencias
+
+Voce e o dono de `evidence/` dentro da pasta da spec. Preencha `evidence/README.md` com:
+
+- **Rastreabilidade:** uma tabela ligando cada criterio da `spec.md` (e cada tarefa sua) ao teste que o cobre (`Projeto.Tests/Arquivo.cs::NomeDoTeste`) e ao resultado (passou/falhou).
+- **Execucao:** o comando rodado (ex.: `dotnet test Ouroboros.slnx`), a data e o resumo (total/passou/falhou).
+- **Artefatos brutos**, quando agregarem valor, ao lado do README em `evidence/`: saida do `dotnet test` (`.txt` ou `.trx`), respostas HTTP de teste manual, prints. Cada arquivo novo em `evidence/` entra na pasta virtual `evidence/` da spec no `Ouroboros.slnx`. Nunca inclua segredos, tokens reais ou dados pessoais.
+
+Evidencia e o resultado de uma execucao real — nunca preencha com o que "deveria" passar. Se a sua for a ultima caixa a fechar, siga a regra de [arquivamento](../ouroboros-ba/SKILL.md#arquivamento).
 
 ## Depois de revisar
 

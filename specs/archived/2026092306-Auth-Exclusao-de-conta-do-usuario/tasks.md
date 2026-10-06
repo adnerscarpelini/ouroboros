@@ -1,0 +1,22 @@
+# 2026092306 - Exclusao de conta do usuario — Tarefas
+
+- [x] **Dev** — Adicionar `DeletedAt` à entidade `User` (incluir no `Rehydrate`) e o método de domínio `Delete()`: define `DeletedAt`, `Active = false` e `MarkAsUpdated`. Excluir uma conta já excluída lança `DomainException`
+- [x] **Dev** — Criar o caso de uso `DeleteUser` em `Auth.Application`. Recebe quem está excluindo (externalId e perfil, vindos do token), a senha dele e o externalId da conta alvo, e executa nesta ordem:
+  - Aplica a regra de permissão: o `User` só exclui a si mesmo; se não puder, lança `AccessDeniedException` antes de consultar o banco.
+  - Valida a senha de quem está excluindo.
+  - Busca a conta alvo; se não existir, lança `UserNotFoundException`.
+  - Bloqueia a exclusão do último Admin ativo.
+  - Exclui a conta e revoga os refresh tokens e os tokens pendentes.
+- [x] **Dev** — Criar o endpoint `DELETE /api/users/{externalId}` (`[Authorize]`) com body `{ password }`. Respostas: `204` em caso de sucesso, `401` com token inválido ou senha errada, `403` sem permissão, `404` quando a conta não existe, `400` para regra de domínio (inclusive a do último Admin). Adicionar log de auditoria
+- [x] **Dev** — Criar a política de rate limiting `user-delete` (5 a cada 15 min por IP) e aplicar no endpoint
+- [x] **Dev** — Garantir que login, refresh, recuperação de senha, consulta e cadastro tratem a conta excluída conforme a decisão 4 (o cadastro bloqueia o login e libera o e-mail)
+- [x] **Dev** — Atualizar a collection Postman com o novo request Delete User, usando Bearer token e senha no body
+- [x] **DBA** — Criar a migration com a coluna `deleted_at datetimeoffset` em `auth.users` e recriar `users_email_key` como índice único parcial (`WHERE deleted_at IS NULL`). `users_login_key` fica como está
+- [x] **DBA** — Ajustar o `DapperUserRepository` (persistir e ler `deleted_at`):
+  - As buscas por externalId, e-mail, login e login-ou-e-mail filtram `deleted_at IS NULL`.
+  - Criar uma checagem de login que inclui as contas excluídas, para o cadastro.
+  - Criar a contagem de Admins ativos.
+  - `RemoveAsync` nunca remove uma conta excluída.
+- [x] **DBA** — Adicionar ao `ITokenRepository` a invalidação dos tokens pendentes de um usuário (reaproveitar `RevokeAllActiveByUserAsync` para os refresh tokens)
+- [x] **Tester** — Cobrir: auto-exclusão com sucesso; senha errada; `User` excluindo outra conta → negado sem consultar o repositório; `Admin` excluindo outra conta (inclusive outro Admin); último Admin ativo bloqueado; conta inexistente ou já excluída → 404; tokens revogados; conta excluída tratada como inexistente no login, na recuperação de senha e na consulta; novo cadastro reaproveitando o e-mail da conta excluída; novo cadastro com login de conta excluída → erro; cadastro abandonado não remove conta excluída
+- [x] **Tech Writer** — Criar `docs/auth/0007 - Exclusao de Conta.md` com o fluxo, o contrato do endpoint, a regra de acesso, a reautenticação, o reaproveitamento de e-mail versus o bloqueio de login, o rate limiting e as limitações conhecidas. Atualizar `0001 - Confirmacao de Cadastro.md` (e-mail de conta excluída fica livre, login não) e `0006 - Consulta de Usuario.md` (conta excluída devolve 404)

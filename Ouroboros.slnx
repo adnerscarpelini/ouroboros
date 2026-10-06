@@ -28,41 +28,222 @@
     <File Path="docker/sqlserver/init/01-create-auth-db.sh" />
   </Folder>
 
-  <Folder Name="/specs/2026/">
-    <File Path="specs/2026/.gitkeep" />
+  <Folder Name="/specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/">
+    <File Path="specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/spec.md" />
+    <File Path="specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026/09/">
-    <File Path="specs/2026/09/2026092201-Auth-Confirmacao de cadastro por email.md" />
-    <File Path="specs/2026/09/2026092202-Auth-Parametros de configuracao de autenticacao.md" />
-    <File Path="specs/2026/09/2026092203-Auth-Login com JWT e Refresh Token.md" />
-    <File Path="specs/2026/09/2026092204-Auth-Refresh de token com rotacao.md" />
-    <File Path="specs/2026/09/2026092205-Auth-Logout e revogacao de tokens.md" />
-    <File Path="specs/2026/09/2026092301-Auth-Solicitacao de recuperacao de senha.md" />
-    <File Path="specs/2026/09/2026092302-Auth-Redefinicao de senha com token.md" />
-    <File Path="specs/2026/09/2026092303-Auth-Perfil de acesso do usuario.md" />
-    <File Path="specs/2026/09/2026092304-Auth-Consulta de usuario.md" />
-    <File Path="specs/2026/09/2026092305-Auth-Seguranca do cadastro de usuario.md" />
-    <File Path="specs/2026/09/2026092306-Auth-Exclusao de conta do usuario.md" />
-    <File Path="specs/2026/09/2026092501-Auth-Protecao contra tentativas de autenticacao.md" />
-    <File Path="specs/2026/09/2026092502-Auth-Consistencia do cadastro concorrente.md" />
-    <File Path="specs/2026/09/2026092503-Auth-Confirmacao atomica de cadastro.md" />
-    <File Path="specs/2026/09/2026092504-Auth-Redefinicao atomica de senha.md" />
-    <File Path="specs/2026/09/2026092505-Auth-Exclusao atomica de conta.md" />
-    <File Path="specs/2026/09/2026092506-Auth-Sessoes simultaneas e emissao atomica no login.md" />
-    <File Path="specs/2026/09/2026092507-Auth-Rotacao atomica e deteccao de reuso de refresh token.md" />
-    <File Path="specs/2026/09/2026092508-Auth-Politica de identidade de login e email.md" />
-    <File Path="specs/2026/09/2026092509-Auth-Politica e armazenamento de senhas.md" />
-    <File Path="specs/2026/09/2026092510-Auth-Autorizacao pelo perfil atual.md" />
-    <File Path="specs/2026/09/2026092511-Auth-Configuracao segura de producao.md" />
-    <File Path="specs/2026/09/2026092512-Auth-Testes de integracao da API e do banco.md" />
-    <File Path="specs/2026/09/2026092513-Auth-Integracao continua.md" />
-    <File Path="specs/2026/09/2026092514-Auth-Verificacoes de saude.md" />
-    <File Path="specs/2026/09/2026092515-Auth-Limpeza de tokens expirados.md" />
-    <File Path="specs/2026/09/2026092516-Auth-Unidade de trabalho transacional.md" />
-    <File Path="specs/2026/09/2026092517-Auth-Troca de senha autenticada.md" />
-    <File Path="specs/2026/09/2026092518-Auth-Assinatura assimetrica e JWKS.md" />
-    <File Path="specs/2026/09/2026092519-Auth-Auditoria de eventos de seguranca.md" />
-    <File Path="specs/2026/09/2026092520-Auth-Gestao de perfil de acesso.md" />
+  <Folder Name="/specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/evidence/">
+    <File Path="specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092504-Auth-Redefinicao-atomica-de-senha/">
+    <File Path="specs/2026092504-Auth-Redefinicao-atomica-de-senha/spec.md" />
+    <File Path="specs/2026092504-Auth-Redefinicao-atomica-de-senha/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092504-Auth-Redefinicao-atomica-de-senha/evidence/">
+    <File Path="specs/2026092504-Auth-Redefinicao-atomica-de-senha/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092505-Auth-Exclusao-atomica-de-conta/">
+    <File Path="specs/2026092505-Auth-Exclusao-atomica-de-conta/spec.md" />
+    <File Path="specs/2026092505-Auth-Exclusao-atomica-de-conta/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092505-Auth-Exclusao-atomica-de-conta/evidence/">
+    <File Path="specs/2026092505-Auth-Exclusao-atomica-de-conta/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/">
+    <File Path="specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/spec.md" />
+    <File Path="specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/evidence/">
+    <File Path="specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/">
+    <File Path="specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/spec.md" />
+    <File Path="specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/evidence/">
+    <File Path="specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/">
+    <File Path="specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/spec.md" />
+    <File Path="specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/">
+    <File Path="specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/">
+    <File Path="specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/spec.md" />
+    <File Path="specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/">
+    <File Path="specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092511-Auth-Configuracao-segura-de-producao/">
+    <File Path="specs/2026092511-Auth-Configuracao-segura-de-producao/spec.md" />
+    <File Path="specs/2026092511-Auth-Configuracao-segura-de-producao/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092511-Auth-Configuracao-segura-de-producao/evidence/">
+    <File Path="specs/2026092511-Auth-Configuracao-segura-de-producao/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/">
+    <File Path="specs/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/spec.md" />
+    <File Path="specs/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/evidence/">
+    <File Path="specs/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092513-Auth-Integracao-continua/">
+    <File Path="specs/2026092513-Auth-Integracao-continua/spec.md" />
+    <File Path="specs/2026092513-Auth-Integracao-continua/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092513-Auth-Integracao-continua/evidence/">
+    <File Path="specs/2026092513-Auth-Integracao-continua/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092514-Auth-Verificacoes-de-saude/">
+    <File Path="specs/2026092514-Auth-Verificacoes-de-saude/spec.md" />
+    <File Path="specs/2026092514-Auth-Verificacoes-de-saude/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092514-Auth-Verificacoes-de-saude/evidence/">
+    <File Path="specs/2026092514-Auth-Verificacoes-de-saude/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092515-Auth-Limpeza-de-tokens-expirados/">
+    <File Path="specs/2026092515-Auth-Limpeza-de-tokens-expirados/spec.md" />
+    <File Path="specs/2026092515-Auth-Limpeza-de-tokens-expirados/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/">
+    <File Path="specs/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092516-Auth-Unidade-de-trabalho-transacional/">
+    <File Path="specs/2026092516-Auth-Unidade-de-trabalho-transacional/spec.md" />
+    <File Path="specs/2026092516-Auth-Unidade-de-trabalho-transacional/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/">
+    <File Path="specs/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092517-Auth-Troca-de-senha-autenticada/">
+    <File Path="specs/2026092517-Auth-Troca-de-senha-autenticada/spec.md" />
+    <File Path="specs/2026092517-Auth-Troca-de-senha-autenticada/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092517-Auth-Troca-de-senha-autenticada/evidence/">
+    <File Path="specs/2026092517-Auth-Troca-de-senha-autenticada/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/">
+    <File Path="specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/spec.md" />
+    <File Path="specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/">
+    <File Path="specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/">
+    <File Path="specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/spec.md" />
+    <File Path="specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/evidence/">
+    <File Path="specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026092520-Auth-Gestao-de-perfil-de-acesso/">
+    <File Path="specs/2026092520-Auth-Gestao-de-perfil-de-acesso/spec.md" />
+    <File Path="specs/2026092520-Auth-Gestao-de-perfil-de-acesso/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026092520-Auth-Gestao-de-perfil-de-acesso/evidence/">
+    <File Path="specs/2026092520-Auth-Gestao-de-perfil-de-acesso/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092201-Auth-Confirmacao-de-cadastro-por-email/">
+    <File Path="specs/archived/2026092201-Auth-Confirmacao-de-cadastro-por-email/spec.md" />
+    <File Path="specs/archived/2026092201-Auth-Confirmacao-de-cadastro-por-email/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092201-Auth-Confirmacao-de-cadastro-por-email/evidence/">
+    <File Path="specs/archived/2026092201-Auth-Confirmacao-de-cadastro-por-email/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092202-Auth-Parametros-de-configuracao-de-autenticacao/">
+    <File Path="specs/archived/2026092202-Auth-Parametros-de-configuracao-de-autenticacao/spec.md" />
+    <File Path="specs/archived/2026092202-Auth-Parametros-de-configuracao-de-autenticacao/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092202-Auth-Parametros-de-configuracao-de-autenticacao/evidence/">
+    <File Path="specs/archived/2026092202-Auth-Parametros-de-configuracao-de-autenticacao/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092203-Auth-Login-com-JWT-e-Refresh-Token/">
+    <File Path="specs/archived/2026092203-Auth-Login-com-JWT-e-Refresh-Token/spec.md" />
+    <File Path="specs/archived/2026092203-Auth-Login-com-JWT-e-Refresh-Token/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092203-Auth-Login-com-JWT-e-Refresh-Token/evidence/">
+    <File Path="specs/archived/2026092203-Auth-Login-com-JWT-e-Refresh-Token/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092204-Auth-Refresh-de-token-com-rotacao/">
+    <File Path="specs/archived/2026092204-Auth-Refresh-de-token-com-rotacao/spec.md" />
+    <File Path="specs/archived/2026092204-Auth-Refresh-de-token-com-rotacao/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092204-Auth-Refresh-de-token-com-rotacao/evidence/">
+    <File Path="specs/archived/2026092204-Auth-Refresh-de-token-com-rotacao/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092205-Auth-Logout-e-revogacao-de-tokens/">
+    <File Path="specs/archived/2026092205-Auth-Logout-e-revogacao-de-tokens/spec.md" />
+    <File Path="specs/archived/2026092205-Auth-Logout-e-revogacao-de-tokens/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092205-Auth-Logout-e-revogacao-de-tokens/evidence/">
+    <File Path="specs/archived/2026092205-Auth-Logout-e-revogacao-de-tokens/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092301-Auth-Solicitacao-de-recuperacao-de-senha/">
+    <File Path="specs/archived/2026092301-Auth-Solicitacao-de-recuperacao-de-senha/spec.md" />
+    <File Path="specs/archived/2026092301-Auth-Solicitacao-de-recuperacao-de-senha/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092301-Auth-Solicitacao-de-recuperacao-de-senha/evidence/">
+    <File Path="specs/archived/2026092301-Auth-Solicitacao-de-recuperacao-de-senha/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092302-Auth-Redefinicao-de-senha-com-token/">
+    <File Path="specs/archived/2026092302-Auth-Redefinicao-de-senha-com-token/spec.md" />
+    <File Path="specs/archived/2026092302-Auth-Redefinicao-de-senha-com-token/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092302-Auth-Redefinicao-de-senha-com-token/evidence/">
+    <File Path="specs/archived/2026092302-Auth-Redefinicao-de-senha-com-token/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092303-Auth-Perfil-de-acesso-do-usuario/">
+    <File Path="specs/archived/2026092303-Auth-Perfil-de-acesso-do-usuario/spec.md" />
+    <File Path="specs/archived/2026092303-Auth-Perfil-de-acesso-do-usuario/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092303-Auth-Perfil-de-acesso-do-usuario/evidence/">
+    <File Path="specs/archived/2026092303-Auth-Perfil-de-acesso-do-usuario/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092304-Auth-Consulta-de-usuario/">
+    <File Path="specs/archived/2026092304-Auth-Consulta-de-usuario/spec.md" />
+    <File Path="specs/archived/2026092304-Auth-Consulta-de-usuario/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092304-Auth-Consulta-de-usuario/evidence/">
+    <File Path="specs/archived/2026092304-Auth-Consulta-de-usuario/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092305-Auth-Seguranca-do-cadastro-de-usuario/">
+    <File Path="specs/archived/2026092305-Auth-Seguranca-do-cadastro-de-usuario/spec.md" />
+    <File Path="specs/archived/2026092305-Auth-Seguranca-do-cadastro-de-usuario/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092305-Auth-Seguranca-do-cadastro-de-usuario/evidence/">
+    <File Path="specs/archived/2026092305-Auth-Seguranca-do-cadastro-de-usuario/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092306-Auth-Exclusao-de-conta-do-usuario/">
+    <File Path="specs/archived/2026092306-Auth-Exclusao-de-conta-do-usuario/spec.md" />
+    <File Path="specs/archived/2026092306-Auth-Exclusao-de-conta-do-usuario/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092306-Auth-Exclusao-de-conta-do-usuario/evidence/">
+    <File Path="specs/archived/2026092306-Auth-Exclusao-de-conta-do-usuario/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092501-Auth-Protecao-contra-tentativas-de-autenticacao/">
+    <File Path="specs/archived/2026092501-Auth-Protecao-contra-tentativas-de-autenticacao/spec.md" />
+    <File Path="specs/archived/2026092501-Auth-Protecao-contra-tentativas-de-autenticacao/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092501-Auth-Protecao-contra-tentativas-de-autenticacao/evidence/">
+    <File Path="specs/archived/2026092501-Auth-Protecao-contra-tentativas-de-autenticacao/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092502-Auth-Consistencia-do-cadastro-concorrente/">
+    <File Path="specs/archived/2026092502-Auth-Consistencia-do-cadastro-concorrente/spec.md" />
+    <File Path="specs/archived/2026092502-Auth-Consistencia-do-cadastro-concorrente/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092502-Auth-Consistencia-do-cadastro-concorrente/evidence/">
+    <File Path="specs/archived/2026092502-Auth-Consistencia-do-cadastro-concorrente/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092508-Auth-Politica-de-identidade-de-login-e-email/">
+    <File Path="specs/archived/2026092508-Auth-Politica-de-identidade-de-login-e-email/spec.md" />
+    <File Path="specs/archived/2026092508-Auth-Politica-de-identidade-de-login-e-email/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/archived/2026092508-Auth-Politica-de-identidade-de-login-e-email/evidence/">
+    <File Path="specs/archived/2026092508-Auth-Politica-de-identidade-de-login-e-email/evidence/README.md" />
   </Folder>
 
   <Folder Name="/auth-service/">

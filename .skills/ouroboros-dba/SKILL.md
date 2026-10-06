@@ -231,7 +231,7 @@ Diferencas que ja morderam este projeto — consulte antes de escrever SQL novo:
 
 ## Specs
 
-Trabalho de persistencia normalmente vem de uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md), salva em `specs/{ano}/{mes}/{codigo}-{Titulo}.md`. Ao concluir uma tarefa sua listada la (`**DBA** — ...`), marque a caixa correspondente (`- [ ]` → `- [x]`) direto no arquivo da spec.
+Trabalho de persistencia normalmente vem de uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md), salva como pasta em `specs/{codigo}-{ServicoTag}-{Titulo}/`. Ao concluir uma tarefa sua listada la (`**DBA** — ...`), marque a caixa correspondente (`- [ ]` → `- [x]`) direto no `tasks.md` da spec. Se a sua for a ultima caixa, siga a regra de [arquivamento](../ouroboros-ba/SKILL.md#arquivamento).
 
 ## Evolucao
 

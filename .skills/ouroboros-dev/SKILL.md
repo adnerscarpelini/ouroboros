@@ -13,10 +13,11 @@ O objetivo do projeto e aprender a regra de dependencia de Robert C. Martin na p
 
 ## Specs (ponto de partida do trabalho)
 
-Toda funcionalidade nova ou mudanca de comportamento normalmente comeca como uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md), salva em `specs/{ano}/{mes}/{codigo}-{Titulo}.md`. Quando houver uma spec associada a tarefa:
+Toda funcionalidade nova ou mudanca de comportamento normalmente comeca como uma spec aprovada pela [ouroboros-ba](../ouroboros-ba/SKILL.md), salva como pasta em `specs/{codigo}-{ServicoTag}-{Titulo}/` (ou em `specs/archived/` se ja concluida), com `spec.md`, `tasks.md` e `evidence/`. Quando houver uma spec associada a tarefa:
 
-- Trabalhe a partir da secao "Tarefas" da spec — nao invente escopo alem do que foi aprovado ali.
-- Conforme cada tarefa sua (`**Dev** — ...`) for concluida, marque a caixa correspondente (`- [ ]` → `- [x]`) direto no arquivo da spec.
+- Trabalhe a partir do `tasks.md` da spec — nao invente escopo alem do que foi aprovado ali.
+- Conforme cada tarefa sua (`**Dev** — ...`) for concluida, marque a caixa correspondente (`- [ ]` → `- [x]`) direto no `tasks.md` da spec.
+- Se a sua for a ultima caixa a ser marcada, siga a regra de [arquivamento](../ouroboros-ba/SKILL.md#arquivamento): confira o `evidence/README.md` preenchido, mova a pasta para `specs/archived/` com `git mv` e atualize os caminhos no `Ouroboros.slnx`.
 - Ao sugerir a mensagem de commit (ver "Controle de versao" abaixo), inicie com o codigo da spec.
 
 Se o pedido chegar direto (sem passar pela `ouroboros-ba`) e envolver mudanca de codigo de negocio relevante, pergunte ao usuario se quer que a `ouroboros-ba` analise e crie a spec primeiro, antes de implementar — mudancas triviais (typo, ajuste de configuracao pontual) nao precisam disso.
@@ -108,7 +109,7 @@ Tudo que for criado no monorepo — projeto novo, arquivo solto na raiz ou arqui
 
 - **Todo `.csproj` novo** entra na solution assim que e criado, com `dotnet sln Ouroboros.slnx add <caminho>/<Projeto>.csproj` (isso ja aparece no checklist de novo microsservico abaixo — a regra aqui e generica, vale pra qualquer projeto novo, nao so na criacao de um microsservico inteiro).
 - **Todo arquivo solto na raiz do monorepo** que nao pertenca a um projeto (`README.md`, `docker-compose.yml`, `.env.example`, `.gitignore`, imagens, etc.) entra na pasta virtual `Solution Items` — a mesma pasta que o Visual Studio cria quando voce arrasta um arquivo pro no da solution no Solution Explorer.
-- **Toda pasta que nao e um projeto mas guarda arquivos versionados** (ex.: `docs/`, com a documentacao escrita pela `ouroboros-tech-writer`) ganha sua propria pasta virtual no `.slnx`, com o mesmo nome da pasta fisica, listando os arquivos que ela contem. Isso mantem o Solution Explorer espelhando a estrutura real do repositorio em vez de empilhar tudo dentro de `Solution Items`.
+- **Toda pasta que nao e um projeto mas guarda arquivos versionados** (ex.: `docs/`, com a documentacao escrita pela `ouroboros-tech-writer`; as pastas de `specs/` seguem o formato descrito na [ouroboros-ba](../ouroboros-ba/SKILL.md#vinculacao-a-solution), e os caminhos mudam no arquivamento) ganha sua propria pasta virtual no `.slnx`, com o mesmo nome da pasta fisica, listando os arquivos que ela contem. Isso mantem o Solution Explorer espelhando a estrutura real do repositorio em vez de empilhar tudo dentro de `Solution Items`.
 - Como o `.slnx` e XML puro, essas edicoes sao diretas no arquivo (nao precisa abrir o VS pra isso):
 
   ```xml

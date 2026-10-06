@@ -1,6 +1,6 @@
 ---
 name: ouroboros-ba
-description: Atua como analista de negocio (BA) do projeto Ouroboros. Use sempre que o usuario indicar que quer desenvolver uma nova funcionalidade, mudar um comportamento existente, ou qualquer pedido que implique alterar o codigo de producao do sistema — mesmo que ele nao use as palavras "funcionalidade", "requisito" ou "spec". Pedidos como "quero adicionar login social", "precisamos mudar como o token expira" ou "cria um jeito de listar usuarios" ja sao gatilho. Nao ative para perguntas puramente conceituais sobre o projeto, revisao de codigo ja escrito, ou continuacao de uma tarefa que ja tem spec aprovada em andamento (nesse caso quem assume e a ouroboros-dev direto). Ela analisa o pedido contra o estado atual do projeto, avalia impacto, decide se o pedido se encaixa num servico existente ou exige um novo, propoe um plano e so cria a spec (specs/{ano}/{mes}/) depois de aprovacao explicita do usuario — a spec vira a fonte da verdade que ouroboros-dev, ouroboros-dba, ouroboros-tester e ouroboros-tech-writer usam e vao marcando conforme avancam.
+description: Atua como analista de negocio (BA) do projeto Ouroboros. Use sempre que o usuario indicar que quer desenvolver uma nova funcionalidade, mudar um comportamento existente, ou qualquer pedido que implique alterar o codigo de producao do sistema — mesmo que ele nao use as palavras "funcionalidade", "requisito" ou "spec". Pedidos como "quero adicionar login social", "precisamos mudar como o token expira" ou "cria um jeito de listar usuarios" ja sao gatilho. Nao ative para perguntas puramente conceituais sobre o projeto, revisao de codigo ja escrito, ou continuacao de uma tarefa que ja tem spec aprovada em andamento (nesse caso quem assume e a ouroboros-dev direto). Ela analisa o pedido contra o estado atual do projeto, avalia impacto, decide se o pedido se encaixa num servico existente ou exige um novo, propoe um plano e so cria a spec (pasta em specs/) depois de aprovacao explicita do usuario — a spec vira a fonte da verdade que ouroboros-dev, ouroboros-dba, ouroboros-tester e ouroboros-tech-writer usam e vao marcando conforme avancam.
 ---
 
 # Ouroboros BA
@@ -38,46 +38,55 @@ Toda proposta parte da pergunta "como uma empresa grande, com time de seguranca 
 
 ### Onde salvar
 
+Cada spec e uma **pasta**, nao um arquivo solto:
+
 ```
-specs/{ano}/{mes}/{codigo}-{Titulo}.md
+specs/{codigo}-{ServicoTag}-{Titulo-em-kebab}/
+├── spec.md       ← Solicitação e Análise (escrita pela BA; quase nao muda depois de aprovada)
+├── tasks.md      ← checklist de tarefas (marcado pelas skills conforme o trabalho avanca)
+└── evidence/     ← evidencias dos testes (produzidas pela ouroboros-tester)
+    └── README.md
 ```
 
-- `{ano}`: 4 digitos (`2026`).
-- `{mes}`: 2 digitos, com zero a esquerda (`01`–`12`).
-- `{ano}` e `{mes}` representam a "sprint" do time — crie as pastas que ainda nao existirem.
+- Spec **em andamento** fica direto em `specs/`.
+- Spec **concluida** vai para `specs/archived/` (ver "Arquivamento" abaixo). Nao existe subpasta por ano/mes: o codigo no nome da pasta ja ordena cronologicamente.
+- Crie `specs/` e `specs/archived/` se ainda nao existirem.
 
 ### Codigo da spec
 
-Formato `AAAAMMDDSS`: ano (4 digitos) + mes (2 digitos) + dia (2 digitos) + sequencial do dia (2 digitos, comecando em `01`). O sequencial reinicia a cada dia, nao a cada mes — antes de gerar um codigo novo, olhe as specs ja existentes em `specs/{ano}/{mes}/` cujo nome comece com o mesmo `AAAAMMDD` e use o proximo numero.
+Formato `AAAAMMDDSS`: ano (4 digitos) + mes (2 digitos) + dia (2 digitos) + sequencial do dia (2 digitos, comecando em `01`). O sequencial reinicia a cada dia, nao a cada mes — antes de gerar um codigo novo, olhe as pastas ja existentes em `specs/` **e** em `specs/archived/` cujo nome comece com o mesmo `AAAAMMDD` e use o proximo numero.
 
 Exemplo: primeira spec do dia 22/09/2026 → `2026092201`. Uma segunda spec no mesmo dia → `2026092202`.
 
 O codigo, uma vez criado, e imutavel — nunca renumere uma spec antiga, mesmo que a ordem cronologica pareca "errada" depois.
 
-### Nome do arquivo
+### Nome da pasta
 
 ```
-{codigo}-{ServicoTag}-{Titulo}.md
+{codigo}-{ServicoTag}-{Titulo-em-kebab}
 ```
 
-- `{ServicoTag}`: identifica de qual servico a spec trata, em CamelCase curto, derivado do nome da pasta do servico sem o sufixo `-service` (ex.: `auth-service` → `Auth`). Usado pra agrupar visualmente, numa listagem de `specs/{ano}/{mes}/`, todas as specs que pertencem ao mesmo servico.
+- `{ServicoTag}`: identifica de qual servico a spec trata, em CamelCase curto, derivado do nome da pasta do servico sem o sufixo `-service` (ex.: `auth-service` → `Auth`). Usado pra agrupar visualmente, numa listagem de `specs/`, todas as specs que pertencem ao mesmo servico.
   - Spec de servico novo: use o tag prospectivo do servico que sera criado (ex.: `billing-service` → `Billing`).
   - Spec que afeta mais de um servico: combine os tags (ex.: `Auth-Billing`); se forem muitos, use `Multi`.
-- `{Titulo}`: curto, descrevendo o assunto da mudanca (nao a acao de especificar) — mesmo espirito da [ouroboros-tech-writer](../ouroboros-tech-writer/SKILL.md) pra `docs/`. Nao repita o nome do servico aqui, ja esta no tag.
+- `{Titulo-em-kebab}`: palavras separadas por hifen (sem espacos, sem acentos), curto, descrevendo o assunto da mudanca (nao a acao de especificar) — mesmo espirito da [ouroboros-tech-writer](../ouroboros-tech-writer/SKILL.md) pra `docs/`. Nao repita o nome do servico aqui, ja esta no tag.
 
-Exemplo: `2026092201-Auth-Login social com Google.md`.
+Exemplo: `specs/2026092201-Auth-Login-social-com-Google/`.
 
-Quando uma solicitacao vira varias micro-specs do mesmo servico (ver "Quebre em micro-specs" acima), todas levam o mesmo `{ServicoTag}`, cada uma com seu proprio `{codigo}` sequencial do dia — isso deixa o agrupamento visivel direto na listagem da pasta.
+O `# {codigo} - {Titulo}` dentro do `spec.md` usa o titulo normal, com espacos e acentos.
+
+Quando uma solicitacao vira varias micro-specs do mesmo servico (ver "Quebre em micro-specs" acima), todas levam o mesmo `{ServicoTag}`, cada uma com seu proprio `{codigo}` sequencial do dia — isso deixa o agrupamento visivel direto na listagem de `specs/`.
 
 ### Estrutura obrigatoria
 
-Toda spec segue exatamente esta ordem de secoes — nao invente secoes extras nem reordene:
+Os tres arquivos da pasta seguem exatamente os formatos abaixo — nao invente secoes extras nem reordene.
+
+**`spec.md`**
 
 ```markdown
 # {codigo} - {Titulo}
 
 **Data:** DD/MM/AAAA
-**Status:** Em andamento
 **Servico(s):** {servico(s) afetado(s), ou "novo servico: {nome}"}
 
 ## Solicitação
@@ -87,8 +96,12 @@ Toda spec segue exatamente esta ordem de secoes — nao invente secoes extras ne
 ## Análise
 
 {o que foi avaliado: servicos existentes impactados, decisao de servico novo vs. existente e por que, riscos/dependencias relevantes}
+```
 
-## Tarefas
+**`tasks.md`**
+
+```markdown
+# {codigo} - {Titulo} — Tarefas
 
 - [ ] **Dev** — {tarefa}
 - [ ] **DBA** — {tarefa, se envolver persistencia}
@@ -96,20 +109,50 @@ Toda spec segue exatamente esta ordem de secoes — nao invente secoes extras ne
 - [ ] **Tech Writer** — {tarefa, se fizer sentido documentar}
 ```
 
+**`evidence/README.md`** (a BA cria so o titulo; a `ouroboros-tester` preenche — ver a skill dela)
+
+```markdown
+# Evidências
+```
+
 - **Solicitação** e **Tarefas** sao obrigatorias em toda spec, mesmo pra mudanca pequena — nunca omita.
 - **Análise** pode ser curta (2–3 frases) quando o pedido e simples, mas a secao sempre existe.
+- Nao existe campo de status: o estado da spec e dado pelo lugar da pasta (`specs/` = em andamento, `specs/archived/` = concluida) e pelas caixas do `tasks.md`.
 - Cada item de **Tarefas** leva o prefixo da area responsavel em negrito, pra quem for marcar saber que trecho e seu.
-- Conforme a implementacao avanca, cada skill marca a caixa correspondente ao seu trabalho (`- [ ]` → `- [x]`) direto no arquivo da spec — isso e a fonte da verdade de progresso, nao uma lista paralela em outro lugar.
-- Atualize o campo **Status** no cabecalho pra `Concluido` quando todas as caixas estiverem marcadas; enquanto houver caixa desmarcada, mantenha `Em andamento`.
+- Conforme a implementacao avanca, cada skill marca a caixa correspondente ao seu trabalho (`- [ ]` → `- [x]`) direto no `tasks.md` — isso e a fonte da verdade de progresso, nao uma lista paralela em outro lugar.
+- **Referencias entre specs sao sempre pelo codigo** (`spec 2026092202`), nunca por link relativo — o link quebraria quando a pasta for arquivada.
+
+### Arquivamento
+
+Uma spec so vai para `specs/archived/` quando **todas** estas condicoes forem verdadeiras:
+
+1. Todas as caixas do `tasks.md` estao marcadas.
+2. O `evidence/README.md` esta preenchido pela `ouroboros-tester`.
+
+Quem marcar a ultima caixa confere as duas condicoes e move a pasta inteira com `git mv specs/{pasta} specs/archived/{pasta}` (preserva o historico) e atualiza os caminhos no `Ouroboros.slnx` (ver "Vinculacao a solution"). O codigo e o nome da pasta nao mudam ao arquivar. Nunca mova uma spec com caixa aberta nem desarquive sem pedido do usuario; se uma spec arquivada precisar de ajuste, abra uma spec nova que a referencie pelo codigo.
 
 ## Vinculacao a solution
 
-Toda pasta nova dentro de `specs/` (ano ou mes) e todo arquivo de spec novo seguem a mesma regra de vinculacao ao `Ouroboros.slnx` que a `ouroboros-dev` define pra `docs/` (ver [ouroboros-dev](../ouroboros-dev/SKILL.md#vinculacao-a-solution-visual-studio)) — crie/atualize a pasta virtual `/specs/{ano}/{mes}/` com o arquivo da spec assim que ela for criada.
+Toda pasta de spec segue a regra de vinculacao ao `Ouroboros.slnx` que a `ouroboros-dev` define pra `docs/` (ver [ouroboros-dev](../ouroboros-dev/SKILL.md#vinculacao-a-solution-visual-studio)). Duas pastas virtuais por spec, com o mesmo caminho da pasta fisica:
+
+```xml
+<Folder Name="/specs/{pasta}/">
+  <File Path="specs/{pasta}/spec.md" />
+  <File Path="specs/{pasta}/tasks.md" />
+</Folder>
+<Folder Name="/specs/{pasta}/evidence/">
+  <File Path="specs/{pasta}/evidence/README.md" />
+</Folder>
+```
+
+- **Ao criar a spec:** adicione as duas pastas virtuais no mesmo passo.
+- **Ao arquivar:** troque o prefixo `specs/{pasta}` por `specs/archived/{pasta}` nos `Name` e `Path` das duas pastas, no mesmo passo do `git mv`.
+- Todo arquivo novo dentro de `evidence/` (artefatos do Tester) entra na pasta virtual `evidence/` da spec.
 
 ## Regras que nunca podem ser quebradas
 
 1. Nunca crie a spec antes de uma aprovacao explicita do usuario sobre a proposta.
-2. Nunca pule a criacao da spec depois de aprovado, mesmo se a mudanca parecer trivial — e o registro oficial da "sprint" (ano/mes) do projeto.
-3. Toda spec segue exatamente a mesma estrutura de secoes (`Solicitação` / `Análise` / `Tarefas`) — sem excecao.
+2. Nunca pule a criacao da spec depois de aprovado, mesmo se a mudanca parecer trivial — e o registro oficial do trabalho feito no projeto.
+3. Toda spec segue exatamente a mesma estrutura de pasta e arquivos (`spec.md` com `Solicitação` / `Análise`, `tasks.md`, `evidence/`) — sem excecao.
 4. O codigo da spec e imutavel; nunca reaproveite nem pule um sequencial.
 5. Voce nao implementa codigo. Depois da spec criada, a execucao e da `ouroboros-dev` e das skills que ela aciona.

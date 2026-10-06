@@ -23,12 +23,12 @@ Decisões:
    3. testes unitários;
    4. testes de integração (2026092512; os runners `ubuntu-latest` têm Docker);
    5. resultados `.trx` publicados como artefato.
-4. **Warnings como erro** (`-warnaserror`). O Dev zera os warnings atuais antes de ligar.
-5. **Formatação:** um `.editorconfig` com o estilo já usado no código e `dotnet format --verify-no-changes`.
+4. **Warnings como erro** (`-warnaserror`). O build atual já está sem warnings.
+5. **Descartado: `.editorconfig` com `dotnet format --verify-no-changes`.** Reformatar o código existente e barrar o pipeline por estilo gera ruído sem proteger nada. Se o time crescer, volta em spec própria.
 6. **Dependências:**
    - `dotnet list package --vulnerable --include-transitive` falha o pipeline se encontrar vulnerabilidade;
    - Dependabot semanal para `nuget`, `github-actions` e `docker`.
-7. **Imagem:** o `publish-image` roda um scan da imagem com Trivy antes do push e falha em vulnerabilidade `CRITICAL` ou `HIGH` que tenha correção.
+7. **Descartado: scan da imagem com Trivy bloqueando o pipeline.** Ele falharia por CVE da imagem base sem relação com a mudança. Pode voltar como relatório sem bloqueio, em spec própria.
 8. **Segurança do pipeline:**
    - `permissions: contents: read` no nível do workflow, e `packages: write` só no job de publicação;
    - actions de terceiros fixadas por SHA;

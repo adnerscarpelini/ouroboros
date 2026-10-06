@@ -9,12 +9,14 @@ Na validação de maturidade do auth-service, a configuração apareceu pensada 
 
 ## Análise
 
+**Escopo reduzido na revisão de 06/10/2026.** Ficou só o que dá para implementar e testar localmente. O compose de produção, os Docker secrets, o TLS no proxy, a autenticação do Seq e o `AllowedHosts` ficam adiados (decisões 1, 2, 3, 9 e 10): não existe ambiente de destino, nada disso se testa aqui, e a decisão 5 já diz que o serviço não funciona fora de dev sem o envio de e-mail. Voltam em spec própria quando houver para onde implantar.
+
 Extensão do `auth-service` e da infraestrutura do monorepo. Referências: guias do ASP.NET Core para hospedagem atrás de proxy e para configuração key-per-file, imagens .NET sem root (`APP_UID`) e o princípio do menor privilégio no SQL Server.
 
 Decisões:
-1. **Dois perfis.** O `docker-compose.yml` continua sendo o de desenvolvimento. Produção usa o override `docker-compose.prod.yml` com `appsettings.Production.json` e `ASPNETCORE_ENVIRONMENT=Production`.
-2. **TLS no proxy de borda**, com HSTS lá. O Kestrel fica só em HTTP na rede interna, sem porta publicada no host em produção. O IP do proxy vai em `ForwardedHeaders:KnownProxies` (2026092501).
-3. **Segredos.** Connection string e chave de assinatura (2026092518) chegam por Docker secrets, lidos com o provider key-per-file (`AddKeyPerFile("/run/secrets")`). Nunca ficam na imagem, num `.env` de produção ou no repositório. Em nuvem, basta trocar pelo cofre do provedor (Key Vault ou Secrets Manager), sem mudar código.
+1. **Adiada: dois perfis (compose de produção).** `docker-compose.yml` continua sendo o de desenvolvimento. O `docker-compose.prod.yml` e o `appsettings.Production.json` voltam quando existir um ambiente de destino.
+2. **Adiada: TLS no proxy de borda.** Sem proxy nem ambiente de produção, não há o que configurar nem testar.
+3. **Adiada: segredos por Docker secrets (`AddKeyPerFile`).** Dependem do compose de produção. Em dev, a configuração segue por variáveis de ambiente do Compose. A 2026092518 lê o PEM por caminho de arquivo configurável, sem depender disto.
 4. **Swagger só em Development**, como já é hoje. Um teste garante isso.
 5. **Tokens no log, solução provisória.** Enquanto não houver envio de e-mail, os tokens de confirmação e de reset só são logados quando o ambiente é `Development`. Em qualquer outro ambiente, nada é logado.
    - Consequência assumida: fora de dev, cadastro e reset não funcionam até existir envio de e-mail.
@@ -29,6 +31,6 @@ Decisões:
    - `auth_migrator` é dono do schema e faz DDL (`db_owner` no banco do serviço). Só o `migrate` usa esse papel.
    - `auth_service` só tem DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`), via `GRANT` no schema `auth`, que vale também para as tabelas futuras. As colunas `IDENTITY` não exigem permissão extra.
 
-   Isso é a base da tabela de auditoria só de inserção (2026092519). Os bancos de dev já existentes precisam de transferência de ownership (`ALTER AUTHORIZATION`, script documentado) ou de recriação do volume.
-9. **Seq em produção:** sem porta publicada, ingestão com API key (`Seq:ApiKey`) e UI com autenticação.
-10. **`AllowedHosts`** restrito ao domínio público em produção.
+   Isso é a base da tabela de auditoria só de inserção (2026092519). Os bancos de dev já existentes são descartáveis: a doc manda recriar o volume (`docker compose down -v`). Não haverá script de transferência de ownership.
+9. **Adiada: Seq em produção** (sem porta publicada, API key e UI autenticada). Depende do compose de produção.
+10. **Adiada: `AllowedHosts` restrito ao domínio público.** Depende de um domínio e de um ambiente de produção.

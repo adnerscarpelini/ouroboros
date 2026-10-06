@@ -1,7 +1,7 @@
 # 2026092513 - Integracao continua — Tarefas
 
-- [ ] **Dev** — Criar `global.json`, `.editorconfig` com o estilo atual e zerar os warnings do build
-- [ ] **Dev** — Criar `.github/workflows/ci.yml` com os jobs `build-test` e `publish-image` (`needs`, só em push na `master`, scan com Trivy antes do push), com permissões mínimas por job e actions fixadas por SHA; remover `docker-auth.yml`
+- [ ] **Dev** — Criar `global.json` e ligar `-warnaserror` (o build atual já está sem warnings)
+- [ ] **Dev** — Criar `.github/workflows/ci.yml` com os jobs `build-test` e `publish-image` (`needs`, só em push na `master`), com permissões mínimas por job e actions fixadas por SHA; remover `docker-auth.yml`
 - [ ] **Dev** — Criar `.github/dependabot.yml` (nuget, github-actions e docker, semanal)
 - [ ] **Tester** — Incluir unitários e integração no job, com os `.trx` publicados como artefato; confirmar que um teste falhando impede a publicação
 - [ ] **Tech Writer** — Criar doc em `docs/project/` sobre o pipeline: etapas, como reproduzir localmente, publicação da imagem e o passo manual de branch protection

@@ -9,7 +9,7 @@ Na validação de maturidade do auth-service, o ponto de arquitetura mais releva
 
 ## Análise
 
-Extensão do `auth-service`. Depende de 2026092511 (segredos via key-per-file). Referências:
+Extensão do `auth-service`. O PEM é lido por caminho de arquivo configurável. Os Docker secrets de produção (2026092511) estão adiados e não são pré-requisito. Referências:
 - RFC 7517 (JWK) e RFC 7518 (JWA);
 - OpenID Connect Discovery (`/.well-known/openid-configuration`);
 - o modelo de Entra ID, Keycloak e Auth0, em que os consumidores configuram só a `Authority`.
@@ -22,15 +22,15 @@ Decisões:
    - `GET /.well-known/openid-configuration` devolve um documento mínimo de descoberta, com `issuer` e `jwks_uri`, o suficiente para o `JwtBearer` dos consumidores funcionar só com `Authority`. O auth-service **não** é um provedor OpenID Connect completo (não tem authorization endpoint nem id_token), e a doc diz isso;
    - `Cache-Control: public, max-age=3600` nos dois, sem política de rate limit própria, porque são leves e cacheáveis.
 4. **`issuer` vira a URL pública base do auth-service** (em dev, `http://localhost:8082`), o que a descoberta exige. Os tokens emitidos com o issuer antigo (`ouroboros-auth`) deixam de valer na troca. Isso afeta no máximo 15 min de tokens e é aceitável. Os refresh tokens são opacos e continuam valendo.
-5. **Chaves em `Jwt:SigningKeys`**, uma lista de `{ kid, privateKeyPath, status }` com status `Active`, `Published` ou `Retired`.
-   - O PEM chega por arquivo: Docker secret (2026092511) em produção e arquivo local fora do git em dev.
+5. **Chaves em `Jwt:SigningKeys`**, uma lista de `{ kid, privateKeyPath, status }` com status `Active` ou `Published`. Chave aposentada não tem status: ela só sai da lista.
+   - O PEM chega por arquivo, com o caminho em configuração: arquivo local fora do git em dev e, quando existir ambiente de produção, um Docker secret montado.
    - O startup valida que existe exatamente uma chave `Active`, que toda chave RSA tem pelo menos 2048 bits e que os `kid` são únicos.
    - O JWKS publica as chaves `Active` e `Published`.
 6. **Rotação sem queda:**
    1. publicar a chave nova como `Published`;
    2. esperar o cache (1 h);
    3. tornar a nova `Active` e deixar a antiga como `Published`;
-   4. depois de 15 min mais o cache, marcar a antiga como `Retired`.
+   4. depois de 15 min mais o cache, remover a antiga da lista.
 
    O passo a passo vira runbook.
 7. **O auth-service valida os próprios tokens** com o conjunto local de chaves, sem chamada HTTP a si mesmo. `ValidAlgorithms = [RS256]`, e issuer e audience continuam validados como hoje. A `SigningKey` HMAC sai da configuração.

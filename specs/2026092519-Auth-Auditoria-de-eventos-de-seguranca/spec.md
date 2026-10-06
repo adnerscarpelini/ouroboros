@@ -9,7 +9,7 @@ Na validação de maturidade do auth-service, os eventos de segurança aparecera
 
 ## Análise
 
-Extensão do `auth-service`. Depende de 2026092516 (unidade de trabalho), 2026092511 (papéis de banco separados) e 2026092515 (job periódico). Deve vir depois das specs que criam os eventos: 2026092506, 2026092507, 2026092517 e 2026092520. Referências: OWASP Logging Cheat Sheet e os logs de eventos de IdPs (sign-in logs do Entra ID, events do Keycloak).
+Extensão do `auth-service`. Depende de 2026092516 (unidade de trabalho) e 2026092511 (papéis de banco separados). **É a última a implementar**, depois das specs que criam os eventos: 2026092506, 2026092507 e 2026092517 (o `RoleChanged` só existe se a 2026092520, adiada, for feita). Referências: OWASP Logging Cheat Sheet e os logs de eventos de IdPs (sign-in logs do Entra ID, events do Keycloak).
 
 Decisões:
 1. **Tabela `auth.audit_events`, só de inserção.** Colunas:
@@ -23,10 +23,10 @@ Decisões:
    | `user_external_id` | Conta afetada, **sem FK**, para o evento sobreviver à remoção de cadastro abandonado |
    | `actor_external_id` | Quem agiu, quando não é o próprio usuário (Admin) |
    | `session_id` | Sessão, quando existir |
-   | `ip_address` | `inet` |
+   | `ip_address` | `nvarchar(45)`, texto de IPv4 ou IPv6 |
    | `user_agent` | Truncado em 256 caracteres |
    | `reason` | Código fixo, por exemplo `invalid_password`, `locked_out`, `reuse_detected` |
-2. **Eventos registrados:** `UserRegistered`, `EmailConfirmed`, `LoginSucceeded`, `LoginFailed`, `AccountLockedOut`, `RefreshTokenReuseDetected`, `Logout`, `LogoutAll`, `PasswordResetRequested` (só quando a conta existe, e isso nunca é exposto ao cliente), `PasswordResetCompleted`, `PasswordChanged`, `UserDeleted` e `RoleChanged`. O refresh normal **não** é auditado, pelo volume, e já está no log.
+2. **Eventos registrados:** `UserRegistered`, `EmailConfirmed`, `LoginSucceeded`, `LoginFailed`, `AccountLockedOut`, `RefreshTokenReuseDetected`, `Logout`, `LogoutAll`, `PasswordResetRequested` (só quando a conta existe, e isso nunca é exposto ao cliente), `PasswordResetCompleted`, `PasswordChanged`, `UserDeleted` e, se a 2026092520 vier a existir, `RoleChanged`. O refresh normal **não** é auditado, pelo volume, e já está no log.
 3. **Nunca entram na auditoria:** senha, token, hash, nem o login digitado numa tentativa contra conta inexistente. Usuários digitam a senha no campo de login por engano. Nesse caso `user_external_id` fica nulo.
 4. **Onde cada evento é gravado:**
    - evento de sucesso, na mesma transação da operação (2026092516). Se a operação foi desfeita, não há evento;
@@ -34,6 +34,6 @@ Decisões:
 5. **Gateway `IAuditLog` na Application.** Os interactors registram os eventos. IP e user agent chegam por um contexto de requisição que a Api monta, porque a Application não conhece `HttpContext`.
 6. **Só inserção, garantido pelo banco:**
    - o papel `auth_service` recebe apenas `INSERT` e `SELECT` na tabela (2026092511);
-   - a purga, com retenção de **1 ano**, é feita pela função `auth.purge_audit_events(before)`, `SECURITY DEFINER` do `auth_migrator`, chamada pelo job da 2026092515.
+   - **Descartada: função de purga `SECURITY DEFINER` chamada pelo job de limpeza.** Esse recurso é do PostgreSQL e traria uma procedure `EXECUTE AS` e um acoplamento com a 2026092515 por um volume que hoje é mínimo. A retenção de **1 ano** fica como tarefa operacional documentada, com um script de exemplo rodado pelo `auth_migrator`. Purga automática entra em spec própria se o volume pedir.
 7. **LGPD.** IP e user agent são dados pessoais. A base legal é segurança e prevenção a fraude, e a retenção de 1 ano fica documentada.
 8. **Sem endpoint de consulta por enquanto.** A consulta é por SQL, e um relatório fica para spec futura. Índices em `(user_external_id, occurred_at)` e em `occurred_at`.

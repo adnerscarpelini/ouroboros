@@ -5,4 +5,4 @@
 - [x] **DBA** — Migrar `DapperUserRepository`, `DapperTokenRepository` e `DapperRefreshTokenRepository` para receber `DbSession` em vez da connection string, sem mudar o SQL
 - [x] **Tester** — Criar um `FakeUnitOfWork` escrito à mão para os testes de Application, que executa o delegate e registra se houve commit
 - [x] **Tester** — Integração (2026092512): commit persiste as duas escritas; exceção no meio desfaz as duas; transação aninhada lança erro; comandos fora da unidade de trabalho continuam em autocommit
-- [ ] **Tech Writer** — Adicionar a `docs/project/0001 - Arquitetura.md` uma seção sobre transações: `IUnitOfWork`, `DbSession`, quando usar e o que fica fora da transação
+- [x] **Tech Writer** — Adicionar a `docs/project/0001 - Arquitetura.md` uma seção sobre transações: `IUnitOfWork`, `DbSession`, quando usar e o que fica fora da transação

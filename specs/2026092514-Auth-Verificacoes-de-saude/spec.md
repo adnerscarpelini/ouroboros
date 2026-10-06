@@ -18,6 +18,6 @@ Decisões:
    - anônimos;
    - fora do rate limit;
    - fora do log de requisições do Serilog em `Information`, porque as sondas batem a cada poucos segundos e poluiriam o log. Só as falhas são logadas.
-4. **A exposição externa é bloqueada no proxy de borda** (2026092511). O acesso fica restrito à rede interna.
+4. **A exposição externa deve ser bloqueada no proxy de borda**, que só vai existir com o ambiente de produção (2026092511, adiada nessa parte). Por ora a restrição de acesso à rede interna fica registrada na doc, e a porta da API só é publicada no Compose de desenvolvimento.
 5. **Sem `healthcheck` do auth-service no Compose por enquanto.** A imagem `aspnet` não tem `curl`, instalá-lo aumenta a superfície de ataque, e nenhum serviço do Compose depende do auth-service ainda. O orquestrador sonda por HTTP direto. Quando surgir um serviço dependente, isso é reavaliado.
 6. **O envio de e-mail fica fora da readiness** enquanto ele não existir.

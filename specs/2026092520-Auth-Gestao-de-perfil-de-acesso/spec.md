@@ -9,6 +9,8 @@ Na validação de maturidade do auth-service, promover ou rebaixar um Admin apar
 
 ## Análise
 
+**Adiada na revisão de 06/10/2026.** Não existe consumidor (tela de administração ou outro serviço) que precise trocar perfil, e o endpoint criaria um ponto de escalada de privilégio sem uso. A troca continua por SQL, pelo runbook de `docs/auth/0005 - Perfis de Acesso.md`. A spec fica aqui, sem entrar na fila, até existir esse consumidor. As specs 2026092505 e 2026092510 não dependem dela.
+
 Extensão do `auth-service`. Depende de 2026092516 (unidade de trabalho), 2026092510 (privilégio lido do banco), 2026092505 (bloqueio do último Admin) e 2026092501 (bloqueio de conta). Referência: a atribuição de papéis por API administrativa do Keycloak e do Entra ID.
 
 Decisões:

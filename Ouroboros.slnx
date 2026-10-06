@@ -120,12 +120,13 @@
   <Folder Name="/specs/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/">
     <File Path="specs/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/README.md" />
   </Folder>
-  <Folder Name="/specs/2026092516-Auth-Unidade-de-trabalho-transacional/">
-    <File Path="specs/2026092516-Auth-Unidade-de-trabalho-transacional/spec.md" />
-    <File Path="specs/2026092516-Auth-Unidade-de-trabalho-transacional/tasks.md" />
+  <Folder Name="/specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/">
+    <File Path="specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/spec.md" />
+    <File Path="specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/">
-    <File Path="specs/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/">
+    <File Path="specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/README.md" />
+    <File Path="specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092517-Auth-Troca-de-senha-autenticada/">
     <File Path="specs/2026092517-Auth-Troca-de-senha-autenticada/spec.md" />

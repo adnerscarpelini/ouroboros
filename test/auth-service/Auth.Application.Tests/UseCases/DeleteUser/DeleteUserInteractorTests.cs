@@ -193,6 +193,11 @@ public class DeleteUserInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<int> DeleteExpiredBatchAsync(DateTimeOffset expiredBefore, int batchSize)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
         {
             SessionRevocations.Add(sessionId);
@@ -244,6 +249,11 @@ public class DeleteUserInteractorTests
         public Task UpdateAsync(Token token)
         {
             return Task.CompletedTask;
+        }
+
+        public Task<int> DeleteExpiredBatchAsync(DateTimeOffset expiredBefore, int batchSize)
+        {
+            throw new NotSupportedException();
         }
 
         public Task<bool> TryMarkAsUsedAsync(Token token)

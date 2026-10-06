@@ -25,6 +25,15 @@ public interface ITokenRepository
     Task<bool> TryMarkAsUsedAsync(Token token);
 
     /// <summary>
+    /// Apaga, num so comando (uma transacao curta), ate <paramref name="batchSize"/> tokens com
+    /// <c>expires_at</c> anterior a <paramref name="expiredBefore"/>. Devolve quantos apagou: menos que o lote
+    /// significa que nao sobrou nenhum. Token ainda nao expirado nunca e apagado, mesmo usado.
+    /// </summary>
+    Task<int> DeleteExpiredBatchAsync(
+        DateTimeOffset expiredBefore,
+        int batchSize);
+
+    /// <summary>
     /// Invalida, num unico comando, todos os tokens pendentes (nao usados e nao expirados) do usuario
     /// com o tipo informado, antecipando a expiracao deles para <paramref name="invalidatedAt"/>.
     /// </summary>

@@ -149,7 +149,7 @@ Um refresh token deixa de valer de quatro formas:
 | **Logout** | `POST /api/auth/logout` | Revoga o token enviado (`revoked_at` preenchido), encerrando a sessão dele. |
 | **Logout de todas as sessões** | `POST /api/auth/logout-all` | Revoga, num único `UPDATE`, todos os tokens ativos do usuário. |
 | **Redefinição de senha** | `POST /api/users/password-reset/confirm` concluído | Revoga todos os tokens ativos do usuário, igual à reautenticação (ver `docs/auth/0004 - Recuperacao de Senha.md`). |
-| **Expiração** | `expires_at` passou | Nada é gravado: o refresh rejeita com `Refresh token has expired`. Não existe job de limpeza. |
+| **Expiração** | `expires_at` passou | Nada é gravado: o refresh rejeita com `Refresh token has expired`. Uma limpeza periódica apaga as linhas expiradas (ver `docs/auth/0010 - Limpeza de Tokens Expirados.md`). |
 
 Além delas, o **refresh** revoga o token trocado (ver [Política de rotação](#política-de-rotação)).
 

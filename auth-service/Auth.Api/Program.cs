@@ -47,6 +47,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddUseCases(builder.Configuration, connectionString);
 builder.Services.AddJwtAuthentication();
 builder.Services.AddRateLimiting(builder.Configuration);
+builder.Services.AddTokenCleanup(builder.Configuration);
 builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();

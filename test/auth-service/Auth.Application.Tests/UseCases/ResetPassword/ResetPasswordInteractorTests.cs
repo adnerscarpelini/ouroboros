@@ -160,6 +160,11 @@ public class ResetPasswordInteractorTests
         }
 
         // Simula outra requisicao que usou o mesmo token antes desta gravar.
+        public Task<int> DeleteExpiredBatchAsync(DateTimeOffset expiredBefore, int batchSize)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task<bool> TryMarkAsUsedAsync(Token token)
         {
             if (ConcurrentUse)
@@ -206,6 +211,11 @@ public class ResetPasswordInteractorTests
             }
 
             return Task.CompletedTask;
+        }
+
+        public Task<int> DeleteExpiredBatchAsync(DateTimeOffset expiredBefore, int batchSize)
+        {
+            throw new NotSupportedException();
         }
 
         public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)

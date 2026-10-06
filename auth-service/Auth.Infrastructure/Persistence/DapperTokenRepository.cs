@@ -191,6 +191,19 @@ public sealed class DapperTokenRepository : ITokenRepository
         return affectedRows == 1;
     }
 
+    public async Task<int> DeleteExpiredBatchAsync(
+        DateTimeOffset expiredBefore,
+        int batchSize)
+    {
+        const string sql = """
+            DELETE TOP (@BatchSize)
+            FROM auth.tokens
+            WHERE expires_at < @ExpiredBefore;
+            """;
+
+        return await _session.ExecuteAsync(sql, new { ExpiredBefore = expiredBefore, BatchSize = batchSize });
+    }
+
     public async Task InvalidatePendingByUserAsync(
         Guid userExternalId,
         TokenType type,

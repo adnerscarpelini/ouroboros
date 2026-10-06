@@ -154,6 +154,19 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
     }
 
 
+    public async Task<int> DeleteExpiredBatchAsync(
+        DateTimeOffset expiredBefore,
+        int batchSize)
+    {
+        const string sql = """
+            DELETE TOP (@BatchSize)
+            FROM auth.refresh_tokens
+            WHERE expires_at < @ExpiredBefore;
+            """;
+
+        return await _session.ExecuteAsync(sql, new { ExpiredBefore = expiredBefore, BatchSize = batchSize });
+    }
+
     public async Task RevokeAllActiveByUserExceptSessionAsync(
         Guid userExternalId,
         Guid exceptSessionId,

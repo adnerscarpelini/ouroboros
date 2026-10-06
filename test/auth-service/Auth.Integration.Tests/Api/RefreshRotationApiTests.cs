@@ -222,6 +222,10 @@ public sealed class RefreshRotationApiTests : IAsyncLifetime
             return token;
         }
 
+        public Task<int> DeleteExpiredBatchAsync(
+            DateTimeOffset expiredBefore,
+            int batchSize) => _inner.DeleteExpiredBatchAsync(expiredBefore, batchSize);
+
         public Task AddAsync(RefreshToken refreshToken) => _inner.AddAsync(refreshToken);
 
         public Task<bool> TryRevokeAsync(RefreshToken refreshToken) => _inner.TryRevokeAsync(refreshToken);

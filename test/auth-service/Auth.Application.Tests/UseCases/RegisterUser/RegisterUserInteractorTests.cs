@@ -171,6 +171,11 @@ public class RegisterUserInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<int> DeleteExpiredBatchAsync(DateTimeOffset expiredBefore, int batchSize)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task<bool> TryMarkAsUsedAsync(Token token)
         {
             return Task.FromResult(true);

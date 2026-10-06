@@ -26,6 +26,7 @@
     <File Path="docs/auth/0007 - Exclusao de Conta.md" />
     <File Path="docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md" />
     <File Path="docs/auth/0009 - Troca de Senha.md" />
+    <File Path="docs/auth/0010 - Limpeza de Tokens Expirados.md" />
   </Folder>
   <Folder Name="/docker/" />
   <Folder Name="/docker/sqlserver/" />
@@ -120,12 +121,13 @@
   <Folder Name="/specs/2026092514-Auth-Verificacoes-de-saude/evidence/">
     <File Path="specs/2026092514-Auth-Verificacoes-de-saude/evidence/README.md" />
   </Folder>
-  <Folder Name="/specs/2026092515-Auth-Limpeza-de-tokens-expirados/">
-    <File Path="specs/2026092515-Auth-Limpeza-de-tokens-expirados/spec.md" />
-    <File Path="specs/2026092515-Auth-Limpeza-de-tokens-expirados/tasks.md" />
+  <Folder Name="/specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/">
+    <File Path="specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/spec.md" />
+    <File Path="specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/">
-    <File Path="specs/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/">
+    <File Path="specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/README.md" />
+    <File Path="specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/">
     <File Path="specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/spec.md" />

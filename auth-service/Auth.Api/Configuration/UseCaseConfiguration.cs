@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Application.Settings;
 using Ouroboros.Auth.Application.UseCases.ChangePassword;
+using Ouroboros.Auth.Application.UseCases.CleanupExpiredTokens;
 using Ouroboros.Auth.Application.UseCases.ConfirmEmail;
 using Ouroboros.Auth.Application.UseCases.DeleteUser;
 using Ouroboros.Auth.Application.UseCases.GetUser;
@@ -58,6 +59,7 @@ public static class UseCaseConfiguration
         services.AddScoped<IGetUserUseCase, GetUserInteractor>();
         services.AddScoped<IDeleteUserUseCase, DeleteUserInteractor>();
         services.AddScoped<IChangePasswordUseCase, ChangePasswordInteractor>();
+        services.AddScoped<ICleanupExpiredTokensUseCase, CleanupExpiredTokensInteractor>();
 
         return services;
     }

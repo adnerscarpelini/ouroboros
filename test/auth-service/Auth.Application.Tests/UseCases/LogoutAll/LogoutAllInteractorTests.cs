@@ -39,6 +39,11 @@ public class LogoutAllInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<int> DeleteExpiredBatchAsync(DateTimeOffset expiredBefore, int batchSize)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
         {
             SessionRevocations.Add(sessionId);

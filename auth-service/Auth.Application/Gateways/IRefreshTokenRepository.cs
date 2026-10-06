@@ -24,6 +24,16 @@ public interface IRefreshTokenRepository
         DateTimeOffset revokedAt);
 
     /// <summary>
+    /// Apaga, num so comando (uma transacao curta), ate <paramref name="batchSize"/> refresh tokens com
+    /// <c>expires_at</c> anterior a <paramref name="expiredBefore"/>. Devolve quantos apagou: menos que o lote
+    /// significa que nao sobrou nenhum. Token ainda nao expirado nunca e apagado, mesmo revogado: a deteccao de reuso
+    /// precisa dele ate expirar.
+    /// </summary>
+    Task<int> DeleteExpiredBatchAsync(
+        DateTimeOffset expiredBefore,
+        int batchSize);
+
+    /// <summary>
     /// Revoga, num unico comando, todos os refresh tokens ainda ativos (nao revogados e nao expirados) da sessao.
     /// As outras sessoes do mesmo usuario nao sao afetadas.
     /// </summary>

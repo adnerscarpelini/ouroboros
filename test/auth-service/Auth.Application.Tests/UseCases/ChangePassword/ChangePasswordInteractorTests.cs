@@ -108,6 +108,10 @@ public class ChangePasswordInteractorTests
             return Task.CompletedTask;
         }
 
+        public Task<int> DeleteExpiredBatchAsync(
+            DateTimeOffset expiredBefore,
+            int batchSize) => throw new NotSupportedException();
+
         public Task AddAsync(RefreshToken refreshToken) => throw new NotSupportedException();
 
         public Task<RefreshToken?> GetByHashAsync(string tokenHash) => throw new NotSupportedException();

@@ -32,6 +32,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Default", _connectionString);
         builder.UseSetting("Jwt:SigningKey", SigningKey);
         builder.UseSetting("Seq:ServerUrl", string.Empty);
+
+        // A limpeza de tokens expirados fica desligada: so os testes dela (TokenCleanupTests) a ligam.
+        builder.UseSetting("TokenCleanup:Enabled", "false");
         builder.UseSetting("ForwardedHeaders:KnownProxies:0", AuthApiFixture.TrustedProxyIp);
 
         foreach (var policy in AuthApiFixture.RateLimitedPolicies)

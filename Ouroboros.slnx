@@ -7,6 +7,14 @@
     <File Path="docker-compose.yml" />
     <File Path="README.md" />
     <File Path="project-logo.png" />
+    <File Path="global.json" />
+  </Folder>
+
+  <Folder Name="/.github/">
+    <File Path=".github/dependabot.yml" />
+  </Folder>
+  <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/ci.yml" />
   </Folder>
 
   <Folder Name="/docs/project/">
@@ -15,6 +23,7 @@
     <File Path="docs/project/0003 - Logging e Erros.md" />
     <File Path="docs/project/0004 - Testes de Integracao.md" />
     <File Path="docs/project/0005 - Verificacoes de Saude.md" />
+    <File Path="docs/project/0006 - Integracao Continua.md" />
   </Folder>
   <Folder Name="/docs/" />
   <Folder Name="/docs/auth/">
@@ -109,12 +118,15 @@
     <File Path="specs/archived/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/evidence/README.md" />
     <File Path="specs/archived/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/evidence/dotnet-test.txt" />
   </Folder>
-  <Folder Name="/specs/2026092513-Auth-Integracao-continua/">
-    <File Path="specs/2026092513-Auth-Integracao-continua/spec.md" />
-    <File Path="specs/2026092513-Auth-Integracao-continua/tasks.md" />
+  <Folder Name="/specs/archived/2026092513-Auth-Integracao-continua/">
+    <File Path="specs/archived/2026092513-Auth-Integracao-continua/spec.md" />
+    <File Path="specs/archived/2026092513-Auth-Integracao-continua/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092513-Auth-Integracao-continua/evidence/">
-    <File Path="specs/2026092513-Auth-Integracao-continua/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092513-Auth-Integracao-continua/evidence/">
+    <File Path="specs/archived/2026092513-Auth-Integracao-continua/evidence/README.md" />
+    <File Path="specs/archived/2026092513-Auth-Integracao-continua/evidence/ci-local-green.txt" />
+    <File Path="specs/archived/2026092513-Auth-Integracao-continua/evidence/ci-local-red.txt" />
+    <File Path="specs/archived/2026092513-Auth-Integracao-continua/evidence/ci-local.sh" />
   </Folder>
   <Folder Name="/specs/archived/2026092514-Auth-Verificacoes-de-saude/">
     <File Path="specs/archived/2026092514-Auth-Verificacoes-de-saude/spec.md" />

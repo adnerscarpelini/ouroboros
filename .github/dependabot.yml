@@ -1,0 +1,20 @@
+# Spec 2026092513: atualizacao semanal das dependencias. Cada servico gerencia os proprios pacotes NuGet.
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directories:
+      - /auth-service/*
+      - /test/auth-service/*
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /auth-service/Auth.Api
+    schedule:
+      interval: weekly

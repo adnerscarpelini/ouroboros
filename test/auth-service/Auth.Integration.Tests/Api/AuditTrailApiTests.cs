@@ -350,7 +350,7 @@ public sealed class AuditTrailApiTests : IAsyncLifetime
         Assert.DoesNotContain("Wrong-Password-123", everything);
         Assert.DoesNotContain(login.RefreshToken, everything);
         Assert.DoesNotContain(login.AccessToken, everything);
-        Assert.DoesNotContain(passwordHash, everything);
+        Assert.DoesNotContain(passwordHash!, everything);
     }
 
     [Theory]

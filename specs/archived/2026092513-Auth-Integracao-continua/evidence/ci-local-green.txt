@@ -1,0 +1,52 @@
+### Restore
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+### Build
+  Auth.Domain -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Domain\bin\Release\net10.0\Auth.Domain.dll
+  Auth.Application -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Application\bin\Release\net10.0\Auth.Application.dll
+  Auth.Infrastructure -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Infrastructure\bin\Release\net10.0\Auth.Infrastructure.dll
+  Auth.Application.Tests -> C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Application.Tests\bin\Release\net10.0\Auth.Application.Tests.dll
+  Auth.Domain.Tests -> C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Domain.Tests\bin\Release\net10.0\Auth.Domain.Tests.dll
+  Auth.Api -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Api\bin\Release\net10.0\Auth.Api.dll
+  Auth.Integration.Tests -> C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Integration.Tests\bin\Release\net10.0\Auth.Integration.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.73
+### Check vulnerable packages
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+
+The following sources were used:
+   https://api.nuget.org/v3/index.json
+   C:\Program Files (x86)\Microsoft SDKs\NuGetPackages\
+
+The given project `Auth.Api` has no vulnerable packages given the current sources.
+The given project `Auth.Application` has no vulnerable packages given the current sources.
+The given project `Auth.Domain` has no vulnerable packages given the current sources.
+The given project `Auth.Infrastructure` has no vulnerable packages given the current sources.
+The given project `Auth.Application.Tests` has no vulnerable packages given the current sources.
+The given project `Auth.Domain.Tests` has no vulnerable packages given the current sources.
+The given project `Auth.Integration.Tests` has no vulnerable packages given the current sources.
+### Unit tests (Domain)
+Test run for C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Domain.Tests\bin\Release\net10.0\Auth.Domain.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: C:\Users\adner\source\repos\ouroboros\TestResults\domain.trx
+
+Passed!  - Failed:     0, Passed:    61, Skipped:     0, Total:    61, Duration: 42 ms - Auth.Domain.Tests.dll (net10.0)
+### Unit tests (Application)
+Test run for C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Application.Tests\bin\Release\net10.0\Auth.Application.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: C:\Users\adner\source\repos\ouroboros\TestResults\application.trx
+
+Passed!  - Failed:     0, Passed:   225, Skipped:     0, Total:   225, Duration: 208 ms - Auth.Application.Tests.dll (net10.0)
+### Integration tests (API and database)
+Test run for C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Integration.Tests\bin\Release\net10.0\Auth.Integration.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: C:\Users\adner\source\repos\ouroboros\TestResults\integration.trx
+
+Passed!  - Failed:     0, Passed:   293, Skipped:     0, Total:   293, Duration: 2 m 12 s - Auth.Integration.Tests.dll (net10.0)
+### build-test OK
+### publish-image would run here (needs: build-test)

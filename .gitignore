@@ -70,3 +70,4 @@ desktop.ini
 secrets/
 *.pem
 *.key
+vulnerable-packages.txt

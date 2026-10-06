@@ -1,0 +1,132 @@
+name: CI
+
+# Spec 2026092513. Um unico workflow: build e testes em todo pull request e em todo push na master; a imagem do
+# auth-service so e publicada num push na master, depois do build-test verde. Sem teste verde, nao ha imagem.
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+# Permissoes minimas no nivel do workflow. O job de publicacao pede mais, so pra ele.
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/ouroboros-auth
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_CLI_UI_LANGUAGE: en
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      # Actions de terceiros fixadas por SHA (a versao vai no comentario). O Dependabot as atualiza.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # O SDK vem do global.json: o mesmo .NET 10 usado localmente.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Ouroboros.slnx
+
+      # Warnings viram erro: o build atual esta sem warnings e assim continua.
+      - name: Build
+        run: dotnet build Ouroboros.slnx --configuration Release --no-restore -warnaserror
+
+      # O "dotnet list package" sai com codigo 0 mesmo com vulnerabilidade: o passo falha pelo texto do relatorio.
+      - name: Check vulnerable packages
+        run: |
+          dotnet list Ouroboros.slnx package --vulnerable --include-transitive 2>&1 | tee vulnerable-packages.txt
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "::error::Vulnerable NuGet packages found (see the report above)."
+            exit 1
+          fi
+
+      - name: Unit tests (Domain)
+        run: >
+          dotnet test test/auth-service/Auth.Domain.Tests
+          --configuration Release --no-build
+          --logger "trx;LogFileName=domain.trx" --results-directory TestResults
+
+      - name: Unit tests (Application)
+        run: >
+          dotnet test test/auth-service/Auth.Application.Tests
+          --configuration Release --no-build
+          --logger "trx;LogFileName=application.trx" --results-directory TestResults
+
+      # Os runners ubuntu-latest tem Docker: os testes de integracao sobem um SQL Server descartavel (Testcontainers).
+      - name: Integration tests (API and database)
+        run: >
+          dotnet test test/auth-service/Auth.Integration.Tests
+          --configuration Release --no-build
+          --logger "trx;LogFileName=integration.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: warn
+
+  publish-image:
+    name: Publish Docker image
+    needs: build-test
+    # So num push na master. Em pull request a imagem nunca e publicada.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+
+    # packages: write so aqui, onde a imagem e enviada ao GHCR.
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Nenhum segredo alem do GITHUB_TOKEN.
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Build and push image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ./auth-service/Auth.Api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

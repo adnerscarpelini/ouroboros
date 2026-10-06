@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.Logout;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Application.Settings;
 using Ouroboros.Auth.Application.UseCases.RefreshAccessToken;
@@ -32,6 +33,14 @@ public class LogoutInteractorTests
             Revoked.Add(refreshToken);
             return Task.FromResult(true);
         }
+
+        public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
+        {
+            SessionRevocations.Add(sessionId);
+            return Task.CompletedTask;
+        }
+
+        public List<Guid> SessionRevocations { get; } = new();
 
         public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
         {
@@ -255,12 +264,15 @@ public class LogoutInteractorTests
             refreshTokenRepository,
             new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
-            new RefreshTokenSettings(TimeSpan.FromDays(7)));
+            new RefreshTokenSettings(TimeSpan.FromDays(7)),
+            new FakeUnitOfWork());
 
         await logoutInteractor.ExecuteAsync(new LogoutRequest("current-refresh-token"));
 
-        var exception = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => refreshInteractor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
-        Assert.Equal("Refresh token has been revoked", exception.Message);
+        // Token revogado por logout e apresentado de novo conta como reuso (spec 2026092507): inofensivo, a sessao ja acabou.
+        var exception = await Assert.ThrowsAsync<RefreshTokenReuseException>(() => refreshInteractor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+        Assert.Equal("Invalid refresh token", exception.Message);
+        Assert.Equal(SessionId, Assert.Single(refreshTokenRepository.SessionRevocations));
         Assert.Single(refreshTokenRepository.Items);
     }
 }

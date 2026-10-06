@@ -473,6 +473,63 @@ public sealed class RepositorySqlTests : IAsyncLifetime
         }
     }
 
+    // Spec 2026092507: revogacao condicional e por sessao
+
+    [Fact]
+    public async Task ShouldRevokeWhenTheRevocationDateIsStillBeforeTheExpiration()
+    {
+        var user = await _api.CreateUserAsync("revoke.expired");
+        var session = await _api.LoginAsync("revoke.expired");
+        await _api.ExpireRefreshTokenAsync(session.RefreshToken);
+        var repository = CreateRefreshTokenRepository();
+        var stored = await repository.GetByHashAsync(_tokens.Hash(session.RefreshToken));
+
+        stored!.Revoke(DateTimeOffset.UtcNow.AddDays(-1));
+
+        // O prazo e conferido no SQL, com a data da revogacao como referencia: revogar "no passado" ainda cabe.
+        Assert.True(await repository.TryRevokeAsync(stored));
+        Assert.Equal(1, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.refresh_tokens WHERE revoked_at IS NOT NULL;"));
+    }
+
+    [Fact]
+    public async Task ShouldRefuseToRevokeATokenWhoseExpirationHasPassedAtTheRevocationDate()
+    {
+        var user = await _api.CreateUserAsync("revoke.late");
+        var session = await _api.LoginAsync("revoke.late");
+        await _api.ExpireRefreshTokenAsync(session.RefreshToken);
+        var repository = CreateRefreshTokenRepository();
+        var stored = await repository.GetByHashAsync(_tokens.Hash(session.RefreshToken));
+        var revoked = RefreshToken.Rehydrate(
+            stored!.Id,
+            stored.ExternalId,
+            stored.CreatedAt,
+            null,
+            user.ExternalId,
+            stored.SessionId,
+            stored.TokenHash,
+            stored.ExpiresAt,
+            DateTimeOffset.UtcNow);
+
+        Assert.False(await repository.TryRevokeAsync(revoked));
+        Assert.Equal(0, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.refresh_tokens WHERE revoked_at IS NOT NULL;"));
+    }
+
+    [Fact]
+    public async Task ShouldRevokeOnlyTheActiveTokensOfTheGivenSession()
+    {
+        var user = await _api.CreateUserAsync("revoke.session");
+        var target = await _api.LoginAsync("revoke.session");
+        var other = await _api.LoginAsync("revoke.session");
+        var repository = CreateRefreshTokenRepository();
+        var targetToken = await repository.GetByHashAsync(_tokens.Hash(target.RefreshToken));
+
+        await repository.RevokeAllActiveBySessionAsync(targetToken!.SessionId, DateTimeOffset.UtcNow);
+
+        Assert.Equal(1, await _api.CountActiveRefreshTokensAsync(user.ExternalId));
+        Assert.NotNull((await CreateRefreshTokenRepository().GetByHashAsync(_tokens.Hash(target.RefreshToken)))!.RevokedAt);
+        Assert.Null((await CreateRefreshTokenRepository().GetByHashAsync(_tokens.Hash(other.RefreshToken)))!.RevokedAt);
+    }
+
     // Spec 2026092509: re-hash condicional
 
     [Fact]

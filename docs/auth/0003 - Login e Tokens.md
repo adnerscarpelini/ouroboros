@@ -73,8 +73,8 @@ Erros:
 |---|---|---|
 | Token vazio | `401` | `Refresh token is required` |
 | Token não existe | `401` | `Invalid refresh token` |
-| Token expirado | `401` | `Refresh token has expired` |
-| Token já usado/revogado | `401` | `Refresh token has been revoked` |
+| Token expirado (e não revogado) | `401` | `Refresh token has expired` |
+| Token já revogado (rotação, logout...), ou perdeu a disputa por ele | `401` | `Invalid refresh token`, e a sessão inteira é revogada (ver [Detecção de reuso](#detecção-de-reuso)) |
 | Usuário não está mais ativo | `400` | `User is not active` |
 | Limite por IP excedido | `429` | Sem corpo específico |
 
@@ -85,10 +85,25 @@ No caso de usuário inativo, o token **não** é consumido.
 - Cada refresh token vale **uma vez só**. Depois de trocado, o antigo fica revogado (`revoked_at` preenchido).
 - O cliente precisa guardar sempre o refresh token **mais recente** da resposta.
 - Cada troca gera um token novo com validade cheia (`Jwt:RefreshTokenExpirationDays`, contada a partir do refresh). Enquanto o cliente fizer refresh dentro do prazo, a sessão continua.
-- Reusar um token já trocado é rejeitado. Isso indica que o token vazou ou que o cliente tem um bug.
-- **Requisições simultâneas** com o mesmo token: só uma recebe o par novo, as outras recebem `401`. A revogação é um `UPDATE ... WHERE revoked_at IS NULL`, então só uma requisição consegue revogar.
-- **Fora de escopo por enquanto:** o reuso só é rejeitado. Os outros tokens emitidos a partir do mesmo login (a mesma "família") continuam valendo. Revogar a família inteira no reuso é uma evolução futura possível.
-- Revogar o token antigo e gravar o novo são duas escritas, sem transação. Se a segunda falhar, o cliente precisa fazer login de novo, mas nenhum token fica reutilizável.
+- O sucessor herda o `session_id` do token trocado, e o novo access token leva o mesmo `sid`.
+- **Atômico.** Revogar o token atual e inserir o sucessor rodam numa só `IUnitOfWork`, e o par novo só é devolvido depois do commit. Se a inserção falhar, nada é gravado: o token antigo continua válido e o cliente pode tentar de novo.
+- A revogação é condicional no SQL: `UPDATE ... WHERE revoked_at IS NULL AND expires_at > @agora`. Só uma requisição consegue rotacionar o mesmo token, e um token vencido nunca é revogado por esse caminho.
+
+### Detecção de reuso
+
+Um refresh token que existe mas já foi **revogado** só pode estar nas mãos de quem tem uma cópia: o atacante, ou o cliente legítimo depois de o atacante ter rotacionado antes (RFC 9700, "refresh token reuse detection"). Nos dois casos:
+
+- todos os tokens ativos **daquela sessão** (`session_id`) são revogados, sem afetar as outras sessões do usuário (`RevokeAllActiveBySessionAsync`);
+- a revogação roda **fora** da transação da rotação, para não ser desfeita por um rollback;
+- o serviço registra `Warning` com o externalId do usuário e o `session_id`, nunca o token;
+- a resposta é `401 Invalid refresh token`, igual à de token inexistente.
+
+Casos que seguem a mesma regra ou a contrariam de propósito:
+
+- **Token expirado e não revogado:** só `401 Refresh token has expired`, sem revogar a sessão. Expirar não é sinal de roubo.
+- **Logout seguido de reuso:** um token revogado por logout e apresentado de novo no refresh também revoga a sessão. É inofensivo, porque ela já estava encerrada.
+- **Sem janela de tolerância.** Dois refresh simultâneos com o mesmo token derrubam a sessão: quem perde a disputa (o `UPDATE` condicional afeta 0 linhas) trata como reuso e revoga a sessão, inclusive o token que a outra requisição acabou de emitir. Uma janela de tolerância reabriria a brecha que a detecção fecha. **Os clientes devem serializar o refresh** (uma requisição de refresh por vez, usando sempre o token mais recente).
+- **Limitação da leitura com `READPAST`.** `DapperRefreshTokenRepository.GetByHashAsync` lê com `WITH (READPAST)` (regra da skill `ouroboros-dba`), que pula a linha travada por outra transação. Se a mesma requisição chegar enquanto a primeira ainda está rotacionando o token, a segunda pode não enxergar a linha e receber `401 Invalid refresh token` como se o token não existisse, **sem disparar a revogação da sessão**. A detecção cobre o reuso sequencial (token já revogado e confirmado) e a disputa em que as duas leituras acontecem antes da rotação. Essa janela de milissegundos fica sem a revogação. Se ela não for aceitável, a leitura precisa de outro tratamento (por exemplo, ler sem `READPAST` dentro da transação da rotação), e a decisão volta para o usuário.
 
 ## Sessões
 
@@ -187,7 +202,9 @@ Todo login, refresh ou logout rejeitado é logado em `Warning` no Seq, com o mot
 - Casos de uso: `Auth.Application/UseCases/Login/`, `Auth.Application/UseCases/RefreshAccessToken/`, `Auth.Application/UseCases/Logout/` e `Auth.Application/UseCases/LogoutAll/`.
 - Endpoints: `Auth.Api/Controllers/AuthController.cs`.
 - Regra de revogação: `RefreshToken.Revoke` e `RefreshToken.IsActive` em `Auth.Domain/Entities/`.
-- Revogação concorrente: `DapperRefreshTokenRepository.TryRevokeAsync`.
+- Revogação concorrente: `DapperRefreshTokenRepository.TryRevokeAsync` (condicional: não revogado e não expirado).
+- Revogação por sessão (reuso): `DapperRefreshTokenRepository.RevokeAllActiveBySessionAsync`.
+- Reuso: `RefreshTokenReuseException`, lançada por `RefreshAccessTokenInteractor` e registrada em `Warning` pelo `AuthController`.
 - Revogação em lote (logout-all e redefinição de senha): `DapperRefreshTokenRepository.RevokeAllActiveByUserAsync`.
 - Registro do login: `User.RegisterLogin` e `DapperUserRepository.TryRegisterLoginAsync`.
 - Emissão do JWT: `Auth.Infrastructure/Security/JwtTokenGenerator.cs`.

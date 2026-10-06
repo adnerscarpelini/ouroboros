@@ -143,6 +143,14 @@ public class LoginInteractorTests
             return Task.FromResult(true);
         }
 
+        public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
+        {
+            SessionRevocations.Add(sessionId);
+            return Task.CompletedTask;
+        }
+
+        public List<Guid> SessionRevocations { get; } = new();
+
         public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
         {
             var activeTokens = Items.Where(item => item.UserExternalId == userExternalId && item.IsActive(revokedAt));

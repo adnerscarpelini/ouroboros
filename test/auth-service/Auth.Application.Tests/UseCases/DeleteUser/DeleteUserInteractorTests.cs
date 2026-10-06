@@ -180,6 +180,14 @@ public class DeleteUserInteractorTests
 
         public bool FailOnRevokeAll { get; set; }
 
+        public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
+        {
+            SessionRevocations.Add(sessionId);
+            return Task.CompletedTask;
+        }
+
+        public List<Guid> SessionRevocations { get; } = new();
+
         public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
         {
             if (FailOnRevokeAll)

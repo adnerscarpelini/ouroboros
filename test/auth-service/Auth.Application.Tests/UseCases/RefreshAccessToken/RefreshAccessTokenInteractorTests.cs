@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.RefreshAccessToken;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Application.Settings;
 using Ouroboros.Auth.Domain.Entities;
@@ -107,8 +108,15 @@ public class RefreshAccessTokenInteractorTests
         // Simula outra requisicao que revogou o mesmo token no banco antes desta.
         public bool RevokedConcurrently { get; set; }
 
+        public Exception? AddException { get; set; }
+
         public Task AddAsync(RefreshToken refreshToken)
         {
+            if (AddException is not null)
+            {
+                throw AddException;
+            }
+
             Items.Add(refreshToken);
             Added.Add(refreshToken);
             return Task.CompletedTask;
@@ -130,6 +138,14 @@ public class RefreshAccessTokenInteractorTests
             Revoked.Add(refreshToken);
             return Task.FromResult(true);
         }
+
+        public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
+        {
+            SessionRevocations.Add(sessionId);
+            return Task.CompletedTask;
+        }
+
+        public List<Guid> SessionRevocations { get; } = new();
 
         public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
         {
@@ -223,14 +239,16 @@ public class RefreshAccessTokenInteractorTests
     private static RefreshAccessTokenInteractor CreateInteractor(
         FakeUserRepository userRepository,
         FakeRefreshTokenRepository refreshTokenRepository,
-        FakeJwtTokenGenerator? jwtTokenGenerator = null)
+        FakeJwtTokenGenerator? jwtTokenGenerator = null,
+        FakeUnitOfWork? unitOfWork = null)
     {
         return new RefreshAccessTokenInteractor(
             userRepository,
             refreshTokenRepository,
             jwtTokenGenerator ?? new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
-            RefreshTokenSettings);
+            RefreshTokenSettings,
+            unitOfWork ?? new FakeUnitOfWork());
     }
 
     [Fact]
@@ -307,7 +325,7 @@ public class RefreshAccessTokenInteractorTests
     }
 
     [Fact]
-    public async Task ShouldThrowInvalidRefreshTokenExceptionWhenTokenIsExpired()
+    public async Task ShouldRejectWithoutRevokingTheSessionWhenTokenIsExpired()
     {
         var userRepository = new FakeUserRepository();
         var refreshTokenRepository = new FakeRefreshTokenRepository();
@@ -318,13 +336,15 @@ public class RefreshAccessTokenInteractorTests
 
         var exception = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
 
+        Assert.IsNotType<RefreshTokenReuseException>(exception);
         Assert.Equal("Refresh token has expired", exception.Message);
+        Assert.Empty(refreshTokenRepository.SessionRevocations);
         Assert.Empty(refreshTokenRepository.Revoked);
         Assert.Empty(refreshTokenRepository.Added);
     }
 
     [Fact]
-    public async Task ShouldThrowInvalidRefreshTokenExceptionWhenTokenWasAlreadyRevoked()
+    public async Task ShouldRevokeTheSessionAndRejectWithGenericMessageWhenTokenWasAlreadyRevoked()
     {
         var userRepository = new FakeUserRepository();
         var refreshTokenRepository = new FakeRefreshTokenRepository();
@@ -333,15 +353,36 @@ public class RefreshAccessTokenInteractorTests
         refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddHours(-1)));
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
-        var exception = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+        var exception = await Assert.ThrowsAsync<RefreshTokenReuseException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
 
-        Assert.Equal("Refresh token has been revoked", exception.Message);
+        Assert.Equal("Invalid refresh token", exception.Message);
+        Assert.Equal(user.ExternalId, exception.UserExternalId);
+        Assert.Equal(SessionId, exception.SessionId);
+        Assert.Equal(SessionId, Assert.Single(refreshTokenRepository.SessionRevocations));
         Assert.Empty(refreshTokenRepository.Revoked);
         Assert.Empty(refreshTokenRepository.Added);
     }
 
     [Fact]
-    public async Task ShouldThrowInvalidRefreshTokenExceptionWhenTokenIsReusedAfterRotation()
+    public async Task ShouldRevokeOnlyTheSessionOfTheReusedTokenWhenTokenWasAlreadyRevoked()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddHours(-1)));
+        var otherSessionToken = RefreshToken.Create(user.ExternalId, "hashed:other-session", DateTimeOffset.UtcNow.AddDays(1));
+        refreshTokenRepository.Items.Add(otherSessionToken);
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository);
+
+        await Assert.ThrowsAsync<RefreshTokenReuseException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+
+        Assert.DoesNotContain(otherSessionToken.SessionId, refreshTokenRepository.SessionRevocations);
+        Assert.Null(otherSessionToken.RevokedAt);
+    }
+
+    [Fact]
+    public async Task ShouldRevokeTheSessionWhenTokenIsReusedAfterRotation()
     {
         var userRepository = new FakeUserRepository();
         var refreshTokenRepository = new FakeRefreshTokenRepository();
@@ -352,13 +393,14 @@ public class RefreshAccessTokenInteractorTests
 
         await interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token"));
 
-        await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+        await Assert.ThrowsAsync<RefreshTokenReuseException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
         Assert.Single(refreshTokenRepository.Revoked);
         Assert.Single(refreshTokenRepository.Added);
+        Assert.Equal(SessionId, Assert.Single(refreshTokenRepository.SessionRevocations));
     }
 
     [Fact]
-    public async Task ShouldThrowInvalidRefreshTokenExceptionWhenTokenIsRevokedConcurrently()
+    public async Task ShouldTreatLosingTheRaceForTheTokenAsReuseAndRevokeTheSession()
     {
         var userRepository = new FakeUserRepository();
         var refreshTokenRepository = new FakeRefreshTokenRepository { RevokedConcurrently = true };
@@ -367,8 +409,45 @@ public class RefreshAccessTokenInteractorTests
         refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
-        await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+        await Assert.ThrowsAsync<RefreshTokenReuseException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+
         Assert.Empty(refreshTokenRepository.Added);
+        Assert.Equal(SessionId, Assert.Single(refreshTokenRepository.SessionRevocations));
+    }
+
+    [Fact]
+    public async Task ShouldRunRotationInsideTheSameUnitOfWorkAndCommitOnce()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, unitOfWork: unitOfWork);
+
+        await interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token"));
+
+        Assert.Equal(1, unitOfWork.Commits);
+        Assert.Equal(0, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackAndNotRevokeTheSessionWhenInsertingTheSuccessorFails()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository { AddException = new InvalidOperationException("insert failed") };
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, unitOfWork: unitOfWork);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+        Assert.Empty(refreshTokenRepository.SessionRevocations);
     }
 
     [Fact]

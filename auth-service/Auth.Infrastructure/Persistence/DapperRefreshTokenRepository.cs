@@ -112,7 +112,8 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 revoked_at = @RevokedAt
             WHERE
                 external_id = @ExternalId
-                AND revoked_at IS NULL;
+                AND revoked_at IS NULL
+                AND expires_at > @RevokedAt;
             """;
 
         var affectedRows = await _session.ExecuteAsync(
@@ -152,6 +153,28 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
             });
     }
 
+
+    public async Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
+    {
+        const string sql = """
+            UPDATE auth.refresh_tokens
+            SET
+                updated_at = @RevokedAt,
+                revoked_at = @RevokedAt
+            WHERE
+                session_id = @SessionId
+                AND revoked_at IS NULL
+                AND expires_at > @RevokedAt;
+            """;
+
+        await _session.ExecuteAsync(
+            sql,
+            new
+            {
+                RevokedAt = revokedAt,
+                SessionId = sessionId,
+            });
+    }
 
     private sealed class RefreshTokenRow
     {

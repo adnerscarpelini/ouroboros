@@ -86,14 +86,16 @@ public sealed class SessionApiTests : IAsyncLifetime
 
         var refreshed = await _api.PostAsync("/api/auth/refresh", new { refreshToken = session.RefreshToken });
         var rotated = await TestApi.ReadTokensAsync(refreshed);
-        var reused = await _api.PostAsync("/api/auth/refresh", new { refreshToken = session.RefreshToken });
         var withNew = await _api.PostAsync("/api/auth/refresh", new { refreshToken = rotated.RefreshToken });
+        var reused = await _api.PostAsync("/api/auth/refresh", new { refreshToken = session.RefreshToken });
 
         Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
         Assert.NotEqual(session.RefreshToken, rotated.RefreshToken);
-        Assert.Equal(HttpStatusCode.Unauthorized, reused.StatusCode);
         Assert.Equal(HttpStatusCode.OK, withNew.StatusCode);
-        Assert.Equal(1, await _api.CountActiveRefreshTokensAsync(user.ExternalId));
+        Assert.Equal(HttpStatusCode.Unauthorized, reused.StatusCode);
+
+        // Reusar o token antigo e sinal de copia: a sessao inteira cai (spec 2026092507).
+        Assert.Equal(0, await _api.CountActiveRefreshTokensAsync(user.ExternalId));
     }
 
     [Theory]

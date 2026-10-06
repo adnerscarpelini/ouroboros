@@ -14,19 +14,22 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly ITokenGenerator _tokenGenerator;
     private readonly RefreshTokenSettings _refreshTokenSettings;
+    private readonly IUnitOfWork _unitOfWork;
 
     public RefreshAccessTokenInteractor(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         IJwtTokenGenerator jwtTokenGenerator,
         ITokenGenerator tokenGenerator,
-        RefreshTokenSettings refreshTokenSettings)
+        RefreshTokenSettings refreshTokenSettings,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _jwtTokenGenerator = jwtTokenGenerator;
         _tokenGenerator = tokenGenerator;
         _refreshTokenSettings = refreshTokenSettings;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<RefreshAccessTokenResponse> ExecuteAsync(RefreshAccessTokenRequest request)
@@ -36,11 +39,24 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
             throw new InvalidRefreshTokenException("Refresh token is required");
         }
 
+        var now = DateTimeOffset.UtcNow;
         var currentToken = await _refreshTokenRepository.GetByHashAsync(_tokenGenerator.Hash(request.RefreshToken));
 
         if (currentToken is null)
         {
             throw new InvalidRefreshTokenException("Invalid refresh token");
+        }
+
+        // Token ja revogado (rotacao, logout...) apresentado de novo: alguem usa uma copia (RFC 9700).
+        if (currentToken.RevokedAt is not null)
+        {
+            await RevokeSessionAndRejectAsync(currentToken, now);
+        }
+
+        // Expirar nao e sinal de roubo: so rejeita, sem revogar a sessao.
+        if (!currentToken.IsActive(now))
+        {
+            throw new InvalidRefreshTokenException("Refresh token has expired");
         }
 
         var user = await _userRepository.GetByExternalIdAsync(currentToken.UserExternalId);
@@ -55,14 +71,21 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
             throw new DomainException("User is not active");
         }
 
-        currentToken.Revoke(DateTimeOffset.UtcNow);
+        // O sucessor herda a sessao do token atual.
+        var rawRefreshToken = _tokenGenerator.Generate();
+        var newToken = RefreshToken.Create(
+            user.ExternalId,
+            _tokenGenerator.Hash(rawRefreshToken),
+            now.Add(_refreshTokenSettings.Lifetime),
+            currentToken.SessionId);
 
-        // Rotacao: o token atual so vale uma vez. Se outra requisicao revogou antes, rejeita.
-        var revoked = await _refreshTokenRepository.TryRevokeAsync(currentToken);
+        // Revogar o atual e gravar o sucessor valem juntos ou nao valem: o par novo so sai depois do commit.
+        var rotated = await _unitOfWork.ExecuteAsync(() => RotateAsync(currentToken, newToken, now));
 
-        if (!revoked)
+        // Perdeu a disputa pelo token: outra requisicao o rotacionou antes. Sem janela de tolerancia, e reuso.
+        if (!rotated)
         {
-            throw new InvalidRefreshTokenException("Refresh token has been revoked");
+            await RevokeSessionAndRejectAsync(currentToken, now);
         }
 
         var accessToken = _jwtTokenGenerator.Generate(
@@ -72,20 +95,39 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
             user.Role,
             currentToken.SessionId);
 
-        var rawRefreshToken = _tokenGenerator.Generate();
-        var newToken = RefreshToken.Create(
-            user.ExternalId,
-            _tokenGenerator.Hash(rawRefreshToken),
-            DateTimeOffset.UtcNow.Add(_refreshTokenSettings.Lifetime),
-            currentToken.SessionId);
-
-        await _refreshTokenRepository.AddAsync(newToken);
-
         return new RefreshAccessTokenResponse(
             BearerTokenType,
             accessToken.Value,
             accessToken.ExpiresAt,
             rawRefreshToken,
             newToken.ExpiresAt);
+    }
+
+    private async Task<bool> RotateAsync(
+        RefreshToken currentToken,
+        RefreshToken newToken,
+        DateTimeOffset now)
+    {
+        currentToken.Revoke(now);
+
+        // Condicional no SQL (nao revogado e nao expirado): so uma requisicao consegue rotacionar o mesmo token.
+        if (!await _refreshTokenRepository.TryRevokeAsync(currentToken))
+        {
+            return false;
+        }
+
+        await _refreshTokenRepository.AddAsync(newToken);
+
+        return true;
+    }
+
+    // Roda fora da transacao da rotacao, senao o rollback desfaria a revogacao. So a sessao do token e afetada.
+    private async Task RevokeSessionAndRejectAsync(
+        RefreshToken token,
+        DateTimeOffset now)
+    {
+        await _refreshTokenRepository.RevokeAllActiveBySessionAsync(token.SessionId, now);
+
+        throw new RefreshTokenReuseException(token.UserExternalId, token.SessionId);
     }
 }

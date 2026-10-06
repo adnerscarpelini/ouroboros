@@ -66,6 +66,15 @@ public sealed class AuthController : ControllerBase
             var response = await _refreshAccessTokenUseCase.ExecuteAsync(request);
             return Ok(response);
         }
+        catch (RefreshTokenReuseException e)
+        {
+            // So o externalId do usuario e o id da sessao: nunca o token.
+            _logger.LogWarning(
+                "Refresh token reuse detected for user {UserId} in session {SessionId}: the session was revoked",
+                e.UserExternalId,
+                e.SessionId);
+            return Unauthorized(new { error = e.Message });
+        }
         catch (InvalidRefreshTokenException e)
         {
             _logger.LogWarning(e, "Token refresh rejected: {Reason}", e.Message);

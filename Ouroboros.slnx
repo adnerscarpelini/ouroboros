@@ -14,6 +14,7 @@
     <File Path="docs/project/0002 - Docker.md" />
     <File Path="docs/project/0003 - Logging e Erros.md" />
     <File Path="docs/project/0004 - Testes de Integracao.md" />
+    <File Path="docs/project/0005 - Verificacoes de Saude.md" />
   </Folder>
   <Folder Name="/docs/" />
   <Folder Name="/docs/auth/">
@@ -114,12 +115,13 @@
   <Folder Name="/specs/2026092513-Auth-Integracao-continua/evidence/">
     <File Path="specs/2026092513-Auth-Integracao-continua/evidence/README.md" />
   </Folder>
-  <Folder Name="/specs/2026092514-Auth-Verificacoes-de-saude/">
-    <File Path="specs/2026092514-Auth-Verificacoes-de-saude/spec.md" />
-    <File Path="specs/2026092514-Auth-Verificacoes-de-saude/tasks.md" />
+  <Folder Name="/specs/archived/2026092514-Auth-Verificacoes-de-saude/">
+    <File Path="specs/archived/2026092514-Auth-Verificacoes-de-saude/spec.md" />
+    <File Path="specs/archived/2026092514-Auth-Verificacoes-de-saude/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092514-Auth-Verificacoes-de-saude/evidence/">
-    <File Path="specs/2026092514-Auth-Verificacoes-de-saude/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092514-Auth-Verificacoes-de-saude/evidence/">
+    <File Path="specs/archived/2026092514-Auth-Verificacoes-de-saude/evidence/README.md" />
+    <File Path="specs/archived/2026092514-Auth-Verificacoes-de-saude/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/">
     <File Path="specs/archived/2026092515-Auth-Limpeza-de-tokens-expirados/spec.md" />

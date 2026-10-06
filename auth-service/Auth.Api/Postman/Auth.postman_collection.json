@@ -385,6 +385,47 @@
           }
         }
       ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/live",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "live"
+              ]
+            },
+            "description": "Liveness: so confirma que o processo responde, sem consultar nada. Anonimo, fora do limite de requisicoes e fora do log de requisicoes. O corpo e so o status (`Healthy`).\n\n- `200` processo no ar"
+          }
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            },
+            "description": "Readiness: confere o SQL Server com um `SELECT 1` de timeout de 2 s. Anonimo, fora do limite de requisicoes. O corpo e so o status (`Healthy` ou `Unhealthy`), sem detalhes internos. A exposicao externa deve ser bloqueada no proxy de borda.\n\n- `200` pronto (banco respondeu)\n- `503` banco indisponivel"
+          }
+        }
+      ]
     }
   ],
   "variable": [

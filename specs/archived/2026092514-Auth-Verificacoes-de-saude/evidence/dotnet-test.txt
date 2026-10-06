@@ -1,0 +1,21 @@
+  Determinando os projetos a serem restaurados...
+  Todos os projetos estão atualizados para restauração.
+  Auth.Domain -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Domain\bin\Debug\net10.0\Auth.Domain.dll
+  Auth.Application -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Application\bin\Debug\net10.0\Auth.Application.dll
+  Auth.Domain.Tests -> C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Domain.Tests\bin\Debug\net10.0\Auth.Domain.Tests.dll
+Execução de teste para C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Domain.Tests\bin\Debug\net10.0\Auth.Domain.Tests.dll (.NETCoreApp,Version=v10.0)
+  Auth.Infrastructure -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Infrastructure\bin\Debug\net10.0\Auth.Infrastructure.dll
+1 arquivos de teste no total corresponderam ao padrão especificado.
+  Auth.Application.Tests -> C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Application.Tests\bin\Debug\net10.0\Auth.Application.Tests.dll
+Execução de teste para C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Application.Tests\bin\Debug\net10.0\Auth.Application.Tests.dll (.NETCoreApp,Version=v10.0)
+  Auth.Api -> C:\Users\adner\source\repos\ouroboros\auth-service\Auth.Api\bin\Debug\net10.0\Auth.Api.dll
+1 arquivos de teste no total corresponderam ao padrão especificado.
+  Auth.Integration.Tests -> C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Integration.Tests\bin\Debug\net10.0\Auth.Integration.Tests.dll
+Execução de teste para C:\Users\adner\source\repos\ouroboros\test\auth-service\Auth.Integration.Tests\bin\Debug\net10.0\Auth.Integration.Tests.dll (.NETCoreApp,Version=v10.0)
+
+Aprovado!  – Com falha:     0, Aprovado:    61, Ignorado:     0, Total:    61, Duração: 173 ms - Auth.Domain.Tests.dll (net10.0)
+1 arquivos de teste no total corresponderam ao padrão especificado.
+
+Aprovado!  – Com falha:     0, Aprovado:   189, Ignorado:     0, Total:   189, Duração: 109 ms - Auth.Application.Tests.dll (net10.0)
+
+Aprovado!  – Com falha:     0, Aprovado:   234, Ignorado:     0, Total:   234, Duração: 1 m 55 s - Auth.Integration.Tests.dll (net10.0)

@@ -1,4 +1,5 @@
 using Ouroboros.Auth.Api.Configuration;
+using Ouroboros.Auth.Api.Health;
 using Ouroboros.Auth.Api.Middleware;
 using Ouroboros.Auth.Infrastructure.Migrations;
 using Ouroboros.Auth.Infrastructure.Persistence;
@@ -48,6 +49,7 @@ builder.Services.AddUseCases(builder.Configuration, connectionString);
 builder.Services.AddJwtAuthentication();
 builder.Services.AddRateLimiting(builder.Configuration);
 builder.Services.AddTokenCleanup(builder.Configuration);
+builder.Services.AddServiceHealthChecks();
 builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -62,11 +64,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 app.UseForwardedHeaders();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options => options.GetLevel = HealthConfiguration.GetRequestLogLevel);
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapControllers();
+app.MapServiceHealthChecks();
 app.Run();
 
 // Exposto para o WebApplicationFactory dos testes de integracao.

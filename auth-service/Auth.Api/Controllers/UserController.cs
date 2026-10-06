@@ -29,6 +29,7 @@ public sealed class UserController : ControllerBase
     private readonly IDeleteUserUseCase _deleteUserUseCase;
     private readonly IChangePasswordUseCase _changePasswordUseCase;
     private readonly ILogger<UserController> _logger;
+    private readonly IHostEnvironment _environment;
 
     public UserController(
         IRegisterUserUseCase registerUserUseCase,
@@ -38,7 +39,8 @@ public sealed class UserController : ControllerBase
         IGetUserUseCase getUserUseCase,
         IDeleteUserUseCase deleteUserUseCase,
         IChangePasswordUseCase changePasswordUseCase,
-        ILogger<UserController> logger)
+        ILogger<UserController> logger,
+        IHostEnvironment environment)
     {
         _registerUserUseCase = registerUserUseCase;
         _confirmEmailUseCase = confirmEmailUseCase;
@@ -48,6 +50,7 @@ public sealed class UserController : ControllerBase
         _deleteUserUseCase = deleteUserUseCase;
         _changePasswordUseCase = changePasswordUseCase;
         _logger = logger;
+        _environment = environment;
     }
 
     [HttpPost]
@@ -60,11 +63,15 @@ public sealed class UserController : ControllerBase
 
             if (response.EmailConfirmationToken is not null)
             {
-                // TODO: remover quando existir envio de e-mail via mensageria — logar token e temporario, so pra dev.
-                _logger.LogInformation(
-                    "Email confirmation token generated for user {UserId}: {EmailConfirmationToken}",
-                    response.UserId,
-                    response.EmailConfirmationToken);
+                // TODO: remover quando existir envio de e-mail via mensageria. Solucao provisoria (spec 2026092511): o
+                // token so e logado em Development. Fora dele, cadastro e confirmacao nao funcionam ate existir o envio.
+                if (_environment.IsDevelopment())
+                {
+                    _logger.LogInformation(
+                        "Email confirmation token generated for user {UserId}: {EmailConfirmationToken}",
+                        response.UserId,
+                        response.EmailConfirmationToken);
+                }
             }
             else
             {
@@ -107,11 +114,15 @@ public sealed class UserController : ControllerBase
 
             if (response.PasswordResetToken is not null)
             {
-                // TODO: remover quando existir envio de e-mail via mensageria — logar token e temporario, so pra dev.
-                _logger.LogInformation(
-                    "Password reset token generated for user {UserId}: {PasswordResetToken}",
-                    response.UserId,
-                    response.PasswordResetToken);
+                // TODO: remover quando existir envio de e-mail via mensageria. Solucao provisoria (spec 2026092511): o
+                // token so e logado em Development.
+                if (_environment.IsDevelopment())
+                {
+                    _logger.LogInformation(
+                        "Password reset token generated for user {UserId}: {PasswordResetToken}",
+                        response.UserId,
+                        response.PasswordResetToken);
+                }
             }
 
             // Resposta identica exista ou nao a conta, pra nao permitir enumeracao de usuarios.

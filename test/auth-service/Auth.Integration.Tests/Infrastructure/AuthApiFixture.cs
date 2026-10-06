@@ -5,6 +5,7 @@ using Dapper;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.SqlClient;
+using Ouroboros.Auth.Infrastructure.Migrations;
 using Ouroboros.Auth.Infrastructure.Persistence;
 using Testcontainers.MsSql;
 using Xunit;
@@ -42,9 +43,12 @@ public sealed class AuthApiFixture : IAsyncLifetime
     {
         await _container.StartAsync();
 
+        // A API nao roda migrations no startup (spec 2026092511): o fixture as aplica antes, como o servico auth-migrate.
+        MigrationRunner.Run(ConnectionString);
+
         Factory = new AuthApiFactory(ConnectionString);
 
-        // Sobe a API ja aqui: as migrations rodam no startup.
+        // Sobe a API ja aqui, pra o primeiro teste nao pagar o startup.
         Factory.CreateClient().Dispose();
     }
 

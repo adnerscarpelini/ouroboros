@@ -30,7 +30,7 @@ dotnet test test/auth-service/Auth.Integration.Tests --filter "FullyQualifiedNam
 
 ## Como funciona
 
-- **Um container por execução.** `AuthApiFixture` sobe um SQL Server descartável (Testcontainers) e aplica as migrations pelo `MigrationRunner`. O container some no fim.
+- **Um container por execução.** `AuthApiFixture` sobe um SQL Server descartável (Testcontainers) e aplica as migrations pelo `MigrationRunner`, antes de subir a API (a API não roda migrations no startup). O container some no fim.
 - **API em memória.** `AuthApiFactory` (`WebApplicationFactory<Program>`) sobe a API real, sem porta de rede. Connection string, chave JWT e limites de rate limit são injetados com `UseSetting`, para valerem já no startup, onde o `Program` roda as migrations.
 - **Segredos só de teste.** A chave JWT (`AuthApiFactory.SigningKey`) e a senha dos usuários de teste são fixas e não valem em lugar nenhum. Nada aponta para banco compartilhado.
 - **Banco zerado entre testes.** Cada classe chama `ResetDatabaseAsync` em `InitializeAsync`. As classes compartilham o container pela collection `AuthApi`, então não rodam em paralelo.

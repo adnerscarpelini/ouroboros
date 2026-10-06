@@ -1,5 +1,7 @@
 -- login, email e token_hash usam colacao case-sensitive pra manter a semantica de comparacao exata.
-CREATE SCHEMA auth;
+-- O schema pode ja existir: docker/sqlserver/init/01-create-auth-db.sh o cria, dono auth_migrator, pra dar o GRANT ao auth_service.
+IF SCHEMA_ID('auth') IS NULL
+    EXEC('CREATE SCHEMA auth');
 GO
 
 CREATE TABLE auth.users (

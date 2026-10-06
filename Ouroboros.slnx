@@ -90,12 +90,13 @@
     <File Path="specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/README.md" />
     <File Path="specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/dotnet-test.txt" />
   </Folder>
-  <Folder Name="/specs/2026092511-Auth-Configuracao-segura-de-producao/">
-    <File Path="specs/2026092511-Auth-Configuracao-segura-de-producao/spec.md" />
-    <File Path="specs/2026092511-Auth-Configuracao-segura-de-producao/tasks.md" />
+  <Folder Name="/specs/archived/2026092511-Auth-Configuracao-segura-de-producao/">
+    <File Path="specs/archived/2026092511-Auth-Configuracao-segura-de-producao/spec.md" />
+    <File Path="specs/archived/2026092511-Auth-Configuracao-segura-de-producao/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092511-Auth-Configuracao-segura-de-producao/evidence/">
-    <File Path="specs/2026092511-Auth-Configuracao-segura-de-producao/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092511-Auth-Configuracao-segura-de-producao/evidence/">
+    <File Path="specs/archived/2026092511-Auth-Configuracao-segura-de-producao/evidence/README.md" />
+    <File Path="specs/archived/2026092511-Auth-Configuracao-segura-de-producao/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/archived/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/">
     <File Path="specs/archived/2026092512-Auth-Testes-de-integracao-da-API-e-do-banco/spec.md" />

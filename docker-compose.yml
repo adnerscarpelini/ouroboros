@@ -20,7 +20,8 @@ services:
       retries: 20
       start_period: 15s
 
-  # SQL Server nao tem /docker-entrypoint-initdb.d: este servico de uso unico cria banco e login do auth-service.
+  # SQL Server nao tem /docker-entrypoint-initdb.d: este servico de uso unico cria o banco e os dois papeis do auth-service
+  # (auth_migrator, dono do schema, e auth_service, so DML).
   sqlserver-init:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: ouroboros-sqlserver-init
@@ -28,6 +29,8 @@ services:
     environment:
       MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD}
       AUTH_DB_NAME: ${AUTH_DB_NAME}
+      AUTH_MIGRATOR_USER: ${AUTH_MIGRATOR_USER}
+      AUTH_MIGRATOR_PASSWORD: ${AUTH_MIGRATOR_PASSWORD}
       AUTH_DB_USER: ${AUTH_DB_USER}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
     volumes:
@@ -50,10 +53,27 @@ services:
     volumes:
       - ouroboros-seq-data:/data
 
+  # A API nao roda DDL: este servico de uso unico aplica as migrations (mesma imagem, comando "migrate") com o papel
+  # auth_migrator, dono do schema. O auth-service so sobe depois que ele termina com sucesso.
+  auth-migrate:
+    build:
+      context: .
+      dockerfile: auth-service/Auth.Api/Dockerfile
+    image: ouroboros-auth-service
+    container_name: ouroboros-auth-migrate
+    restart: "no"
+    command: ["migrate"]
+    environment:
+      ConnectionStrings__Migration: Server=sqlserver,1433;Database=${AUTH_DB_NAME};User Id=${AUTH_MIGRATOR_USER};Password=${AUTH_MIGRATOR_PASSWORD};Encrypt=True;TrustServerCertificate=True
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+
   auth-service:
     build:
       context: .
       dockerfile: auth-service/Auth.Api/Dockerfile
+    image: ouroboros-auth-service
     container_name: ouroboros-auth-service
     restart: unless-stopped
     environment:
@@ -64,7 +84,7 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      sqlserver-init:
+      auth-migrate:
         condition: service_completed_successfully
       seq:
         condition: service_started

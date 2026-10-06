@@ -18,4 +18,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app .
 
+# Sem root: usuario "app" das imagens .NET 8+. A porta 8082 esta acima de 1024.
+USER $APP_UID
+
 ENTRYPOINT ["dotnet", "Auth.Api.dll"]

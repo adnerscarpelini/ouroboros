@@ -6,6 +6,21 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// A API nunca roda DDL (spec 2026092511). A mesma imagem, chamada com "migrate", aplica as migrations com o papel dono do
+// schema (auth_migrator) e sai. No Compose, o servico auth-migrate roda antes e a API depende dele.
+if (args.FirstOrDefault() == "migrate")
+{
+    var migrationConnectionString = builder.Configuration.GetConnectionString("Migration");
+
+    if (string.IsNullOrWhiteSpace(migrationConnectionString))
+    {
+        throw new InvalidOperationException("Connection string 'Migration' is not configured.");
+    }
+
+    MigrationRunner.Run(migrationConnectionString);
+    return;
+}
+
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration
@@ -24,7 +39,6 @@ builder.Host.UseSerilog((context, configuration) =>
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
-MigrationRunner.Run(connectionString);
 DapperConfiguration.Configure();
 
 builder.Services.AddControllers();

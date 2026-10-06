@@ -28,7 +28,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // UseSetting pra valer ja no startup, onde o Program le a connection string e roda as migrations.
+        // UseSetting pra valer ja no startup, onde o Program le a connection string.
         builder.UseSetting("ConnectionStrings:Default", _connectionString);
         builder.UseSetting("Jwt:SigningKey", SigningKey);
         builder.UseSetting("Seq:ServerUrl", string.Empty);

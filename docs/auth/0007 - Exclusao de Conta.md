@@ -7,7 +7,7 @@ A exclusão é **lógica**: a linha continua em `auth.users` com `deleted_at` pr
 ```
 DELETE /api/users/3b8f55c5-155c-41a7-9949-e5b7d0d83ffd
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-{ "password": "S3cret!1" }
+{ "password": "Str0ng-Passphrase-1" }
 
 204 No Content
 ```

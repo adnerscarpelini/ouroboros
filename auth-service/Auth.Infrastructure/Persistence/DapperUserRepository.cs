@@ -363,6 +363,32 @@ public sealed class DapperUserRepository : IUserRepository
         await _session.ExecuteAsync(sql, new { ExternalId = externalId, Now = now });
     }
 
+    public async Task<bool> TryRehashPasswordAsync(
+        Guid externalId,
+        string currentPasswordHash,
+        string newPasswordHash)
+    {
+        // password_changed_at fica como esta: a senha e a mesma, so o custo do hash mudou.
+        const string sql = """
+            UPDATE auth.users
+            SET
+                password_hash = @NewPasswordHash
+            WHERE
+                external_id = @ExternalId
+                AND password_hash = @CurrentPasswordHash
+                AND deleted_at IS NULL;
+            """;
+
+        return await _session.ExecuteAsync(
+            sql,
+            new
+            {
+                ExternalId = externalId,
+                CurrentPasswordHash = currentPasswordHash,
+                NewPasswordHash = newPasswordHash,
+            }) == 1;
+    }
+
     public async Task RemoveAsync(Guid externalId)
     {
         // Tokens e refresh tokens do usuario saem junto via ON DELETE CASCADE.

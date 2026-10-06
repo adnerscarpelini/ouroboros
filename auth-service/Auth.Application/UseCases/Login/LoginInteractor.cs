@@ -63,6 +63,16 @@ public sealed class LoginInteractor : ILoginUseCase
             throw new DomainException("User is not active");
         }
 
+        // Hash gerado com custo menor que o atual e refeito agora, que a senha em texto puro esta em maos. O UPDATE so
+        // age se o hash ainda for o lido: uma troca de senha em paralelo vence.
+        if (_passwordHasher.NeedsRehash(user.PasswordHash))
+        {
+            await _userRepository.TryRehashPasswordAsync(
+                user.ExternalId,
+                user.PasswordHash,
+                _passwordHasher.Hash(request.Password!));
+        }
+
         // Reautenticacao encerra as sessoes anteriores: so o par emitido agora continua valido.
         // Estou fazendo assim porque atualmente eu não criei uma rotina automatica de revogacao de refresh tokens,
         await _refreshTokenRepository.RevokeAllActiveByUserAsync(user.ExternalId, DateTimeOffset.UtcNow);

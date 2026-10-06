@@ -473,6 +473,48 @@ public sealed class RepositorySqlTests : IAsyncLifetime
         }
     }
 
+    // Spec 2026092509: re-hash condicional
+
+    [Fact]
+    public async Task ShouldReplaceHashOnlyWhenItIsStillTheOneThatWasRead()
+    {
+        var user = await _api.CreateUserAsync("rehash.user");
+        var users = CreateUserRepository();
+
+        var changedInParallel = await users.TryRehashPasswordAsync(user.ExternalId, "stale-hash", "rehash-from-login");
+        var matching = await users.TryRehashPasswordAsync(user.ExternalId, user.PasswordHash, "new-cost-hash");
+
+        Assert.False(changedInParallel);
+        Assert.True(matching);
+        Assert.Equal("new-cost-hash", await _api.QueryAsync<string>("SELECT password_hash FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+    }
+
+    [Fact]
+    public async Task ShouldKeepTheNewPasswordWhenRehashRacesWithAPasswordChange()
+    {
+        var user = await _api.CreateUserAsync("rehash.race");
+        var users = CreateUserRepository();
+        var readByLogin = user.PasswordHash;
+
+        // A troca de senha confirma antes do re-hash do login.
+        await _api.ExecuteAsync("UPDATE auth.users SET password_hash = 'changed-password-hash' WHERE external_id = @Id;", new { Id = user.ExternalId });
+        var rehashed = await users.TryRehashPasswordAsync(user.ExternalId, readByLogin, "rehash-of-the-old-password");
+
+        Assert.False(rehashed);
+        Assert.Equal("changed-password-hash", await _api.QueryAsync<string>("SELECT password_hash FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+    }
+
+    [Fact]
+    public async Task ShouldNotChangePasswordChangedAtWhenRehashing()
+    {
+        var user = await _api.CreateUserAsync("rehash.date");
+        var before = await _api.QueryAsync<DateTimeOffset>("SELECT password_changed_at FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId });
+
+        await CreateUserRepository().TryRehashPasswordAsync(user.ExternalId, user.PasswordHash, "new-cost-hash");
+
+        Assert.Equal(before, await _api.QueryAsync<DateTimeOffset>("SELECT password_changed_at FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+    }
+
     private DapperUserRepository CreateUserRepository() =>
         new(_fixture.CreateSession(), NullLogger<DapperUserRepository>.Instance);
 

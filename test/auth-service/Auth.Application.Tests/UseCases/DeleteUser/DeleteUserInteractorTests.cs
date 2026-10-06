@@ -8,7 +8,7 @@ using Xunit;
 
 public class DeleteUserInteractorTests
 {
-    private const string Password = "S3cret!1";
+    private const string Password = "Str0ng-Passphrase-1";
 
     // Guarda tambem contas excluidas e as ignora nas buscas, igual ao repositorio real.
     private sealed class FakeUserRepository : IUserRepository
@@ -19,6 +19,14 @@ public class DeleteUserInteractorTests
         {
             var user = Items.Single(item => item.ExternalId == externalId);
             return Task.FromResult(user.RecordFailedAccess(now));
+        }
+
+        public Task<bool> TryRehashPasswordAsync(
+            Guid externalId,
+            string currentPasswordHash,
+            string newPasswordHash)
+        {
+            throw new NotSupportedException();
         }
 
         public Task ClearLockoutAsync(
@@ -129,6 +137,11 @@ public class DeleteUserInteractorTests
         public string Hash(string password)
         {
             return $"hashed:{password}";
+        }
+
+        public bool NeedsRehash(string passwordHash)
+        {
+            return false;
         }
 
         public bool Verify(string password, string passwordHash)

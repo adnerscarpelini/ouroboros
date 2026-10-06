@@ -14,24 +14,32 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
     private readonly ITokenRepository _tokenRepository;
     private readonly ITokenGenerator _tokenGenerator;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IBreachedPasswordChecker _breachedPasswordChecker;
 
     public RegisterUserInteractor(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         ITokenRepository tokenRepository,
         ITokenGenerator tokenGenerator,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IBreachedPasswordChecker breachedPasswordChecker)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _tokenRepository = tokenRepository;
         _tokenGenerator = tokenGenerator;
         _unitOfWork = unitOfWork;
+        _breachedPasswordChecker = breachedPasswordChecker;
     }
 
     public async Task<RegisterUserResponse> ExecuteAsync(RegisterUserRequest request)
     {
-        PasswordPolicy.Validate(request.Password);
+        PasswordPolicy.Validate(request.Password, request.Login, request.Email);
+
+        if (await _breachedPasswordChecker.IsBreachedAsync(request.Password))
+        {
+            throw new DomainException(PasswordPolicy.CommonOrBreachedMessage);
+        }
 
         var passwordHash = _passwordHasher.Hash(request.Password);
         var user = User.Create(request.Login, request.FullName, request.Email, passwordHash);

@@ -41,6 +41,15 @@ public interface IUserRepository
         DateTimeOffset now);
 
     /// <summary>
+    /// Troca o hash so se ele ainda for o lido pelo chamador (re-hash no login). Se a senha foi trocada em paralelo,
+    /// nao afeta nada e devolve <c>false</c>, que e o correto: o hash novo vence.
+    /// </summary>
+    Task<bool> TryRehashPasswordAsync(
+        Guid externalId,
+        string currentPasswordHash,
+        string newPasswordHash);
+
+    /// <summary>
     /// Remove o usuario e, em cascata, os tokens e refresh tokens dele.
     /// Usado so pra descartar cadastro abandonado (nunca confirmado). Nunca remove conta excluida.
     /// </summary>

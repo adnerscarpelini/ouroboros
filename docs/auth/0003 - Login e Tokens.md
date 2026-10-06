@@ -17,14 +17,14 @@ Authorization: Bearer <accessToken>
 ## Login
 
 1. O cliente envia login e senha para `POST /api/auth/login`.
-2. O `auth-service` busca o usuário pelo login e confere a senha com o hash PBKDF2 gravado.
+2. O `auth-service` busca o usuário pelo login e confere a senha com o hash PBKDF2 gravado (600.000 iterações, com normalização NFKC). Se o hash gravado tiver custo menor que o atual, ele é refeito depois do login bem-sucedido (ver `docs/auth/0004 - Recuperacao de Senha.md`, seção "Armazenamento").
 3. O login só é aceito para usuário **ativo**, ou seja, com o cadastro já confirmado por e-mail (ver `docs/auth/0001 - Confirmacao de Cadastro.md`).
 4. Todos os refresh tokens ainda ativos do usuário são revogados. Um login em outro dispositivo derruba a sessão anterior.
 5. A resposta traz o par de tokens novo.
 
 ```
 POST /api/auth/login
-{ "login": "jdoe", "password": "S3cret!1" }
+{ "login": "jdoe", "password": "Str0ng-Passphrase-1" }
 
 200 OK
 {

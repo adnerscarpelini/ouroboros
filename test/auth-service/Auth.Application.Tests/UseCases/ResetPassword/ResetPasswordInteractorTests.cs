@@ -8,8 +8,8 @@ using Xunit;
 
 public class ResetPasswordInteractorTests
 {
-    private const string CurrentPassword = "Current@123";
-    private const string NewPassword = "NewPass@456";
+    private const string CurrentPassword = "Current-Password-123";
+    private const string NewPassword = "Brand-New-Password-456";
     private const string InvalidTokenMessage = "Invalid or expired password reset token";
 
     private sealed class FakeUserRepository : IUserRepository
@@ -20,6 +20,14 @@ public class ResetPasswordInteractorTests
         {
             throw new NotSupportedException();
         }
+        public Task<bool> TryRehashPasswordAsync(
+            Guid externalId,
+            string currentPasswordHash,
+            string newPasswordHash)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task ClearLockoutAsync(
             Guid externalId,
             DateTimeOffset now)
@@ -206,6 +214,11 @@ public class ResetPasswordInteractorTests
             return $"hashed:{password}";
         }
 
+        public bool NeedsRehash(string passwordHash)
+        {
+            return false;
+        }
+
         public bool Verify(string password, string passwordHash)
         {
             return passwordHash == Hash(password);
@@ -234,6 +247,8 @@ public class ResetPasswordInteractorTests
         public FakeRefreshTokenRepository RefreshTokenRepository { get; } = new();
 
         public FakeUnitOfWork UnitOfWork { get; } = new();
+
+        public FakeBreachedPasswordChecker BreachedPasswordChecker { get; } = new();
 
         public User User { get; }
 
@@ -301,7 +316,8 @@ public class ResetPasswordInteractorTests
                 RefreshTokenRepository,
                 new FakePasswordHasher(),
                 new FakeTokenGenerator(),
-                UnitOfWork);
+                UnitOfWork,
+                BreachedPasswordChecker);
         }
 
         public void AssertNothingChanged()
@@ -452,10 +468,9 @@ public class ResetPasswordInteractorTests
 
     [Theory]
     [InlineData("Ab@1")]
-    [InlineData("newpass@456")]
-    [InlineData("NEWPASS@456")]
-    [InlineData("NewPass@abc")]
-    [InlineData("NewPass4567")]
+    [InlineData("fourteen-chars")]
+    [InlineData("1q2w3e4r5t6y7u8i")]
+    [InlineData("my-jdoe-passphrase-ok")]
     public async Task ShouldThrowDomainExceptionWhenNewPasswordIsWeak(string weakPassword)
     {
         var scenario = new Scenario();
@@ -465,6 +480,21 @@ public class ResetPasswordInteractorTests
         await Assert.ThrowsAsync<DomainException>(() =>
             scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", weakPassword)));
 
+        scenario.AssertNothingChanged();
+    }
+
+    [Fact]
+    public async Task ShouldThrowDomainExceptionAndKeepTokenPendingWhenNewPasswordHasAppearedInADataBreach()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+        scenario.BreachedPasswordChecker.BreachedPasswords.Add(NewPassword);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword)));
+
+        Assert.Equal("Password is too common or has appeared in a data breach", exception.Message);
+        Assert.Equal(0, scenario.UnitOfWork.Commits);
         scenario.AssertNothingChanged();
     }
 

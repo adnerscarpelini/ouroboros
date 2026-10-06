@@ -71,13 +71,25 @@ Erros (todos `400 {"error": "..."}`, exceto o `429`):
 
 ## Política de senha
 
-A mesma regra vale para o cadastro e para a redefinição (`PasswordPolicy`, em `Auth.Domain/Policies/`):
+A mesma regra vale para o cadastro, a redefinição e a troca de senha (`PasswordPolicy`, em `Auth.Domain/Policies/`). Segue o NIST SP 800-63B rev. 4:
 
-- mínimo de 8 caracteres;
-- ao menos uma letra maiúscula, uma minúscula e um dígito;
-- ao menos um caractere especial (não letra e não dígito).
+- **Tamanho:** de 15 a 128 caracteres, contados em code points Unicode (um emoji conta um). Acima de 128 a resposta é `400`, sem truncar. O mínimo é 15 porque não há MFA.
+- **Sem regras de composição.** Maiúscula, minúscula, dígito e caractere especial não são exigidos. Qualquer caractere vale, inclusive espaço, então frases são bem-vindas.
+- **Normalização NFKC** antes de medir, hashear e verificar. A mesma senha digitada em teclados diferentes gera o mesmo hash. Senhas ASCII não mudam.
+- **Senhas comuns.** Lista embutida em `Auth.Domain/Policies/common-passwords.txt` (2.000 senhas com 15 ou mais caracteres, extraídas do SecLists `Pwdb_top-1000000`, licença MIT; as menores já caem no tamanho mínimo). A comparação não diferencia maiúsculas.
+- **Palavras do contexto.** A senha não pode conter o login, a parte local do e-mail ou `ouroboros`. Login e parte local só valem com 4 ou mais caracteres, para não barrar quase toda senha.
+- **Senhas vazadas.** `IBreachedPasswordChecker` (implementação `PwnedPasswordsChecker`) consulta o Pwned Passwords, do Have I Been Pwned, com k-anonymity: só os 5 primeiros caracteres hexadecimais do SHA-1 saem do serviço, com o header `Add-Padding: true`, e a comparação do restante é local. O timeout é de 2 s. Se a API estiver fora do ar, o fluxo segue sem essa checagem (fail-open) e registra `Warning` sem a senha nem o hash. A lista local continua valendo.
+- **Mensagens.** `Password must be at least 15 characters long`, `Password must be at most 128 characters long`, `Password must not contain the login, the e-mail or the service name` e, para a lista local e a vazada, a mesma `Password is too common or has appeared in a data breach`.
+- **Senhas antigas continuam funcionando**, mesmo abaixo de 15 caracteres. Não há troca forçada nem expiração periódica, que o NIST desaconselha. A regra nova vale só para senha nova.
 
-Ela fica no domínio, e não na entidade `User`, porque a `User` só recebe o hash. A senha em texto puro precisa ser validada antes de chegar na entidade.
+A política de tamanho e de lista fica no domínio, e não na entidade `User`, porque a `User` só recebe o hash. A senha em texto puro precisa ser validada antes de chegar na entidade. A consulta ao Pwned Passwords fica na Application (gateway) e na Infrastructure (HTTP), porque o domínio não faz rede.
+
+### Armazenamento
+
+- **PBKDF2-HMAC-SHA256 com 600.000 iterações** (OWASP Password Storage Cheat Sheet), no formato `{iteracoes}.{salt}.{hash}`. Medido nesta máquina de desenvolvimento: cerca de 260 ms por verificação (referência da spec: abaixo de 500 ms). Se no ambiente alvo passar disso, o resultado deve ser discutido antes de baixar o custo.
+- **Re-hash no login.** Se o hash gravado tem menos iterações que o atual (`IPasswordHasher.NeedsRehash`), o login bem-sucedido o refaz com `UPDATE ... SET password_hash = @novo WHERE external_id = @id AND password_hash = @antigo`. Se a senha foi trocada em paralelo, o `UPDATE` não afeta nada, e o hash novo vence. O `password_changed_at` não muda.
+- **Hash fictício de tempo constante** (login de conta inexistente ou bloqueada, ver `docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md`) usa as mesmas 600.000 iterações.
+- O custo extra de CPU é contido pelos limites de requisição da mesma spec de proteção.
 
 ## Decisões de segurança
 
@@ -148,7 +160,7 @@ O log do token é sensível: qualquer pessoa com acesso ao Seq consegue redefini
 
 - Casos de uso: `Auth.Application/UseCases/RequestPasswordReset/` e `Auth.Application/UseCases/ResetPassword/`.
 - Endpoints: `UserController.RequestPasswordReset` e `UserController.ResetPassword` em `Auth.Api/Controllers/`.
-- Política de senha: `Auth.Domain/Policies/PasswordPolicy.cs` (usada também pelo `RegisterUserInteractor`).
+- Política de senha: `Auth.Domain/Policies/PasswordPolicy.cs` (usada também pelo `RegisterUserInteractor`), lista local em `common-passwords.txt` e senhas vazadas em `Auth.Infrastructure/Security/PwnedPasswordsChecker.cs`.
 - Troca de senha: `User.ChangePassword`. Token pendente: `Token.IsPending`. Ambos em `Auth.Domain/Entities/`.
 - Rate limiting: `Auth.Api/Configuration/RateLimitingConfiguration.cs`, registrado em `Program.cs`.
 - Busca por login ou e-mail: `DapperUserRepository.GetByLoginOrEmailAsync`.

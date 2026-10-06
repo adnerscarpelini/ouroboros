@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Integration.Tests.Infrastructure;
 
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -18,6 +19,9 @@ public sealed record LoginTokens(string AccessToken, string RefreshToken);
 public sealed class TestApi : IDisposable
 {
     public const string Password = "Correct-Password-123";
+
+    // O hash custa 600 mil iteracoes: um por senha, reaproveitado entre os usuarios de teste.
+    private static readonly ConcurrentDictionary<string, string> HashCache = new();
 
     private readonly AuthApiFixture _fixture;
     private readonly HttpClient _client;
@@ -64,7 +68,7 @@ public sealed class TestApi : IDisposable
 
     public async Task<User> CreateUserAsync(string login, string? email = null, bool confirmed = true, string password = Password)
     {
-        var user = User.Create(login, "Integration Test", email ?? $"{login}@example.com", new Pbkdf2PasswordHasher().Hash(password));
+        var user = User.Create(login, "Integration Test", email ?? $"{login}@example.com", HashCache.GetOrAdd(password, value => new Pbkdf2PasswordHasher().Hash(value)));
 
         if (confirmed)
         {

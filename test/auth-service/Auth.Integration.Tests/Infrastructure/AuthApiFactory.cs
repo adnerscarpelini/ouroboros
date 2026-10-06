@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Ouroboros.Auth.Application.Gateways;
 
 public sealed class AuthApiFactory : WebApplicationFactory<Program>
 {
@@ -16,6 +18,8 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     public const string SigningKey = "integration-tests-signing-key-with-32-bytes-or-more";
 
     private readonly string _connectionString;
+
+    public FakeBreachedPasswordChecker BreachedPasswordChecker { get; } = new();
 
     public AuthApiFactory(string connectionString)
     {
@@ -36,7 +40,13 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         }
 
         builder.ConfigureTestServices(services =>
-            services.AddSingleton<IStartupFilter, RemoteIpStartupFilter>());
+        {
+            services.AddSingleton<IStartupFilter, RemoteIpStartupFilter>();
+
+            // Sem rede nos testes: o Pwned Passwords e trocado por um fake que so conhece as senhas informadas.
+            services.RemoveAll<IBreachedPasswordChecker>();
+            services.AddSingleton<IBreachedPasswordChecker>(BreachedPasswordChecker);
+        });
     }
 
     // Roda antes de todo o pipeline do Program, inclusive do UseForwardedHeaders.

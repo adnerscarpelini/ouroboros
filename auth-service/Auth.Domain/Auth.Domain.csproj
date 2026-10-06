@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Policies\common-passwords.txt" LogicalName="common-passwords.txt" />
+  </ItemGroup>
+
 </Project>

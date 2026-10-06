@@ -16,6 +16,14 @@ public class RefreshAccessTokenInteractorTests
         {
             throw new NotSupportedException();
         }
+        public Task<bool> TryRehashPasswordAsync(
+            Guid externalId,
+            string currentPasswordHash,
+            string newPasswordHash)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task ClearLockoutAsync(
             Guid externalId,
             DateTimeOffset now)

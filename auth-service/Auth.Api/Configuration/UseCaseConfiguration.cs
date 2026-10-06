@@ -40,6 +40,11 @@ public static class UseCaseConfiguration
         services.AddScoped<IRefreshTokenRepository, DapperRefreshTokenRepository>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, Sha256TokenGenerator>();
+        services.AddHttpClient<IBreachedPasswordChecker, PwnedPasswordsChecker>(client =>
+        {
+            client.BaseAddress = PwnedPasswordsChecker.BaseAddress;
+            client.Timeout = PwnedPasswordsChecker.Timeout;
+        });
         services.AddScoped<IRegisterUserUseCase, RegisterUserInteractor>();
         services.AddScoped<IConfirmEmailUseCase, ConfirmEmailInteractor>();
         services.AddScoped<ILoginUseCase, LoginInteractor>();

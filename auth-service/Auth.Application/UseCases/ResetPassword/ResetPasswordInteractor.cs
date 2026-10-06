@@ -16,6 +16,7 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenGenerator _tokenGenerator;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IBreachedPasswordChecker _breachedPasswordChecker;
 
     public ResetPasswordInteractor(
         ITokenRepository tokenRepository,
@@ -23,7 +24,8 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
         IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
         ITokenGenerator tokenGenerator,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IBreachedPasswordChecker breachedPasswordChecker)
     {
         _tokenRepository = tokenRepository;
         _userRepository = userRepository;
@@ -31,6 +33,7 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
         _passwordHasher = passwordHasher;
         _tokenGenerator = tokenGenerator;
         _unitOfWork = unitOfWork;
+        _breachedPasswordChecker = breachedPasswordChecker;
     }
 
     public async Task<ResetPasswordResponse> ExecuteAsync(ResetPasswordRequest request)
@@ -61,7 +64,12 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
         }
 
         // Senha rejeitada nao consome o token: o usuario pode tentar de novo com o mesmo link.
-        PasswordPolicy.Validate(request.NewPassword);
+        PasswordPolicy.Validate(request.NewPassword, user.Login, user.Email);
+
+        if (await _breachedPasswordChecker.IsBreachedAsync(request.NewPassword))
+        {
+            throw new DomainException(PasswordPolicy.CommonOrBreachedMessage);
+        }
 
         if (_passwordHasher.Verify(request.NewPassword, user.PasswordHash))
         {

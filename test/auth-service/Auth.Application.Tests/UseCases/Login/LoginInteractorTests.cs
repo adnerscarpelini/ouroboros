@@ -18,6 +18,19 @@ public class LoginInteractorTests
             return Task.FromResult(user.RecordFailedAccess(now));
         }
 
+        public Task<bool> TryRehashPasswordAsync(
+            Guid externalId,
+            string currentPasswordHash,
+            string newPasswordHash)
+        {
+            Rehashes.Add((externalId, currentPasswordHash, newPasswordHash));
+            return Task.FromResult(RehashSucceeds);
+        }
+
+        public List<(Guid ExternalId, string CurrentHash, string NewHash)> Rehashes { get; } = new();
+
+        public bool RehashSucceeds { get; set; } = true;
+
         public Task ClearLockoutAsync(
             Guid externalId,
             DateTimeOffset now)
@@ -135,6 +148,13 @@ public class LoginInteractorTests
             return $"hashed:{password}";
         }
 
+        public bool RehashNeeded { get; set; }
+
+        public bool NeedsRehash(string passwordHash)
+        {
+            return RehashNeeded;
+        }
+
         public bool Verify(string password, string passwordHash)
         {
             VerifiedHashes.Add(passwordHash);
@@ -173,7 +193,7 @@ public class LoginInteractorTests
 
     private static User CreateUser(bool active)
     {
-        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed:S3cret!1");
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hashed:Str0ng-Passphrase-1");
 
         if (active)
         {
@@ -194,7 +214,7 @@ public class LoginInteractorTests
             "John Doe",
             "jdoe@example.com",
             true,
-            "hashed:S3cret!1",
+            "hashed:Str0ng-Passphrase-1",
             DateTimeOffset.UtcNow.AddDays(-30),
             true,
             null,
@@ -225,7 +245,7 @@ public class LoginInteractorTests
         userRepository.Items.Add(user);
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
-        var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
+        var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
 
         Assert.Equal("Bearer", response.TokenType);
         Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com:User", response.AccessToken);
@@ -248,7 +268,7 @@ public class LoginInteractorTests
         userRepository.Items.Add(user);
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
-        var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
+        var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
 
         Assert.Equal($"jwt:{user.ExternalId}:jdoe:jdoe@example.com:Admin", response.AccessToken);
     }
@@ -259,7 +279,7 @@ public class LoginInteractorTests
         var userRepository = new FakeUserRepository();
         var refreshTokenRepository = new FakeRefreshTokenRepository();
         var user = CreateUser(active: true);
-        var otherUser = User.Create("other", "Other User", "other@example.com", "hashed:S3cret!1");
+        var otherUser = User.Create("other", "Other User", "other@example.com", "hashed:Str0ng-Passphrase-1");
         userRepository.Items.Add(user);
         var previousToken = RefreshToken.Create(user.ExternalId, "hashed:previous", DateTimeOffset.UtcNow.AddDays(1));
         var otherUserToken = RefreshToken.Create(otherUser.ExternalId, "hashed:other", DateTimeOffset.UtcNow.AddDays(1));
@@ -267,7 +287,7 @@ public class LoginInteractorTests
         refreshTokenRepository.Items.Add(otherUserToken);
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
-        await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
 
         var newToken = refreshTokenRepository.Items.Single(item => item.TokenHash == "hashed:raw-refresh-token");
         Assert.NotNull(previousToken.RevokedAt);
@@ -298,7 +318,7 @@ public class LoginInteractorTests
         userRepository.Items.Add(CreateUser(active: false));
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1")));
+        var exception = await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
 
         Assert.IsNotType<InvalidCredentialsException>(exception);
         Assert.Empty(refreshTokenRepository.Items);
@@ -324,7 +344,7 @@ public class LoginInteractorTests
         userRepository.Items.Add(CreateUser(active: true));
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("unknown", "S3cret!1")));
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("unknown", "Str0ng-Passphrase-1")));
         Assert.Empty(refreshTokenRepository.Items);
     }
 
@@ -369,7 +389,7 @@ public class LoginInteractorTests
         var interactor = CreateInteractor(users, new FakeRefreshTokenRepository(), hasher);
 
         var error = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
-            interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1")));
+            interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
 
         Assert.Equal("Invalid login or password", error.Message);
         Assert.Equal(hasher.DummyHash, Assert.Single(hasher.VerifiedHashes));
@@ -384,8 +404,61 @@ public class LoginInteractorTests
         user.RecordFailedAccess(DateTimeOffset.UtcNow);
         var interactor = CreateInteractor(users, new FakeRefreshTokenRepository());
 
-        await interactor.ExecuteAsync(new LoginRequest("jdoe", "S3cret!1"));
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
 
         Assert.Equal(0, user.AccessFailedCount);
+    }
+
+    [Fact]
+    public async Task ShouldRehashPasswordWhenStoredHashHasLowerCost()
+    {
+        var users = new FakeUserRepository();
+        var user = CreateUser(active: true);
+        users.Items.Add(user);
+        var hasher = new FakePasswordHasher { RehashNeeded = true };
+        var interactor = CreateInteractor(users, new FakeRefreshTokenRepository(), hasher);
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
+
+        var rehash = Assert.Single(users.Rehashes);
+        Assert.Equal(user.ExternalId, rehash.ExternalId);
+        Assert.Equal("hashed:Str0ng-Passphrase-1", rehash.CurrentHash);
+        Assert.Equal("hashed:Str0ng-Passphrase-1", rehash.NewHash);
+    }
+
+    [Fact]
+    public async Task ShouldNotRehashPasswordWhenStoredHashHasCurrentCost()
+    {
+        var users = new FakeUserRepository();
+        users.Items.Add(CreateUser(active: true));
+        var interactor = CreateInteractor(users, new FakeRefreshTokenRepository());
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
+
+        Assert.Empty(users.Rehashes);
+    }
+
+    [Fact]
+    public async Task ShouldNotRehashPasswordWhenLoginIsRejected()
+    {
+        var users = new FakeUserRepository();
+        users.Items.Add(CreateUser(active: true));
+        var interactor = CreateInteractor(users, new FakeRefreshTokenRepository(), new FakePasswordHasher { RehashNeeded = true });
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Wrong!123")));
+
+        Assert.Empty(users.Rehashes);
+    }
+
+    [Fact]
+    public async Task ShouldCompleteLoginWhenRehashLosesTheRaceAgainstAPasswordChange()
+    {
+        var users = new FakeUserRepository { RehashSucceeds = false };
+        users.Items.Add(CreateUser(active: true));
+        var interactor = CreateInteractor(users, new FakeRefreshTokenRepository(), new FakePasswordHasher { RehashNeeded = true });
+
+        var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
+
+        Assert.Equal("raw-refresh-token", response.RefreshToken);
     }
 }

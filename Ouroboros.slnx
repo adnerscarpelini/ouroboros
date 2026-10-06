@@ -71,12 +71,13 @@
   <Folder Name="/specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/evidence/">
     <File Path="specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/evidence/README.md" />
   </Folder>
-  <Folder Name="/specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/">
-    <File Path="specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/spec.md" />
-    <File Path="specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/tasks.md" />
+  <Folder Name="/specs/archived/2026092509-Auth-Politica-e-armazenamento-de-senhas/">
+    <File Path="specs/archived/2026092509-Auth-Politica-e-armazenamento-de-senhas/spec.md" />
+    <File Path="specs/archived/2026092509-Auth-Politica-e-armazenamento-de-senhas/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/">
-    <File Path="specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/">
+    <File Path="specs/archived/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/README.md" />
+    <File Path="specs/archived/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/">
     <File Path="specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/spec.md" />

@@ -21,7 +21,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"login\": \"usuario.teste\",\n  \"fullName\": \"Usuario de Teste\",\n  \"email\": \"usuario.teste@example.com\",\n  \"password\": \"Senha@123\"\n}"
+              "raw": "{\n  \"login\": \"usuario.teste\",\n  \"fullName\": \"Usuario de Teste\",\n  \"email\": \"usuario.teste@example.com\",\n  \"password\": \"cavalo-bateria-grampo-2026\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users",
@@ -105,7 +105,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"cole-o-token-de-redefinicao-aqui\",\n  \"newPassword\": \"NovaSenha@456\"\n}"
+              "raw": "{\n  \"token\": \"cole-o-token-de-redefinicao-aqui\",\n  \"newPassword\": \"outra-frase-de-teste-2026\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users/password-reset/confirm",
@@ -211,7 +211,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"password\": \"Senha@123\"\n}"
+              "raw": "{\n  \"password\": \"cavalo-bateria-grampo-2026\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/users/cole-o-external-id-aqui",
@@ -244,7 +244,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"login\": \"usuario.teste\",\n  \"password\": \"Senha@123\"\n}"
+              "raw": "{\n  \"login\": \"usuario.teste\",\n  \"password\": \"cavalo-bateria-grampo-2026\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",

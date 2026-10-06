@@ -17,7 +17,7 @@ Cadastro:
 
 ```
 POST /api/users
-{ "login": "jdoe", "fullName": "John Doe", "email": "jdoe@example.com", "password": "S3cret!1" }
+{ "login": "jdoe", "fullName": "John Doe", "email": "jdoe@example.com", "password": "Str0ng-Passphrase-1" }
 
 202 Accepted
 { "message": "If the email is available, a confirmation link will be sent to it." }
@@ -28,7 +28,7 @@ POST /api/users
 | Usuário criado | `202` | mensagem genérica |
 | E-mail já usado | `202` | mensagem genérica |
 | Login já usado | `400` | `Login already in use` |
-| Dados inválidos ou senha fora da política | `400` | mensagem da regra violada |
+| Dados inválidos ou senha fora da política (15 a 128 caracteres, sem senha comum, vazada ou com o login; ver `docs/auth/0004 - Recuperacao de Senha.md`, seção "Política de senha") | `400` | mensagem da regra violada |
 | Limite de requisições excedido | `429` | vazio |
 
 A resposta não traz `id` nem header `Location`. O `externalId` do usuário é obtido depois do login, pela consulta (ver `docs/auth/0006 - Consulta de Usuario.md`).

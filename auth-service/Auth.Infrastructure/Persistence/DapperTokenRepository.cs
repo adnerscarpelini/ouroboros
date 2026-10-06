@@ -164,6 +164,8 @@ public sealed class DapperTokenRepository : ITokenRepository
     public async Task<bool> TryMarkAsUsedAsync(Token token)
     {
         // "used_at IS NULL" garante que so uma requisicao concorrente consegue usar o mesmo token.
+        // "expires_at > @UsedAt" confere o prazo no proprio banco: um token invalidado (conta excluida) ou vencido
+        // depois da leitura nao e consumido.
         const string sql = """
             UPDATE auth.tokens
             SET
@@ -171,7 +173,8 @@ public sealed class DapperTokenRepository : ITokenRepository
                 used_at = @UsedAt
             WHERE
                 external_id = @ExternalId
-                AND used_at IS NULL;
+                AND used_at IS NULL
+                AND expires_at > @UsedAt;
             """;
 
         var affectedRows = await _session.ExecuteAsync(

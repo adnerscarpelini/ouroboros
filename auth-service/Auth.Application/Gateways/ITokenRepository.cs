@@ -19,8 +19,8 @@ public interface ITokenRepository
     Task UpdateAsync(Token token);
 
     /// <summary>
-    /// Persiste o uso do token so se ele ainda nao estiver usado no banco.
-    /// Retorna <c>false</c> quando outra requisicao usou o mesmo token antes (uso concorrente).
+    /// Persiste o uso do token so se ele ainda nao estiver usado e nao tiver expirado no banco (em <c>token.UsedAt</c>).
+    /// Retorna <c>false</c> quando outra requisicao usou o mesmo token antes (uso concorrente) ou quando ele expirou ou foi invalidado.
     /// </summary>
     Task<bool> TryMarkAsUsedAsync(Token token);
 

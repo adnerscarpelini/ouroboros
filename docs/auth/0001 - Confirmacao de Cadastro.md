@@ -9,7 +9,7 @@
 3. Se estiver tudo livre, o usuário é criado **inativo** (`active = false`, `email_confirmed = false`) e é gerado um token de confirmação válido por **24h**.
 4. O token é enviado pro e-mail informado (hoje: logado).
 5. O dono do e-mail envia o token para `POST /api/users/confirm-email`.
-6. Se o token for válido, o usuário passa a `active = true` e `email_confirmed = true`, e o token é marcado como usado.
+6. Se o token for válido, o usuário passa a `active = true` e `email_confirmed = true`, e o token é marcado como usado, tudo na mesma transação. O token vale uma única vez (ver "Uso único e atomicidade").
 
 ## Endpoints
 
@@ -45,14 +45,31 @@ POST /api/users/confirm-email
 
 ## Erros da confirmação
 
-Todos devolvem `400 {"error": "..."}`, com o motivo logado em `Warning` no Seq.
+Qualquer token inválido devolve a **mesma resposta**, para quem chama não descobrir qual caso ocorreu:
 
-| Situação | Mensagem |
-|---|---|
-| Token vazio | `Confirmation token is required` |
-| Token não existe | `Invalid confirmation token` |
-| Token já usado | `Token has already been used` |
-| Token expirado | `Token has expired` |
+```
+400 Bad Request
+{ "error": "Invalid or expired confirmation token" }
+```
+
+Vale para:
+
+- token vazio;
+- token que não existe;
+- token de outro tipo (por exemplo, de redefinição de senha);
+- token expirado;
+- token já usado;
+- token de conta que não existe ou foi excluída.
+
+O motivo real não vai na resposta. O endpoint continua público, com o limite `email-confirm` (ver `docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md`).
+
+## Uso único e atomicidade
+
+- **Consumo condicional no banco.** O token é consumido por um único `UPDATE ... SET used_at = @agora WHERE external_id = @id AND used_at IS NULL AND expires_at > @agora` (`DapperTokenRepository.TryMarkAsUsedAsync`). Se afetar 0 linhas, o token não vale: outra requisição usou antes, ou ele expirou ou foi invalidado. O mesmo método serve à redefinição de senha.
+- **Confirmações simultâneas.** Duas requisições com o mesmo token: uma recebe `200` e a outra `400`. A conta fica ativa uma vez só.
+- **Uma transação.** Consumir o token e ativar o usuário (`email_confirmed` e `active`) rodam dentro de uma `IUnitOfWork` (ver `docs/project/0001 - Arquitetura.md`). Se a atualização do usuário falhar, o token volta a ficar pendente e o usuário continua inativo, então o mesmo link pode ser usado de novo.
+- **Ordem dentro da transação.** O token é consumido primeiro e o usuário é lido depois. Assim, uma exclusão de conta confirmada nesse meio tempo é respeitada: o usuário não é encontrado e nada é gravado.
+- **Pré-checagem.** Antes de abrir a transação, token inexistente, expirado ou já usado é descartado sem tocar no banco. A garantia de uso único vem do `UPDATE`, não dessa checagem.
 
 ## Login e e-mail já usados
 

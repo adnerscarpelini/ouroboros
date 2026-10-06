@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.ConfirmEmail;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
@@ -7,6 +8,8 @@ using Xunit;
 
 public class ConfirmEmailInteractorTests
 {
+    private const string InvalidTokenMessage = "Invalid or expired confirmation token";
+
     private sealed class FakeUserRepository : IUserRepository
     {
         public Task<bool> RecordFailedAccessAsync(
@@ -24,6 +27,8 @@ public class ConfirmEmailInteractorTests
         public List<User> Items { get; } = new();
 
         public List<User> Updated { get; } = new();
+
+        public bool FailOnUpdate { get; set; }
 
         public Task AddAsync(User user)
         {
@@ -46,9 +51,10 @@ public class ConfirmEmailInteractorTests
             return Task.FromResult(0);
         }
 
+        // Como o repositorio real, ignora conta excluida: pra aplicacao ela nao existe.
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
-            var user = Items.FirstOrDefault(item => item.ExternalId == externalId);
+            var user = Items.FirstOrDefault(item => item.ExternalId == externalId && item.DeletedAt is null);
             return Task.FromResult(user);
         }
 
@@ -72,6 +78,11 @@ public class ConfirmEmailInteractorTests
 
         public Task UpdateAsync(User user)
         {
+            if (FailOnUpdate)
+            {
+                throw new InvalidOperationException("Forced user update failure.");
+            }
+
             Updated.Add(user);
             return Task.CompletedTask;
         }
@@ -82,6 +93,9 @@ public class ConfirmEmailInteractorTests
         public List<Token> Items { get; } = new();
 
         public List<Token> Updated { get; } = new();
+
+        // Simula o UPDATE condicional: false quando outra requisicao consumiu o token antes.
+        public bool TryMarkAsUsedResult { get; set; } = true;
 
         public Task AddAsync(Token token)
         {
@@ -119,8 +133,12 @@ public class ConfirmEmailInteractorTests
 
         public Task<bool> TryMarkAsUsedAsync(Token token)
         {
-            Updated.Add(token);
-            return Task.FromResult(true);
+            if (TryMarkAsUsedResult)
+            {
+                Updated.Add(token);
+            }
+
+            return Task.FromResult(TryMarkAsUsedResult);
         }
     }
 
@@ -145,7 +163,8 @@ public class ConfirmEmailInteractorTests
     private static Token CreateToken(
         Guid userExternalId,
         DateTimeOffset expiresAt,
-        DateTimeOffset? usedAt)
+        DateTimeOffset? usedAt,
+        TokenType type = TokenType.EmailConfirmation)
     {
         return Token.Rehydrate(
             1,
@@ -153,10 +172,18 @@ public class ConfirmEmailInteractorTests
             DateTimeOffset.UtcNow.AddDays(-2),
             null,
             userExternalId,
-            TokenType.EmailConfirmation,
+            type,
             "hashed:raw-token",
             expiresAt,
             usedAt);
+    }
+
+    private static ConfirmEmailInteractor CreateInteractor(
+        FakeTokenRepository tokenRepository,
+        FakeUserRepository userRepository,
+        FakeUnitOfWork unitOfWork)
+    {
+        return new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator(), unitOfWork);
     }
 
     [Fact]
@@ -164,10 +191,11 @@ public class ConfirmEmailInteractorTests
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
         var user = CreateUser();
         userRepository.Items.Add(user);
         tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
-        var interactor = new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator());
+        var interactor = CreateInteractor(tokenRepository, userRepository, unitOfWork);
 
         var response = await interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token"));
 
@@ -183,60 +211,176 @@ public class ConfirmEmailInteractorTests
     }
 
     [Fact]
-    public async Task ShouldThrowDomainExceptionWhenTokenIsExpired()
+    public async Task ShouldConsumeTokenAndActivateUserInsideTheSameUnitOfWork()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser();
+        userRepository.Items.Add(user);
+        tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
+        var interactor = CreateInteractor(tokenRepository, userRepository, unitOfWork);
+
+        await interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token"));
+
+        Assert.Equal(1, unitOfWork.Commits);
+        Assert.Equal(0, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldThrowGenericMessageWhenTokenIsExpired()
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
         var user = CreateUser();
         userRepository.Items.Add(user);
         tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddMinutes(-1), null));
-        var interactor = new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator());
+        var interactor = CreateInteractor(tokenRepository, userRepository, new FakeUnitOfWork());
 
-        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token")));
+        await AssertInvalidTokenAsync(interactor, "raw-token");
+
         Assert.Empty(userRepository.Updated);
         Assert.Empty(tokenRepository.Updated);
         Assert.False(user.Active);
     }
 
     [Fact]
-    public async Task ShouldThrowDomainExceptionWhenTokenWasAlreadyUsed()
+    public async Task ShouldThrowGenericMessageWhenTokenWasAlreadyUsed()
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
         var user = CreateUser();
         userRepository.Items.Add(user);
         tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), DateTimeOffset.UtcNow.AddMinutes(-5)));
-        var interactor = new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator());
+        var interactor = CreateInteractor(tokenRepository, userRepository, new FakeUnitOfWork());
 
-        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token")));
+        await AssertInvalidTokenAsync(interactor, "raw-token");
+
         Assert.Empty(userRepository.Updated);
         Assert.Empty(tokenRepository.Updated);
     }
 
     [Fact]
-    public async Task ShouldThrowDomainExceptionWhenTokenDoesNotExist()
+    public async Task ShouldThrowGenericMessageWhenTokenIsOfAnotherType()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var user = CreateUser();
+        userRepository.Items.Add(user);
+        tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null, TokenType.PasswordReset));
+        var interactor = CreateInteractor(tokenRepository, userRepository, new FakeUnitOfWork());
+
+        await AssertInvalidTokenAsync(interactor, "raw-token");
+
+        Assert.Empty(userRepository.Updated);
+        Assert.Empty(tokenRepository.Updated);
+        Assert.False(user.Active);
+    }
+
+    [Fact]
+    public async Task ShouldThrowGenericMessageWhenTokenDoesNotExist()
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
         var user = CreateUser();
         userRepository.Items.Add(user);
         tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
-        var interactor = new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator());
+        var interactor = CreateInteractor(tokenRepository, userRepository, new FakeUnitOfWork());
 
-        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest("unknown-token")));
+        await AssertInvalidTokenAsync(interactor, "unknown-token");
+
+        Assert.Empty(userRepository.Updated);
+        Assert.Empty(tokenRepository.Updated);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ShouldThrowGenericMessageWhenTokenIsBlank(string token)
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var interactor = CreateInteractor(tokenRepository, userRepository, new FakeUnitOfWork());
+
+        await AssertInvalidTokenAsync(interactor, token);
+
         Assert.Empty(userRepository.Updated);
         Assert.Empty(tokenRepository.Updated);
     }
 
     [Fact]
-    public async Task ShouldThrowDomainExceptionWhenTokenIsBlank()
+    public async Task ShouldThrowGenericMessageWhenUserDoesNotExist()
     {
         var userRepository = new FakeUserRepository();
         var tokenRepository = new FakeTokenRepository();
-        var interactor = new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator());
+        var unitOfWork = new FakeUnitOfWork();
+        tokenRepository.Items.Add(CreateToken(Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1), null));
+        var interactor = CreateInteractor(tokenRepository, userRepository, unitOfWork);
 
-        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest("   ")));
+        await AssertInvalidTokenAsync(interactor, "raw-token");
+
         Assert.Empty(userRepository.Updated);
-        Assert.Empty(tokenRepository.Updated);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldThrowGenericMessageWhenUserWasDeleted()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser();
+        user.Delete();
+        userRepository.Items.Add(user);
+        tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
+        var interactor = CreateInteractor(tokenRepository, userRepository, unitOfWork);
+
+        await AssertInvalidTokenAsync(interactor, "raw-token");
+
+        Assert.Empty(userRepository.Updated);
+        Assert.False(user.Active);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldThrowGenericMessageAndKeepUserInactiveWhenAnotherRequestConsumedTheToken()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository { TryMarkAsUsedResult = false };
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser();
+        userRepository.Items.Add(user);
+        tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
+        var interactor = CreateInteractor(tokenRepository, userRepository, unitOfWork);
+
+        await AssertInvalidTokenAsync(interactor, "raw-token");
+
+        Assert.Empty(userRepository.Updated);
+        Assert.False(user.Active);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenUserUpdateFails()
+    {
+        var userRepository = new FakeUserRepository { FailOnUpdate = true };
+        var tokenRepository = new FakeTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser();
+        userRepository.Items.Add(user);
+        tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
+        var interactor = CreateInteractor(tokenRepository, userRepository, unitOfWork);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    private static async Task AssertInvalidTokenAsync(ConfirmEmailInteractor interactor, string token)
+    {
+        var exception = await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest(token)));
+
+        Assert.Equal(InvalidTokenMessage, exception.Message);
     }
 }

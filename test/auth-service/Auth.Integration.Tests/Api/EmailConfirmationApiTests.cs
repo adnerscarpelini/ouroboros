@@ -1,6 +1,7 @@
 namespace Ouroboros.Auth.Integration.Tests.Api;
 
 using System.Net;
+using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Integration.Tests.Infrastructure;
 using Xunit;
@@ -62,7 +63,7 @@ public sealed class EmailConfirmationApiTests : IAsyncLifetime
         await Confirm(token);
         var second = await Confirm(token);
 
-        Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
+        await AssertInvalidTokenAsync(second);
     }
 
     [Fact]
@@ -70,7 +71,7 @@ public sealed class EmailConfirmationApiTests : IAsyncLifetime
     {
         var response = await Confirm("unknown-token");
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertInvalidTokenAsync(response);
     }
 
     [Fact]
@@ -82,7 +83,7 @@ public sealed class EmailConfirmationApiTests : IAsyncLifetime
 
         var response = await Confirm(token);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertInvalidTokenAsync(response);
         Assert.False(await IsActiveAsync(user.ExternalId));
     }
 
@@ -94,8 +95,83 @@ public sealed class EmailConfirmationApiTests : IAsyncLifetime
 
         var response = await Confirm(token);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertInvalidTokenAsync(response);
         Assert.False(await IsActiveAsync(user.ExternalId));
+    }
+
+    // Spec 2026092503
+
+    [Fact]
+    public async Task ShouldRejectTokenOfDeletedAccountWithTheSameMessage()
+    {
+        var user = await _api.CreateUserAsync("deleted.pending", confirmed: false);
+        var token = await _api.AddTokenAsync(user.ExternalId, TokenType.EmailConfirmation);
+        await _api.ExecuteAsync("UPDATE auth.users SET deleted_at = SYSDATETIMEOFFSET() WHERE external_id = @Id;", new { Id = user.ExternalId });
+
+        var response = await Confirm(token);
+
+        await AssertInvalidTokenAsync(response);
+        Assert.False(await IsActiveAsync(user.ExternalId));
+        Assert.Equal(0, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.tokens WHERE used_at IS NOT NULL;"));
+    }
+
+    [Fact]
+    public async Task ShouldRejectEmptyTokenWithTheSameMessage()
+    {
+        var response = await Confirm(string.Empty);
+
+        await AssertInvalidTokenAsync(response);
+    }
+
+    [Fact]
+    public async Task ShouldReturnOneOkAndOneBadRequestWhenSameTokenIsConfirmedConcurrently()
+    {
+        for (var round = 0; round < 8; round++)
+        {
+            var user = await _api.CreateUserAsync($"race.confirm.{round}", confirmed: false);
+            var token = await _api.AddTokenAsync(user.ExternalId, TokenType.EmailConfirmation);
+
+            var responses = await Task.WhenAll(Confirm(token), Confirm(token));
+
+            var statuses = responses.Select(response => response.StatusCode).Order().ToArray();
+
+            Assert.Equal([HttpStatusCode.OK, HttpStatusCode.BadRequest], statuses);
+            Assert.True(await IsActiveAsync(user.ExternalId));
+
+            var loser = responses.Single(response => response.StatusCode == HttpStatusCode.BadRequest);
+            await AssertInvalidTokenAsync(loser);
+        }
+    }
+
+    [Theory]
+    [InlineData(FaultTiming.Before)]
+    [InlineData(FaultTiming.After)]
+    public async Task ShouldKeepTokenPendingAndUserInactiveWhenUserUpdateFails(FaultTiming timing)
+    {
+        var user = await _api.CreateUserAsync($"rollback.{timing}", confirmed: false);
+        var token = await _api.AddTokenAsync(user.ExternalId, TokenType.EmailConfirmation);
+
+        using var factory = _fixture.CreateFactoryFailingOn<IUserRepository>(nameof(IUserRepository.UpdateAsync), timing);
+        using var failing = new TestApi(_fixture, factory.CreateClient());
+
+        var response = await failing.PostAsync("/api/users/confirm-email", new { token });
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.False(await IsActiveAsync(user.ExternalId));
+        Assert.False(await _api.QueryAsync<bool>("SELECT email_confirmed FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+        Assert.Equal(0, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.tokens WHERE used_at IS NOT NULL;"));
+
+        // O mesmo token continua valendo numa nova tentativa, sem a falha.
+        var retry = await Confirm(token);
+
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+        Assert.True(await IsActiveAsync(user.ExternalId));
+    }
+
+    private static async Task AssertInvalidTokenAsync(HttpResponseMessage response)
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Invalid or expired confirmation token", await TestApi.ReadErrorAsync(response));
     }
 
     private Task<HttpResponseMessage> Confirm(string token) =>

@@ -33,12 +33,13 @@
   </Folder>
   <Folder Name="/specs/" />
 
-  <Folder Name="/specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/">
-    <File Path="specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/spec.md" />
-    <File Path="specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/tasks.md" />
+  <Folder Name="/specs/archived/2026092503-Auth-Confirmacao-atomica-de-cadastro/">
+    <File Path="specs/archived/2026092503-Auth-Confirmacao-atomica-de-cadastro/spec.md" />
+    <File Path="specs/archived/2026092503-Auth-Confirmacao-atomica-de-cadastro/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/evidence/">
-    <File Path="specs/2026092503-Auth-Confirmacao-atomica-de-cadastro/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092503-Auth-Confirmacao-atomica-de-cadastro/evidence/">
+    <File Path="specs/archived/2026092503-Auth-Confirmacao-atomica-de-cadastro/evidence/README.md" />
+    <File Path="specs/archived/2026092503-Auth-Confirmacao-atomica-de-cadastro/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092504-Auth-Redefinicao-atomica-de-senha/">
     <File Path="specs/2026092504-Auth-Redefinicao-atomica-de-senha/spec.md" />

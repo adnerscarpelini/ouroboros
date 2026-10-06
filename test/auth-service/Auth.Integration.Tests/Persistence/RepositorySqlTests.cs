@@ -206,6 +206,36 @@ public sealed class RepositorySqlTests : IAsyncLifetime
         Assert.Single(results, won => won);
     }
 
+    // Spec 2026092503: o prazo e conferido no proprio UPDATE.
+
+    [Fact]
+    public async Task ShouldNotMarkExpiredTokenAsUsed()
+    {
+        var user = await _api.CreateUserAsync("mark.expired");
+        var raw = await _api.AddTokenAsync(user.ExternalId, TokenType.PasswordReset);
+        var token = (await CreateTokenRepository().GetByHashAsync(_tokens.Hash(raw), TokenType.PasswordReset))!;
+        await _api.ExpireTokenAsync(raw);
+        token.MarkAsUsed(DateTimeOffset.UtcNow);
+
+        var result = await CreateTokenRepository().TryMarkAsUsedAsync(token);
+
+        Assert.False(result);
+        Assert.Null((await CreateTokenRepository().GetByHashAsync(_tokens.Hash(raw), TokenType.PasswordReset))!.UsedAt);
+    }
+
+    [Fact]
+    public async Task ShouldNotMarkTokenAsUsedAfterItWasInvalidated()
+    {
+        var user = await _api.CreateUserAsync("mark.invalidated");
+        var raw = await _api.AddTokenAsync(user.ExternalId, TokenType.EmailConfirmation);
+        var token = (await CreateTokenRepository().GetByHashAsync(_tokens.Hash(raw), TokenType.EmailConfirmation))!;
+        token.MarkAsUsed(DateTimeOffset.UtcNow.AddSeconds(1));
+
+        await CreateTokenRepository().InvalidatePendingByUserAsync(user.ExternalId, TokenType.EmailConfirmation, DateTimeOffset.UtcNow);
+
+        Assert.False(await CreateTokenRepository().TryMarkAsUsedAsync(token));
+    }
+
     [Fact]
     public async Task ShouldRevokeOnlyActiveRefreshTokensOfTheUser()
     {

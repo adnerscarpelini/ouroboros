@@ -14,17 +14,20 @@ public sealed class ConfirmEmailInteractor : IConfirmEmailUseCase
     private readonly IUserRepository _userRepository;
     private readonly ITokenGenerator _tokenGenerator;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLog _auditLog;
 
     public ConfirmEmailInteractor(
         ITokenRepository tokenRepository,
         IUserRepository userRepository,
         ITokenGenerator tokenGenerator,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLog auditLog)
     {
         _tokenRepository = tokenRepository;
         _userRepository = userRepository;
         _tokenGenerator = tokenGenerator;
         _unitOfWork = unitOfWork;
+        _auditLog = auditLog;
     }
 
     public async Task<ConfirmEmailResponse> ExecuteAsync(ConfirmEmailRequest request)
@@ -71,6 +74,8 @@ public sealed class ConfirmEmailInteractor : IConfirmEmailUseCase
         user.ConfirmEmail();
 
         await _userRepository.UpdateAsync(user);
+
+        await _auditLog.RecordAsync(new AuditEvent(AuditEventType.EmailConfirmed, AuditOutcome.Success, user.ExternalId));
 
         return new ConfirmEmailResponse(user.ExternalId, user.Login, user.Email);
     }

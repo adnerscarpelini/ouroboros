@@ -1,6 +1,7 @@
 namespace Ouroboros.Auth.Application.UseCases.ChangePassword;
 
 using Ouroboros.Auth.Application.Gateways;
+using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
 using Ouroboros.Auth.Domain.Policies;
 
@@ -11,19 +12,22 @@ public sealed class ChangePasswordInteractor : IChangePasswordUseCase
     private readonly IPasswordHasher _passwordHasher;
     private readonly IBreachedPasswordChecker _breachedPasswordChecker;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLog _auditLog;
 
     public ChangePasswordInteractor(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
         IBreachedPasswordChecker breachedPasswordChecker,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLog auditLog)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _passwordHasher = passwordHasher;
         _breachedPasswordChecker = breachedPasswordChecker;
         _unitOfWork = unitOfWork;
+        _auditLog = auditLog;
     }
 
     public async Task<ChangePasswordResponse> ExecuteAsync(ChangePasswordRequest request)
@@ -49,7 +53,17 @@ public sealed class ChangePasswordInteractor : IChangePasswordUseCase
         {
             if (canVerifyRealHash)
             {
-                await _userRepository.RecordFailedAccessAsync(user.ExternalId, now);
+                var lockedOut = await _userRepository.RecordFailedAccessAsync(user.ExternalId, now);
+
+                if (lockedOut)
+                {
+                    await _auditLog.RecordAsync(new AuditEvent(
+                        AuditEventType.AccountLockedOut,
+                        AuditOutcome.Failure,
+                        user.ExternalId,
+                        SessionId: request.SessionId,
+                        Reason: AuditReason.TooManyFailedAttempts));
+                }
             }
 
             throw new InvalidCredentialsException();
@@ -101,6 +115,12 @@ public sealed class ChangePasswordInteractor : IChangePasswordUseCase
             user.ExternalId,
             request.SessionId ?? Guid.Empty,
             now);
+
+        await _auditLog.RecordAsync(new AuditEvent(
+            AuditEventType.PasswordChanged,
+            AuditOutcome.Success,
+            user.ExternalId,
+            SessionId: request.SessionId));
 
         return new ChangePasswordResponse(user.ExternalId);
     }

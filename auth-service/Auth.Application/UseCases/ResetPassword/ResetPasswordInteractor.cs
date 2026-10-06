@@ -17,6 +17,7 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
     private readonly ITokenGenerator _tokenGenerator;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBreachedPasswordChecker _breachedPasswordChecker;
+    private readonly IAuditLog _auditLog;
 
     public ResetPasswordInteractor(
         ITokenRepository tokenRepository,
@@ -25,7 +26,8 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
         IPasswordHasher passwordHasher,
         ITokenGenerator tokenGenerator,
         IUnitOfWork unitOfWork,
-        IBreachedPasswordChecker breachedPasswordChecker)
+        IBreachedPasswordChecker breachedPasswordChecker,
+        IAuditLog auditLog)
     {
         _tokenRepository = tokenRepository;
         _userRepository = userRepository;
@@ -34,6 +36,7 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
         _tokenGenerator = tokenGenerator;
         _unitOfWork = unitOfWork;
         _breachedPasswordChecker = breachedPasswordChecker;
+        _auditLog = auditLog;
     }
 
     public async Task<ResetPasswordResponse> ExecuteAsync(ResetPasswordRequest request)
@@ -115,6 +118,8 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
 
         // Encerra todas as sessoes, inclusive as de quem eventualmente tinha a senha antiga.
         await _refreshTokenRepository.RevokeAllActiveByUserAsync(user.ExternalId, now);
+
+        await _auditLog.RecordAsync(new AuditEvent(AuditEventType.PasswordResetCompleted, AuditOutcome.Success, user.ExternalId));
 
         return new ResetPasswordResponse(user.ExternalId);
     }

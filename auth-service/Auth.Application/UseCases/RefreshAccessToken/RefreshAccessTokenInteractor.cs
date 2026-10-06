@@ -15,6 +15,7 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
     private readonly ITokenGenerator _tokenGenerator;
     private readonly RefreshTokenSettings _refreshTokenSettings;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLog _auditLog;
 
     public RefreshAccessTokenInteractor(
         IUserRepository userRepository,
@@ -22,7 +23,8 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
         IJwtTokenGenerator jwtTokenGenerator,
         ITokenGenerator tokenGenerator,
         RefreshTokenSettings refreshTokenSettings,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLog auditLog)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
@@ -30,6 +32,7 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
         _tokenGenerator = tokenGenerator;
         _refreshTokenSettings = refreshTokenSettings;
         _unitOfWork = unitOfWork;
+        _auditLog = auditLog;
     }
 
     public async Task<RefreshAccessTokenResponse> ExecuteAsync(RefreshAccessTokenRequest request)
@@ -127,6 +130,14 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
         DateTimeOffset now)
     {
         await _refreshTokenRepository.RevokeAllActiveBySessionAsync(token.SessionId, now);
+
+        // Fora de qualquer transacao (autocommit): o evento de falha sobrevive ao rollback da rotacao.
+        await _auditLog.RecordAsync(new AuditEvent(
+            AuditEventType.RefreshTokenReuseDetected,
+            AuditOutcome.Failure,
+            token.UserExternalId,
+            SessionId: token.SessionId,
+            Reason: AuditReason.ReuseDetected));
 
         throw new RefreshTokenReuseException(token.UserExternalId, token.SessionId);
     }

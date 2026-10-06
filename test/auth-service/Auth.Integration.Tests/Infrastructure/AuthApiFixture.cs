@@ -84,10 +84,12 @@ public sealed class AuthApiFixture : IAsyncLifetime
     public async Task ResetDatabaseAsync()
     {
         const string sql = """
+            DELETE FROM auth.audit_events;
             DELETE FROM auth.refresh_tokens;
             DELETE FROM auth.tokens;
             DELETE FROM auth.users;
 
+            DBCC CHECKIDENT ('auth.audit_events', RESEED, 0) WITH NO_INFOMSGS;
             DBCC CHECKIDENT ('auth.refresh_tokens', RESEED, 0) WITH NO_INFOMSGS;
             DBCC CHECKIDENT ('auth.tokens', RESEED, 0) WITH NO_INFOMSGS;
             DBCC CHECKIDENT ('auth.users', RESEED, 0) WITH NO_INFOMSGS;

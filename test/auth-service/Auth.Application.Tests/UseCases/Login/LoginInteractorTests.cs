@@ -275,7 +275,8 @@ public class LoginInteractorTests
         FakeRefreshTokenRepository refreshTokenRepository,
         FakePasswordHasher? passwordHasher = null,
         FakeUnitOfWork? unitOfWork = null,
-        FakeJwtTokenGenerator? jwtTokenGenerator = null)
+        FakeJwtTokenGenerator? jwtTokenGenerator = null,
+        FakeAuditLog? auditLog = null)
     {
         return new LoginInteractor(
             userRepository,
@@ -284,7 +285,8 @@ public class LoginInteractorTests
             jwtTokenGenerator ?? new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
             RefreshTokenSettings,
-            unitOfWork ?? new FakeUnitOfWork());
+            unitOfWork ?? new FakeUnitOfWork(),
+            auditLog ?? new FakeAuditLog());
     }
 
     [Fact]
@@ -596,5 +598,162 @@ public class LoginInteractorTests
         var response = await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
 
         Assert.Equal("raw-refresh-token", response.RefreshToken);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheLoginSucceededEventWithTheSessionInsideTheUnitOfWork()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var auditLog = new FakeAuditLog();
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, unitOfWork: unitOfWork, auditLog: auditLog);
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.LoginSucceeded, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal(Assert.Single(refreshTokenRepository.Items).SessionId, auditEvent.SessionId);
+        Assert.Equal(1, unitOfWork.Commits);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheLoginFailedEventWithTheUserAndTheInvalidPasswordReason()
+    {
+        var userRepository = new FakeUserRepository();
+        var auditLog = new FakeAuditLog();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), auditLog: auditLog);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Wrong!123")));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.LoginFailed, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Failure, auditEvent.Outcome);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal("invalid_password", auditEvent.Reason);
+        Assert.DoesNotContain("Wrong!123", System.Text.Json.JsonSerializer.Serialize(auditEvent));
+    }
+
+    [Fact]
+    public async Task ShouldNeverRecordTheTypedLoginNorThePasswordWhenTheAccountDoesNotExist()
+    {
+        var userRepository = new FakeUserRepository();
+        userRepository.Items.Add(CreateUser(active: true));
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), auditLog: auditLog);
+
+        // Usuarios digitam a senha no campo de login por engano.
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("my-secret-typed-here", "Wrong!123")));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.LoginFailed, auditEvent.Type);
+        Assert.Null(auditEvent.UserExternalId);
+        Assert.Equal("unknown_login", auditEvent.Reason);
+        var serialized = System.Text.Json.JsonSerializer.Serialize(auditEvent);
+        Assert.DoesNotContain("my-secret-typed-here", serialized);
+        Assert.DoesNotContain("Wrong!123", serialized);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheLoginFailedEventWithTheLockedOutReasonWhenTheAccountIsLocked()
+    {
+        var userRepository = new FakeUserRepository();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+
+        for (var attempt = 0; attempt < User.MaxFailedAccessAttempts; attempt++)
+        {
+            user.RecordFailedAccess(DateTimeOffset.UtcNow);
+        }
+
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), auditLog: auditLog);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.LoginFailed, auditEvent.Type);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal("locked_out", auditEvent.Reason);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheAccountLockedOutEventWhenTheLastAllowedAttemptFails()
+    {
+        var userRepository = new FakeUserRepository();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+
+        for (var attempt = 0; attempt < User.MaxFailedAccessAttempts - 1; attempt++)
+        {
+            user.RecordFailedAccess(DateTimeOffset.UtcNow);
+        }
+
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), auditLog: auditLog);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Wrong!123")));
+
+        Assert.True(auditLog.Has(AuditEventType.LoginFailed));
+        var locked = auditLog.Single(AuditEventType.AccountLockedOut);
+        Assert.Equal(AuditOutcome.Failure, locked.Outcome);
+        Assert.Equal(user.ExternalId, locked.UserExternalId);
+        Assert.Equal("too_many_failed_attempts", locked.Reason);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheLoginFailedEventWithTheInactiveAccountReason()
+    {
+        var userRepository = new FakeUserRepository();
+        var user = CreateUser(active: false);
+        userRepository.Items.Add(user);
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), auditLog: auditLog);
+
+        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.LoginFailed, auditEvent.Type);
+        Assert.Equal("inactive_account", auditEvent.Reason);
+    }
+
+    [Fact]
+    public async Task ShouldRecordOnlyTheFailureAndNoSuccessWhenTheAccountIsLockedBetweenReadAndWrite()
+    {
+        var userRepository = new FakeUserRepository { RegisterLoginFails = true };
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), auditLog: auditLog);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
+
+        Assert.False(auditLog.Has(AuditEventType.LoginSucceeded));
+        Assert.Equal("locked_out", auditLog.Single(AuditEventType.LoginFailed).Reason);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackAndIssueNoTokenWhenTheSuccessEventCannotBeRecorded()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        userRepository.Items.Add(CreateUser(active: true));
+        var interactor = CreateInteractor(
+            userRepository,
+            refreshTokenRepository,
+            unitOfWork: unitOfWork,
+            auditLog: new FakeAuditLog { RecordException = new InvalidOperationException("audit failed") });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
     }
 }

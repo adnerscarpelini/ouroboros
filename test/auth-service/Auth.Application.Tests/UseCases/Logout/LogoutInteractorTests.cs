@@ -205,7 +205,7 @@ public class LogoutInteractorTests
         var repository = new FakeRefreshTokenRepository();
         var currentToken = CreateStoredToken(Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(1), null);
         repository.Items.Add(currentToken);
-        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator());
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), new FakeUnitOfWork(), new FakeAuditLog());
 
         var response = await interactor.ExecuteAsync(new LogoutRequest("current-refresh-token"));
 
@@ -222,7 +222,7 @@ public class LogoutInteractorTests
         var revokedAt = DateTimeOffset.UtcNow.AddHours(-1);
         var currentToken = CreateStoredToken(Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(1), revokedAt);
         repository.Items.Add(currentToken);
-        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator());
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), new FakeUnitOfWork(), new FakeAuditLog());
 
         var response = await interactor.ExecuteAsync(new LogoutRequest("current-refresh-token"));
 
@@ -237,7 +237,7 @@ public class LogoutInteractorTests
         var repository = new FakeRefreshTokenRepository();
         var currentToken = CreateStoredToken(Guid.NewGuid(), DateTimeOffset.UtcNow.AddMinutes(-1), null);
         repository.Items.Add(currentToken);
-        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator());
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), new FakeUnitOfWork(), new FakeAuditLog());
 
         var response = await interactor.ExecuteAsync(new LogoutRequest("current-refresh-token"));
 
@@ -251,7 +251,7 @@ public class LogoutInteractorTests
     {
         var repository = new FakeRefreshTokenRepository();
         repository.Items.Add(CreateStoredToken(Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(1), null));
-        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator());
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), new FakeUnitOfWork(), new FakeAuditLog());
 
         await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => interactor.ExecuteAsync(new LogoutRequest("unknown-refresh-token")));
         Assert.Empty(repository.Revoked);
@@ -261,7 +261,7 @@ public class LogoutInteractorTests
     public async Task ShouldThrowInvalidRefreshTokenExceptionWhenTokenIsBlank()
     {
         var repository = new FakeRefreshTokenRepository();
-        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator());
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), new FakeUnitOfWork(), new FakeAuditLog());
 
         await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => interactor.ExecuteAsync(new LogoutRequest("   ")));
         Assert.Empty(repository.Revoked);
@@ -276,14 +276,15 @@ public class LogoutInteractorTests
         user.ConfirmEmail();
         userRepository.Items.Add(user);
         refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
-        var logoutInteractor = new LogoutInteractor(refreshTokenRepository, new FakeTokenGenerator());
+        var logoutInteractor = new LogoutInteractor(refreshTokenRepository, new FakeTokenGenerator(), new FakeUnitOfWork(), new FakeAuditLog());
         var refreshInteractor = new RefreshAccessTokenInteractor(
             userRepository,
             refreshTokenRepository,
             new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
             new RefreshTokenSettings(TimeSpan.FromDays(7)),
-            new FakeUnitOfWork());
+            new FakeUnitOfWork(),
+            new FakeAuditLog());
 
         await logoutInteractor.ExecuteAsync(new LogoutRequest("current-refresh-token"));
 
@@ -292,5 +293,52 @@ public class LogoutInteractorTests
         Assert.Equal("Invalid refresh token", exception.Message);
         Assert.Equal(SessionId, Assert.Single(refreshTokenRepository.SessionRevocations));
         Assert.Single(refreshTokenRepository.Items);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheLogoutEventWithTheSessionInsideTheUnitOfWork()
+    {
+        var repository = new FakeRefreshTokenRepository();
+        var userId = Guid.NewGuid();
+        repository.Items.Add(CreateStoredToken(userId, DateTimeOffset.UtcNow.AddDays(1), null));
+        var unitOfWork = new FakeUnitOfWork();
+        var auditLog = new FakeAuditLog();
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), unitOfWork, auditLog);
+
+        await interactor.ExecuteAsync(new LogoutRequest("current-refresh-token"));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.Logout, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(userId, auditEvent.UserExternalId);
+        Assert.Equal(SessionId, auditEvent.SessionId);
+        Assert.Equal(1, unitOfWork.Commits);
+    }
+
+    [Fact]
+    public async Task ShouldRecordNoEventWhenTheTokenWasAlreadyRevokedOrExpired()
+    {
+        var repository = new FakeRefreshTokenRepository();
+        repository.Items.Add(CreateStoredToken(Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddHours(-1)));
+        var auditLog = new FakeAuditLog();
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), new FakeUnitOfWork(), auditLog);
+
+        await interactor.ExecuteAsync(new LogoutRequest("current-refresh-token"));
+
+        Assert.Empty(auditLog.Events);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackTheRevocationWhenTheLogoutEventCannotBeRecorded()
+    {
+        var repository = new FakeRefreshTokenRepository();
+        repository.Items.Add(CreateStoredToken(Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(1), null));
+        var unitOfWork = new FakeUnitOfWork();
+        var interactor = new LogoutInteractor(repository, new FakeTokenGenerator(), unitOfWork, new FakeAuditLog { RecordException = new InvalidOperationException("audit failed") });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => interactor.ExecuteAsync(new LogoutRequest("current-refresh-token")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
     }
 }

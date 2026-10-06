@@ -207,9 +207,10 @@ public class ConfirmEmailInteractorTests
     private static ConfirmEmailInteractor CreateInteractor(
         FakeTokenRepository tokenRepository,
         FakeUserRepository userRepository,
-        FakeUnitOfWork unitOfWork)
+        FakeUnitOfWork unitOfWork,
+        FakeAuditLog? auditLog = null)
     {
-        return new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator(), unitOfWork);
+        return new ConfirmEmailInteractor(tokenRepository, userRepository, new FakeTokenGenerator(), unitOfWork, auditLog ?? new FakeAuditLog());
     }
 
     [Fact]
@@ -408,5 +409,52 @@ public class ConfirmEmailInteractorTests
         var exception = await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest(token)));
 
         Assert.Equal(InvalidTokenMessage, exception.Message);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheEmailConfirmedEventInsideTheUnitOfWork()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var auditLog = new FakeAuditLog();
+        var user = CreateUser();
+        userRepository.Items.Add(user);
+        tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
+        var interactor = CreateInteractor(tokenRepository, userRepository, new FakeUnitOfWork(), auditLog);
+
+        await interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token"));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.EmailConfirmed, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+    }
+
+    [Fact]
+    public async Task ShouldRecordNoEventWhenTheTokenIsInvalid()
+    {
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(new FakeTokenRepository(), new FakeUserRepository(), new FakeUnitOfWork(), auditLog);
+
+        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token")));
+
+        Assert.Empty(auditLog.Events);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenTheAuditEventCannotBeRecorded()
+    {
+        var userRepository = new FakeUserRepository();
+        var tokenRepository = new FakeTokenRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var user = CreateUser();
+        userRepository.Items.Add(user);
+        tokenRepository.Items.Add(CreateToken(user.ExternalId, DateTimeOffset.UtcNow.AddHours(1), null));
+        var interactor = CreateInteractor(tokenRepository, userRepository, unitOfWork, new FakeAuditLog { RecordException = new InvalidOperationException("audit failed") });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => interactor.ExecuteAsync(new ConfirmEmailRequest("raw-token")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
     }
 }

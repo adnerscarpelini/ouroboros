@@ -286,6 +286,8 @@ public class ResetPasswordInteractorTests
 
         public FakeUnitOfWork UnitOfWork { get; } = new();
 
+        public FakeAuditLog AuditLog { get; } = new();
+
         public FakeBreachedPasswordChecker BreachedPasswordChecker { get; } = new();
 
         public User User { get; }
@@ -355,7 +357,8 @@ public class ResetPasswordInteractorTests
                 new FakePasswordHasher(),
                 new FakeTokenGenerator(),
                 UnitOfWork,
-                BreachedPasswordChecker);
+                BreachedPasswordChecker,
+                AuditLog);
         }
 
         public void AssertNothingChanged()
@@ -647,5 +650,49 @@ public class ResetPasswordInteractorTests
 
         Assert.Equal(1, scenario.UnitOfWork.Rollbacks);
         Assert.Empty(scenario.UserRepository.LockoutCleared);
+    }
+
+    [Fact]
+    public async Task ShouldRecordThePasswordResetCompletedEventInsideTheUnitOfWork()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+
+        await scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword));
+
+        var auditEvent = Assert.Single(scenario.AuditLog.Events);
+        Assert.Equal(AuditEventType.PasswordResetCompleted, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(scenario.User.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal(1, scenario.UnitOfWork.Commits);
+        var serialized = System.Text.Json.JsonSerializer.Serialize(auditEvent);
+        Assert.DoesNotContain(NewPassword, serialized);
+        Assert.DoesNotContain("raw-token", serialized);
+    }
+
+    [Fact]
+    public async Task ShouldRecordNoEventWhenTheResetIsRejected()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", "short")));
+
+        Assert.Empty(scenario.AuditLog.Events);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenTheAuditEventCannotBeRecorded()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+        scenario.AuditLog.RecordException = new InvalidOperationException("audit failed");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword)));
+
+        Assert.Equal(0, scenario.UnitOfWork.Commits);
+        Assert.Equal(1, scenario.UnitOfWork.Rollbacks);
     }
 }

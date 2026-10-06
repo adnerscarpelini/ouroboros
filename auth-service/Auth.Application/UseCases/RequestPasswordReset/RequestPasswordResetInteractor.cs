@@ -12,15 +12,21 @@ public sealed class RequestPasswordResetInteractor : IRequestPasswordResetUseCas
     private readonly IUserRepository _userRepository;
     private readonly ITokenRepository _tokenRepository;
     private readonly ITokenGenerator _tokenGenerator;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLog _auditLog;
 
     public RequestPasswordResetInteractor(
         IUserRepository userRepository,
         ITokenRepository tokenRepository,
-        ITokenGenerator tokenGenerator)
+        ITokenGenerator tokenGenerator,
+        IUnitOfWork unitOfWork,
+        IAuditLog auditLog)
     {
         _userRepository = userRepository;
         _tokenRepository = tokenRepository;
         _tokenGenerator = tokenGenerator;
+        _unitOfWork = unitOfWork;
+        _auditLog = auditLog;
     }
 
     public async Task<RequestPasswordResetResponse> ExecuteAsync(RequestPasswordResetRequest request)
@@ -40,9 +46,6 @@ public sealed class RequestPasswordResetInteractor : IRequestPasswordResetUseCas
         }
 
         var now = DateTimeOffset.UtcNow;
-
-        await _tokenRepository.InvalidatePendingByUserAsync(user.ExternalId, TokenType.PasswordReset, now);
-
         var passwordResetToken = _tokenGenerator.Generate();
         var token = Token.Create(
             user.ExternalId,
@@ -50,7 +53,14 @@ public sealed class RequestPasswordResetInteractor : IRequestPasswordResetUseCas
             _tokenGenerator.Hash(passwordResetToken),
             now.Add(PasswordResetTokenLifetime));
 
-        await _tokenRepository.AddAsync(token);
+        // Invalidar os links anteriores, gravar o novo e registrar o evento valem juntos ou nao valem. O evento so existe
+        // quando a conta existe, e isso nunca e exposto ao cliente (a resposta e a mesma nos dois casos).
+        await _unitOfWork.ExecuteAsync(async () =>
+        {
+            await _tokenRepository.InvalidatePendingByUserAsync(user.ExternalId, TokenType.PasswordReset, now);
+            await _tokenRepository.AddAsync(token);
+            await _auditLog.RecordAsync(new AuditEvent(AuditEventType.PasswordResetRequested, AuditOutcome.Success, user.ExternalId));
+        });
 
         return new RequestPasswordResetResponse(user.ExternalId, passwordResetToken);
     }

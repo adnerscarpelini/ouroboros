@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.RequestPasswordReset;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
@@ -207,9 +208,11 @@ public class RequestPasswordResetInteractorTests
 
     private static RequestPasswordResetInteractor CreateInteractor(
         FakeUserRepository userRepository,
-        FakeTokenRepository tokenRepository)
+        FakeTokenRepository tokenRepository,
+        FakeUnitOfWork? unitOfWork = null,
+        FakeAuditLog? auditLog = null)
     {
-        return new RequestPasswordResetInteractor(userRepository, tokenRepository, new FakeTokenGenerator());
+        return new RequestPasswordResetInteractor(userRepository, tokenRepository, new FakeTokenGenerator(), unitOfWork ?? new FakeUnitOfWork(), auditLog ?? new FakeAuditLog());
     }
 
     [Fact]
@@ -365,5 +368,54 @@ public class RequestPasswordResetInteractorTests
 
         await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new RequestPasswordResetRequest("   ")));
         Assert.Empty(tokenRepository.Added);
+    }
+
+    [Fact]
+    public async Task ShouldRecordThePasswordResetRequestedEventInsideTheUnitOfWorkWhenTheAccountExists()
+    {
+        var userRepository = new FakeUserRepository();
+        var user = CreateActiveUser();
+        userRepository.Items.Add(user);
+        var unitOfWork = new FakeUnitOfWork();
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(userRepository, new FakeTokenRepository(), unitOfWork, auditLog);
+
+        await interactor.ExecuteAsync(new RequestPasswordResetRequest("jdoe"));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.PasswordResetRequested, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal(1, unitOfWork.Commits);
+        Assert.DoesNotContain("raw-token", System.Text.Json.JsonSerializer.Serialize(auditEvent));
+    }
+
+    [Fact]
+    public async Task ShouldRecordNoEventWhenTheAccountDoesNotExist()
+    {
+        var auditLog = new FakeAuditLog();
+        var interactor = CreateInteractor(new FakeUserRepository(), new FakeTokenRepository(), auditLog: auditLog);
+
+        await interactor.ExecuteAsync(new RequestPasswordResetRequest("unknown"));
+
+        Assert.Empty(auditLog.Events);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenTheAuditEventCannotBeRecorded()
+    {
+        var userRepository = new FakeUserRepository();
+        userRepository.Items.Add(CreateActiveUser());
+        var unitOfWork = new FakeUnitOfWork();
+        var interactor = CreateInteractor(
+            userRepository,
+            new FakeTokenRepository(),
+            unitOfWork,
+            new FakeAuditLog { RecordException = new InvalidOperationException("audit failed") });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => interactor.ExecuteAsync(new RequestPasswordResetRequest("jdoe")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
     }
 }

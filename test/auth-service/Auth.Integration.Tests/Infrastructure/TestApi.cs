@@ -41,9 +41,15 @@ public sealed class TestApi : IDisposable
         string path,
         object? body = null,
         string? bearer = null,
-        string? remoteIp = null)
+        string? remoteIp = null,
+        string? userAgent = null)
     {
         var request = new HttpRequestMessage(method, path);
+
+        if (userAgent is not null)
+        {
+            request.Headers.TryAddWithoutValidation("User-Agent", userAgent);
+        }
 
         if (body is not null)
         {
@@ -60,8 +66,8 @@ public sealed class TestApi : IDisposable
         return _client.SendAsync(request);
     }
 
-    public Task<HttpResponseMessage> PostAsync(string path, object? body, string? bearer = null, string? remoteIp = null) =>
-        SendAsync(HttpMethod.Post, path, body, bearer, remoteIp);
+    public Task<HttpResponseMessage> PostAsync(string path, object? body, string? bearer = null, string? remoteIp = null, string? userAgent = null) =>
+        SendAsync(HttpMethod.Post, path, body, bearer, remoteIp, userAgent);
 
     public Task<HttpResponseMessage> GetAsync(string path, string? bearer = null) =>
         SendAsync(HttpMethod.Get, path, null, bearer);

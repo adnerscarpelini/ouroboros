@@ -11,19 +11,22 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenRepository _tokenRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLog _auditLog;
 
     public DeleteUserInteractor(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IRefreshTokenRepository refreshTokenRepository,
         ITokenRepository tokenRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLog auditLog)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _refreshTokenRepository = refreshTokenRepository;
         _tokenRepository = tokenRepository;
         _unitOfWork = unitOfWork;
+        _auditLog = auditLog;
     }
 
     public async Task<DeleteUserResponse> ExecuteAsync(DeleteUserRequest request)
@@ -53,7 +56,16 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
         {
             if (canVerifyRealHash)
             {
-                await _userRepository.RecordFailedAccessAsync(requester.ExternalId, now);
+                var lockedOut = await _userRepository.RecordFailedAccessAsync(requester.ExternalId, now);
+
+                if (lockedOut)
+                {
+                    await _auditLog.RecordAsync(new AuditEvent(
+                        AuditEventType.AccountLockedOut,
+                        AuditOutcome.Failure,
+                        requester.ExternalId,
+                        Reason: AuditReason.TooManyFailedAttempts));
+                }
             }
 
             throw new InvalidCredentialsException();
@@ -72,11 +84,12 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
         }
 
         // Exclusao logica, fim das sessoes e invalidacao dos tokens pendentes valem juntos ou nao valem.
-        return await _unitOfWork.ExecuteAsync(() => DeleteAsync(target.ExternalId, target.Role == UserRole.Admin && target.Active, now));
+        return await _unitOfWork.ExecuteAsync(() => DeleteAsync(target.ExternalId, request.RequesterId, target.Role == UserRole.Admin && target.Active, now));
     }
 
     private async Task<DeleteUserResponse> DeleteAsync(
         Guid targetExternalId,
+        Guid requesterExternalId,
         bool targetIsActiveAdmin,
         DateTimeOffset now)
     {
@@ -114,6 +127,13 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
             user.ExternalId,
             TokenType.PasswordReset,
             now);
+
+        // Quando um Admin exclui outra conta, o ator e ele; na auto-exclusao nao ha ator alem do proprio usuario.
+        await _auditLog.RecordAsync(new AuditEvent(
+            AuditEventType.UserDeleted,
+            AuditOutcome.Success,
+            user.ExternalId,
+            ActorExternalId: requesterExternalId == user.ExternalId ? null : requesterExternalId));
 
         return new DeleteUserResponse(user.ExternalId);
     }

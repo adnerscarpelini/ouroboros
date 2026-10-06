@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.LogoutAll;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Xunit;
@@ -73,7 +74,7 @@ public class LogoutAllInteractorTests
         var first = RefreshToken.Create(userId, "hash-1", DateTimeOffset.UtcNow.AddDays(1));
         var second = RefreshToken.Create(userId, "hash-2", DateTimeOffset.UtcNow.AddDays(1));
         repository.Items.AddRange([first, second]);
-        var interactor = new LogoutAllInteractor(repository);
+        var interactor = new LogoutAllInteractor(repository, new FakeUnitOfWork(), new FakeAuditLog());
 
         var response = await interactor.ExecuteAsync(new LogoutAllRequest(userId));
 
@@ -88,7 +89,7 @@ public class LogoutAllInteractorTests
         var repository = new FakeRefreshTokenRepository();
         var other = RefreshToken.Create(Guid.NewGuid(), "hash-other", DateTimeOffset.UtcNow.AddDays(1));
         repository.Items.Add(other);
-        var interactor = new LogoutAllInteractor(repository);
+        var interactor = new LogoutAllInteractor(repository, new FakeUnitOfWork(), new FakeAuditLog());
 
         await interactor.ExecuteAsync(new LogoutAllRequest(Guid.NewGuid()));
 
@@ -98,10 +99,42 @@ public class LogoutAllInteractorTests
     [Fact]
     public async Task ShouldCompleteWhenUserHasNoActiveSession()
     {
-        var interactor = new LogoutAllInteractor(new FakeRefreshTokenRepository());
+        var interactor = new LogoutAllInteractor(new FakeRefreshTokenRepository(), new FakeUnitOfWork(), new FakeAuditLog());
 
         var response = await interactor.ExecuteAsync(new LogoutAllRequest(Guid.NewGuid()));
 
         Assert.NotEqual(Guid.Empty, response.UserId);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheLogoutAllEventInsideTheUnitOfWork()
+    {
+        var userId = Guid.NewGuid();
+        var unitOfWork = new FakeUnitOfWork();
+        var auditLog = new FakeAuditLog();
+        var interactor = new LogoutAllInteractor(new FakeRefreshTokenRepository(), unitOfWork, auditLog);
+
+        await interactor.ExecuteAsync(new LogoutAllRequest(userId));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.LogoutAll, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(userId, auditEvent.UserExternalId);
+        Assert.Equal(1, unitOfWork.Commits);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenTheLogoutAllEventCannotBeRecorded()
+    {
+        var unitOfWork = new FakeUnitOfWork();
+        var interactor = new LogoutAllInteractor(
+            new FakeRefreshTokenRepository(),
+            unitOfWork,
+            new FakeAuditLog { RecordException = new InvalidOperationException("audit failed") });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => interactor.ExecuteAsync(new LogoutAllRequest(Guid.NewGuid())));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
     }
 }

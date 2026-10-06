@@ -28,6 +28,7 @@
     <File Path="docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md" />
     <File Path="docs/auth/0009 - Troca de Senha.md" />
     <File Path="docs/auth/0010 - Limpeza de Tokens Expirados.md" />
+    <File Path="docs/auth/0011 - Auditoria de Eventos de Seguranca.md" />
   </Folder>
   <Folder Name="/docker/" />
   <Folder Name="/docker/sqlserver/" />
@@ -155,12 +156,13 @@
     <File Path="specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/README.md" />
     <File Path="specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/dotnet-test.txt" />
   </Folder>
-  <Folder Name="/specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/">
-    <File Path="specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/spec.md" />
-    <File Path="specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/tasks.md" />
+  <Folder Name="/specs/archived/2026092519-Auth-Auditoria-de-eventos-de-seguranca/">
+    <File Path="specs/archived/2026092519-Auth-Auditoria-de-eventos-de-seguranca/spec.md" />
+    <File Path="specs/archived/2026092519-Auth-Auditoria-de-eventos-de-seguranca/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/evidence/">
-    <File Path="specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092519-Auth-Auditoria-de-eventos-de-seguranca/evidence/">
+    <File Path="specs/archived/2026092519-Auth-Auditoria-de-eventos-de-seguranca/evidence/README.md" />
+    <File Path="specs/archived/2026092519-Auth-Auditoria-de-eventos-de-seguranca/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092520-Auth-Gestao-de-perfil-de-acesso/">
     <File Path="specs/2026092520-Auth-Gestao-de-perfil-de-acesso/spec.md" />

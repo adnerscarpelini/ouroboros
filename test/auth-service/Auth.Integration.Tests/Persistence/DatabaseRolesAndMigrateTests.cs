@@ -90,6 +90,48 @@ public sealed class DatabaseRolesAndMigrateTests
     }
 
     [Fact]
+    public async Task ShouldLetTheServiceInsertAndReadAuditEventsButNeverUpdateOrDeleteThem()
+    {
+        // Spec 2026092519: a trilha e so de insercao, garantida pelo banco (DENY no objeto, sobre o GRANT no schema).
+        await using var database = await RolesDatabase.CreateAsync(_fixture);
+        MigrationRunner.Run(database.MigratorConnectionString);
+
+        await using var service = new SqlConnection(database.ServiceConnectionString);
+        await service.ExecuteAsync(
+            "INSERT INTO auth.audit_events (external_id, occurred_at, event_type, outcome, reason) VALUES (NEWID(), SYSDATETIMEOFFSET(), N'LoginFailed', N'Failure', N'invalid_password');");
+
+        Assert.Equal(1, await service.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM auth.audit_events;"));
+
+        var update = await Assert.ThrowsAsync<SqlException>(() => service.ExecuteAsync("UPDATE auth.audit_events SET reason = N'tampered';"));
+        var delete = await Assert.ThrowsAsync<SqlException>(() => service.ExecuteAsync("DELETE FROM auth.audit_events;"));
+        var truncate = await Assert.ThrowsAsync<SqlException>(() => service.ExecuteAsync("TRUNCATE TABLE auth.audit_events;"));
+
+        Assert.Equal(229, update.Number);
+        Assert.Equal(229, delete.Number);
+        Assert.Contains(truncate.Number, new[] { 1088, 4701, 229 });
+        Assert.Equal(1, await service.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM auth.audit_events WHERE reason = N'invalid_password';"));
+    }
+
+    [Fact]
+    public async Task ShouldLetTheMigratorRunTheRetentionDeleteOnOldAuditEvents()
+    {
+        await using var database = await RolesDatabase.CreateAsync(_fixture);
+        MigrationRunner.Run(database.MigratorConnectionString);
+
+        await using var migrator = new SqlConnection(database.MigratorConnectionString);
+        await migrator.ExecuteAsync(
+            """
+            INSERT INTO auth.audit_events (external_id, occurred_at, event_type, outcome) VALUES (NEWID(), DATEADD(DAY, -400, SYSDATETIMEOFFSET()), N'LoginSucceeded', N'Success');
+            INSERT INTO auth.audit_events (external_id, occurred_at, event_type, outcome) VALUES (NEWID(), DATEADD(DAY, -10, SYSDATETIMEOFFSET()), N'LoginSucceeded', N'Success');
+            """);
+
+        var removed = await migrator.ExecuteAsync("DELETE FROM auth.audit_events WHERE occurred_at < DATEADD(YEAR, -1, SYSDATETIMEOFFSET());");
+
+        Assert.Equal(1, removed);
+        Assert.Equal(1, await migrator.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM auth.audit_events;"));
+    }
+
+    [Fact]
     public async Task ShouldNotApplyMigrationsWhenTheApiStarts()
     {
         await using var database = await RolesDatabase.CreateAsync(_fixture);

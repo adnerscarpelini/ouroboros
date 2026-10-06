@@ -40,12 +40,14 @@ public class ChangePasswordInteractorTests
             return Task.CompletedTask;
         }
 
+        public bool LockOutOnNextFailure { get; set; }
+
         public Task<bool> RecordFailedAccessAsync(
             Guid externalId,
             DateTimeOffset now)
         {
             FailedAccess.Add(externalId);
-            return Task.FromResult(false);
+            return Task.FromResult(LockOutOnNextFailure);
         }
 
         public Task ClearLockoutAsync(
@@ -158,6 +160,8 @@ public class ChangePasswordInteractorTests
 
         public FakeUnitOfWork UnitOfWork { get; } = new();
 
+        public FakeAuditLog AuditLog { get; } = new();
+
         public User User { get; }
 
         public RefreshToken CurrentSession { get; }
@@ -181,7 +185,7 @@ public class ChangePasswordInteractorTests
 
         public ChangePasswordInteractor CreateInteractor()
         {
-            return new ChangePasswordInteractor(Users, RefreshTokens, Hasher, BreachedPasswordChecker, UnitOfWork);
+            return new ChangePasswordInteractor(Users, RefreshTokens, Hasher, BreachedPasswordChecker, UnitOfWork, AuditLog);
         }
 
         public ChangePasswordRequest Request(
@@ -363,5 +367,61 @@ public class ChangePasswordInteractorTests
         await scenario.CreateInteractor().ExecuteAsync(scenario.Request());
 
         Assert.Equal("hashed:Other-Password-1234", other.PasswordHash);
+    }
+
+    [Fact]
+    public async Task ShouldRecordThePasswordChangedEventWithTheSessionInsideTheUnitOfWork()
+    {
+        var scenario = new Scenario();
+
+        await scenario.CreateInteractor().ExecuteAsync(scenario.Request());
+
+        var auditEvent = Assert.Single(scenario.AuditLog.Events);
+        Assert.Equal(AuditEventType.PasswordChanged, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(scenario.User.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal(scenario.CurrentSession.SessionId, auditEvent.SessionId);
+        Assert.Equal(1, scenario.UnitOfWork.Commits);
+        var serialized = System.Text.Json.JsonSerializer.Serialize(auditEvent);
+        Assert.DoesNotContain(CurrentPassword, serialized);
+        Assert.DoesNotContain(NewPassword, serialized);
+    }
+
+    [Fact]
+    public async Task ShouldRecordNoEventWhenTheCurrentPasswordIsWrongAndTheAccountIsNotLockedYet()
+    {
+        var scenario = new Scenario();
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(scenario.Request(currentPassword: "Wrong-Password-0000")));
+
+        Assert.Empty(scenario.AuditLog.Events);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheAccountLockedOutEventWhenTheWrongPasswordLocksTheAccount()
+    {
+        var scenario = new Scenario();
+        scenario.Users.LockOutOnNextFailure = true;
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(scenario.Request(currentPassword: "Wrong-Password-0000")));
+
+        var auditEvent = Assert.Single(scenario.AuditLog.Events);
+        Assert.Equal(AuditEventType.AccountLockedOut, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Failure, auditEvent.Outcome);
+        Assert.Equal("too_many_failed_attempts", auditEvent.Reason);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenThePasswordChangedEventCannotBeRecorded()
+    {
+        var scenario = new Scenario();
+        scenario.AuditLog.RecordException = new InvalidOperationException("audit failed");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => scenario.CreateInteractor().ExecuteAsync(scenario.Request()));
+
+        Assert.Equal(0, scenario.UnitOfWork.Commits);
+        Assert.Equal(1, scenario.UnitOfWork.Rollbacks);
     }
 }

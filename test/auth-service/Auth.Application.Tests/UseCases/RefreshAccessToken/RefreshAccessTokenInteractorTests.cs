@@ -258,7 +258,8 @@ public class RefreshAccessTokenInteractorTests
         FakeUserRepository userRepository,
         FakeRefreshTokenRepository refreshTokenRepository,
         FakeJwtTokenGenerator? jwtTokenGenerator = null,
-        FakeUnitOfWork? unitOfWork = null)
+        FakeUnitOfWork? unitOfWork = null,
+        FakeAuditLog? auditLog = null)
     {
         return new RefreshAccessTokenInteractor(
             userRepository,
@@ -266,7 +267,8 @@ public class RefreshAccessTokenInteractorTests
             jwtTokenGenerator ?? new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
             RefreshTokenSettings,
-            unitOfWork ?? new FakeUnitOfWork());
+            unitOfWork ?? new FakeUnitOfWork(),
+            auditLog ?? new FakeAuditLog());
     }
 
     [Fact]
@@ -510,5 +512,65 @@ public class RefreshAccessTokenInteractorTests
         Assert.IsNotType<InvalidRefreshTokenException>(exception);
         Assert.Null(currentToken.RevokedAt);
         Assert.Empty(refreshTokenRepository.Added);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheReuseEventWithUserAndSessionButNoTokenWhenAnOldTokenIsReused()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var auditLog = new FakeAuditLog();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddHours(-1)));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, auditLog: auditLog);
+
+        await Assert.ThrowsAsync<RefreshTokenReuseException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+
+        var auditEvent = Assert.Single(auditLog.Events);
+        Assert.Equal(AuditEventType.RefreshTokenReuseDetected, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Failure, auditEvent.Outcome);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal(SessionId, auditEvent.SessionId);
+        Assert.Equal("reuse_detected", auditEvent.Reason);
+        Assert.DoesNotContain("current-refresh-token", System.Text.Json.JsonSerializer.Serialize(auditEvent));
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheReuseEventOutsideAnyUnitOfWorkSoItSurvivesTheRollback()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository { RevokedConcurrently = true };
+        var unitOfWork = new FakeUnitOfWork();
+        var auditLog = new FakeAuditLog();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, unitOfWork: unitOfWork, auditLog: auditLog);
+
+        await Assert.ThrowsAsync<RefreshTokenReuseException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token")));
+
+        // A rotacao ja terminou (a unidade de trabalho fechou) quando o evento e gravado.
+        Assert.Equal(1, unitOfWork.Commits);
+        Assert.Equal(AuditEventType.RefreshTokenReuseDetected, Assert.Single(auditLog.Events).Type);
+    }
+
+    [Fact]
+    public async Task ShouldNotAuditARegularRefreshNorAnExpiredToken()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var auditLog = new FakeAuditLog();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
+        refreshTokenRepository.Items.Add(RefreshToken.Rehydrate(2, Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(-10), null, user.ExternalId, SessionId, "hashed:expired", DateTimeOffset.UtcNow.AddDays(-1), null));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, auditLog: auditLog);
+
+        await interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token"));
+        await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => interactor.ExecuteAsync(new RefreshAccessTokenRequest("expired")));
+
+        // O refresh normal fica fora da auditoria, pelo volume, e expirar nao e sinal de roubo.
+        Assert.Empty(auditLog.Events);
     }
 }

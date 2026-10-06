@@ -17,6 +17,7 @@ public sealed class LoginInteractor : ILoginUseCase
     private readonly ITokenGenerator _tokenGenerator;
     private readonly RefreshTokenSettings _refreshTokenSettings;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLog _auditLog;
 
     public LoginInteractor(
         IUserRepository userRepository,
@@ -25,7 +26,8 @@ public sealed class LoginInteractor : ILoginUseCase
         IJwtTokenGenerator jwtTokenGenerator,
         ITokenGenerator tokenGenerator,
         RefreshTokenSettings refreshTokenSettings,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLog auditLog)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
@@ -34,6 +36,7 @@ public sealed class LoginInteractor : ILoginUseCase
         _tokenGenerator = tokenGenerator;
         _refreshTokenSettings = refreshTokenSettings;
         _unitOfWork = unitOfWork;
+        _auditLog = auditLog;
     }
 
     public async Task<LoginResponse> ExecuteAsync(LoginRequest request)
@@ -48,16 +51,13 @@ public sealed class LoginInteractor : ILoginUseCase
 
         if (!canVerifyRealHash || !passwordMatches)
         {
-            if (canVerifyRealHash)
-            {
-                await _userRepository.RecordFailedAccessAsync(user!.ExternalId, now);
-            }
-
-            throw new InvalidCredentialsException();
+            await RejectAsync(user, canVerifyRealHash, now);
         }
 
         if (!user!.Active)
         {
+            await RecordFailureAsync(user.ExternalId, AuditReason.InactiveAccount);
+
             throw new DomainException("User is not active");
         }
 
@@ -76,8 +76,19 @@ public sealed class LoginInteractor : ILoginUseCase
             ? _passwordHasher.Hash(request.Password!)
             : null;
 
-        // Registro do login, re-hash e refresh token valem juntos ou nao valem. Os tokens so saem depois do commit.
-        await _unitOfWork.ExecuteAsync(() => IssueSessionAsync(user, refreshToken, rehashedPassword, now));
+        // Registro do login, re-hash, refresh token e evento de auditoria valem juntos ou nao valem. Os tokens so saem
+        // depois do commit.
+        try
+        {
+            await _unitOfWork.ExecuteAsync(() => IssueSessionAsync(user, refreshToken, rehashedPassword, now));
+        }
+        catch (InvalidCredentialsException)
+        {
+            // Conta bloqueada entre a leitura e a escrita: a transacao foi desfeita, o evento de falha vai fora dela.
+            await RecordFailureAsync(user.ExternalId, AuditReason.LockedOut);
+
+            throw;
+        }
 
         var accessToken = _jwtTokenGenerator.Generate(
             user.ExternalId,
@@ -92,6 +103,43 @@ public sealed class LoginInteractor : ILoginUseCase
             accessToken.ExpiresAt,
             rawRefreshToken,
             refreshToken.ExpiresAt);
+    }
+
+    // Eventos de falha em autocommit, fora de qualquer transacao. O login digitado numa conta inexistente nunca entra:
+    // usuarios digitam a senha no campo de login por engano.
+    private async Task RejectAsync(
+        User? user,
+        bool canVerifyRealHash,
+        DateTimeOffset now)
+    {
+        if (canVerifyRealHash)
+        {
+            var lockedOut = await _userRepository.RecordFailedAccessAsync(user!.ExternalId, now);
+
+            await RecordFailureAsync(user.ExternalId, AuditReason.InvalidPassword);
+
+            if (lockedOut)
+            {
+                await _auditLog.RecordAsync(new AuditEvent(
+                    AuditEventType.AccountLockedOut,
+                    AuditOutcome.Failure,
+                    user.ExternalId,
+                    Reason: AuditReason.TooManyFailedAttempts));
+            }
+        }
+        else
+        {
+            await RecordFailureAsync(user?.ExternalId, user is null ? AuditReason.UnknownLogin : AuditReason.LockedOut);
+        }
+
+        throw new InvalidCredentialsException();
+    }
+
+    private Task RecordFailureAsync(
+        Guid? userExternalId,
+        string reason)
+    {
+        return _auditLog.RecordAsync(new AuditEvent(AuditEventType.LoginFailed, AuditOutcome.Failure, userExternalId, Reason: reason));
     }
 
     private async Task IssueSessionAsync(
@@ -113,5 +161,11 @@ public sealed class LoginInteractor : ILoginUseCase
         }
 
         await _refreshTokenRepository.AddAsync(refreshToken);
+
+        await _auditLog.RecordAsync(new AuditEvent(
+            AuditEventType.LoginSucceeded,
+            AuditOutcome.Success,
+            user.ExternalId,
+            SessionId: refreshToken.SessionId));
     }
 }

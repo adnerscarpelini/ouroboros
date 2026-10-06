@@ -15,6 +15,7 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
     private readonly ITokenGenerator _tokenGenerator;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBreachedPasswordChecker _breachedPasswordChecker;
+    private readonly IAuditLog _auditLog;
 
     public RegisterUserInteractor(
         IUserRepository userRepository,
@@ -22,7 +23,8 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
         ITokenRepository tokenRepository,
         ITokenGenerator tokenGenerator,
         IUnitOfWork unitOfWork,
-        IBreachedPasswordChecker breachedPasswordChecker)
+        IBreachedPasswordChecker breachedPasswordChecker,
+        IAuditLog auditLog)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
@@ -30,6 +32,7 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
         _tokenGenerator = tokenGenerator;
         _unitOfWork = unitOfWork;
         _breachedPasswordChecker = breachedPasswordChecker;
+        _auditLog = auditLog;
     }
 
     public async Task<RegisterUserResponse> ExecuteAsync(RegisterUserRequest request)
@@ -107,6 +110,8 @@ public sealed class RegisterUserInteractor : IRegisterUserUseCase
             now.Add(EmailConfirmationTokenLifetime));
 
         await _tokenRepository.AddAsync(token);
+
+        await _auditLog.RecordAsync(new AuditEvent(AuditEventType.UserRegistered, AuditOutcome.Success, user.ExternalId));
 
         return new RegisterUserResponse(user.ExternalId, confirmationToken);
     }

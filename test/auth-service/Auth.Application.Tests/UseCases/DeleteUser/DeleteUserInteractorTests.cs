@@ -281,6 +281,8 @@ public class DeleteUserInteractorTests
 
         public FakeUnitOfWork UnitOfWork { get; } = new();
 
+        public FakeAuditLog AuditLog { get; } = new();
+
         public DeleteUserInteractor CreateInteractor()
         {
             return new DeleteUserInteractor(
@@ -288,7 +290,8 @@ public class DeleteUserInteractorTests
                 new FakePasswordHasher(),
                 RefreshTokenRepository,
                 TokenRepository,
-                UnitOfWork);
+                UnitOfWork,
+                AuditLog);
         }
 
         public User AddUser(
@@ -625,6 +628,61 @@ public class DeleteUserInteractorTests
 
         Assert.Empty(context.UserRepository.Updated);
         Assert.Empty(context.TokenRepository.Invalidated);
+        Assert.Equal(1, context.UnitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheUserDeletedEventWithoutActorWhenTheUserDeletesItself()
+    {
+        var context = new Context();
+        var user = context.AddUser("jdoe", UserRole.User);
+
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId));
+
+        var auditEvent = Assert.Single(context.AuditLog.Events);
+        Assert.Equal(AuditEventType.UserDeleted, auditEvent.Type);
+        Assert.Equal(AuditOutcome.Success, auditEvent.Outcome);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+        Assert.Null(auditEvent.ActorExternalId);
+        Assert.Equal(1, context.UnitOfWork.Commits);
+    }
+
+    [Fact]
+    public async Task ShouldRecordTheAdminAsTheActorWhenAnAdminDeletesAnotherAccount()
+    {
+        var context = new Context();
+        var admin = context.AddUser("admin", UserRole.Admin, "Adm1n!pass");
+        var user = context.AddUser("jdoe", UserRole.User);
+
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Adm1n!pass", user.ExternalId));
+
+        var auditEvent = Assert.Single(context.AuditLog.Events);
+        Assert.Equal(AuditEventType.UserDeleted, auditEvent.Type);
+        Assert.Equal(user.ExternalId, auditEvent.UserExternalId);
+        Assert.Equal(admin.ExternalId, auditEvent.ActorExternalId);
+    }
+
+    [Fact]
+    public async Task ShouldRecordNoEventWhenTheDeletionIsRejected()
+    {
+        var context = new Context();
+        var user = context.AddUser("jdoe", UserRole.User);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "Wr0ng!pass", user.ExternalId)));
+
+        Assert.Empty(context.AuditLog.Events);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenTheUserDeletedEventCannotBeRecorded()
+    {
+        var context = new Context();
+        var user = context.AddUser("jdoe", UserRole.User);
+        context.AuditLog.RecordException = new InvalidOperationException("audit failed");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId)));
+
+        Assert.Equal(0, context.UnitOfWork.Commits);
         Assert.Equal(1, context.UnitOfWork.Rollbacks);
     }
 }

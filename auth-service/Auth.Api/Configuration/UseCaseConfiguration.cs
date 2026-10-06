@@ -46,6 +46,9 @@ public static class UseCaseConfiguration
         services.AddScoped<IUserRepository, DapperUserRepository>();
         services.AddScoped<ITokenRepository, DapperTokenRepository>();
         services.AddScoped<IRefreshTokenRepository, DapperRefreshTokenRepository>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<IRequestContext, HttpRequestContext>();
+        services.AddScoped<IAuditLog, DapperAuditLog>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, Sha256TokenGenerator>();
         services.AddHttpClient<IBreachedPasswordChecker, PwnedPasswordsChecker>(client =>

@@ -15,6 +15,15 @@ public interface IRefreshTokenRepository
     Task<bool> TryRevokeAsync(RefreshToken refreshToken);
 
     /// <summary>
+    /// Revoga, num unico comando, todos os refresh tokens ainda ativos do usuario, exceto os da sessao informada
+    /// (a atual de quem trocou a senha). <see cref="Guid.Empty"/> nao preserva sessao nenhuma.
+    /// </summary>
+    Task RevokeAllActiveByUserExceptSessionAsync(
+        Guid userExternalId,
+        Guid exceptSessionId,
+        DateTimeOffset revokedAt);
+
+    /// <summary>
     /// Revoga, num unico comando, todos os refresh tokens ainda ativos (nao revogados e nao expirados) da sessao.
     /// As outras sessoes do mesmo usuario nao sao afetadas.
     /// </summary>

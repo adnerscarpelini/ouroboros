@@ -154,6 +154,36 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
     }
 
 
+    public async Task RevokeAllActiveByUserExceptSessionAsync(
+        Guid userExternalId,
+        Guid exceptSessionId,
+        DateTimeOffset revokedAt)
+    {
+        const string sql = """
+            UPDATE refreshTokens
+            SET
+                updated_at = @RevokedAt,
+                revoked_at = @RevokedAt
+            FROM auth.refresh_tokens AS refreshTokens
+            INNER JOIN auth.users AS users
+                ON users.id = refreshTokens.user_id
+            WHERE
+                users.external_id = @UserExternalId
+                AND refreshTokens.session_id <> @ExceptSessionId
+                AND refreshTokens.revoked_at IS NULL
+                AND refreshTokens.expires_at > @RevokedAt;
+            """;
+
+        await _session.ExecuteAsync(
+            sql,
+            new
+            {
+                RevokedAt = revokedAt,
+                UserExternalId = userExternalId,
+                ExceptSessionId = exceptSessionId,
+            });
+    }
+
     public async Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
     {
         const string sql = """

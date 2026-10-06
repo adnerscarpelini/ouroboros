@@ -25,6 +25,7 @@
     <File Path="docs/auth/0006 - Consulta de Usuario.md" />
     <File Path="docs/auth/0007 - Exclusao de Conta.md" />
     <File Path="docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md" />
+    <File Path="docs/auth/0009 - Troca de Senha.md" />
   </Folder>
   <Folder Name="/docker/" />
   <Folder Name="/docker/sqlserver/" />
@@ -133,12 +134,13 @@
     <File Path="specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/README.md" />
     <File Path="specs/archived/2026092516-Auth-Unidade-de-trabalho-transacional/evidence/dotnet-test.txt" />
   </Folder>
-  <Folder Name="/specs/2026092517-Auth-Troca-de-senha-autenticada/">
-    <File Path="specs/2026092517-Auth-Troca-de-senha-autenticada/spec.md" />
-    <File Path="specs/2026092517-Auth-Troca-de-senha-autenticada/tasks.md" />
+  <Folder Name="/specs/archived/2026092517-Auth-Troca-de-senha-autenticada/">
+    <File Path="specs/archived/2026092517-Auth-Troca-de-senha-autenticada/spec.md" />
+    <File Path="specs/archived/2026092517-Auth-Troca-de-senha-autenticada/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092517-Auth-Troca-de-senha-autenticada/evidence/">
-    <File Path="specs/2026092517-Auth-Troca-de-senha-autenticada/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092517-Auth-Troca-de-senha-autenticada/evidence/">
+    <File Path="specs/archived/2026092517-Auth-Troca-de-senha-autenticada/evidence/README.md" />
+    <File Path="specs/archived/2026092517-Auth-Troca-de-senha-autenticada/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/">
     <File Path="specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/spec.md" />

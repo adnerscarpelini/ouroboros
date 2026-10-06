@@ -230,6 +230,11 @@ public sealed class RefreshRotationApiTests : IAsyncLifetime
             Guid userExternalId,
             DateTimeOffset revokedAt) => _inner.RevokeAllActiveByUserAsync(userExternalId, revokedAt);
 
+        public Task RevokeAllActiveByUserExceptSessionAsync(
+            Guid userExternalId,
+            Guid exceptSessionId,
+            DateTimeOffset revokedAt) => _inner.RevokeAllActiveByUserExceptSessionAsync(userExternalId, exceptSessionId, revokedAt);
+
         public Task RevokeAllActiveBySessionAsync(
             Guid sessionId,
             DateTimeOffset revokedAt) => _inner.RevokeAllActiveBySessionAsync(sessionId, revokedAt);

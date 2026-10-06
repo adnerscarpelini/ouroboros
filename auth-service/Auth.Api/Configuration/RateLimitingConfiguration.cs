@@ -9,6 +9,7 @@ public static class RateLimitingConfiguration
     public const string PasswordResetConfirmPolicy = "password-reset-confirm";
     public const string UserRegisterPolicy = "user-register";
     public const string UserDeletePolicy = "user-delete";
+    public const string PasswordChangePolicy = "password-change";
     public const string AuthLoginPolicy = "auth-login";
     public const string AuthRefreshPolicy = "auth-refresh";
     public const string EmailConfirmPolicy = "email-confirm";
@@ -19,6 +20,7 @@ public static class RateLimitingConfiguration
         PasswordResetConfirmPolicy,
         UserRegisterPolicy,
         UserDeletePolicy,
+        PasswordChangePolicy,
         AuthLoginPolicy,
         AuthRefreshPolicy,
         EmailConfirmPolicy,

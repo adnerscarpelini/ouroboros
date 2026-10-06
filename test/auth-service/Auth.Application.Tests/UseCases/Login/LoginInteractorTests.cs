@@ -143,6 +143,19 @@ public class LoginInteractorTests
             return Task.FromResult(true);
         }
 
+        public Task RevokeAllActiveByUserExceptSessionAsync(
+            Guid userExternalId,
+            Guid exceptSessionId,
+            DateTimeOffset revokedAt)
+        {
+            foreach (var token in Items.Where(item => item.UserExternalId == userExternalId && item.SessionId != exceptSessionId && item.IsActive(revokedAt)))
+            {
+                token.Revoke(revokedAt);
+            }
+
+            return Task.CompletedTask;
+        }
+
         public Task RevokeAllActiveBySessionAsync(Guid sessionId, DateTimeOffset revokedAt)
         {
             SessionRevocations.Add(sessionId);

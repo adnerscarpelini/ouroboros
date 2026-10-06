@@ -190,6 +190,45 @@
           }
         },
         {
+          "name": "Change Password",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "cole-o-access-token-aqui",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"cavalo-bateria-grampo-2026\",\n  \"newPassword\": \"outra-frase-de-teste-2026\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "password"
+              ]
+            },
+            "description": "Troca a senha de quem esta logado (o `me` e o `sub` do token). Pede a senha atual. Encerra as outras sessoes e preserva a atual (claim `sid`). Os access tokens das outras sessoes valem ate expirar (no maximo 15 min).\n\n- `204` senha trocada\n- `400` nova senha fora da politica, vazada ou igual a atual\n- `401` sem token, token invalido, usuario inexistente ou senha atual errada (conta bloqueada tem a mesma resposta)\n- `429` limite de 5 tentativas por IP a cada 15 minutos"
+          }
+        },
+        {
           "name": "Delete User",
           "request": {
             "auth": {

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Ouroboros.Auth.Api.Configuration;
 using Ouroboros.Auth.Api.Models;
+using Ouroboros.Auth.Application.UseCases.ChangePassword;
 using Ouroboros.Auth.Application.UseCases.ConfirmEmail;
 using Ouroboros.Auth.Application.UseCases.DeleteUser;
 using Ouroboros.Auth.Application.UseCases.GetUser;
@@ -14,6 +15,7 @@ using Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Application.UseCases.RequestPasswordReset;
 using Ouroboros.Auth.Application.UseCases.ResetPassword;
 using Ouroboros.Auth.Domain.Exceptions;
+using Ouroboros.Auth.Infrastructure.Security;
 
 [ApiController]
 [Route("api/users")]
@@ -25,6 +27,7 @@ public sealed class UserController : ControllerBase
     private readonly IResetPasswordUseCase _resetPasswordUseCase;
     private readonly IGetUserUseCase _getUserUseCase;
     private readonly IDeleteUserUseCase _deleteUserUseCase;
+    private readonly IChangePasswordUseCase _changePasswordUseCase;
     private readonly ILogger<UserController> _logger;
 
     public UserController(
@@ -34,6 +37,7 @@ public sealed class UserController : ControllerBase
         IResetPasswordUseCase resetPasswordUseCase,
         IGetUserUseCase getUserUseCase,
         IDeleteUserUseCase deleteUserUseCase,
+        IChangePasswordUseCase changePasswordUseCase,
         ILogger<UserController> logger)
     {
         _registerUserUseCase = registerUserUseCase;
@@ -42,6 +46,7 @@ public sealed class UserController : ControllerBase
         _resetPasswordUseCase = resetPasswordUseCase;
         _getUserUseCase = getUserUseCase;
         _deleteUserUseCase = deleteUserUseCase;
+        _changePasswordUseCase = changePasswordUseCase;
         _logger = logger;
     }
 
@@ -134,6 +139,50 @@ public sealed class UserController : ControllerBase
         catch (DomainException e)
         {
             _logger.LogWarning(e, "Password reset rejected: {Reason}", e.Message);
+            return BadRequest(new { error = e.Message });
+        }
+    }
+
+    [HttpPut("me/password")]
+    [Authorize]
+    [EnableRateLimiting(RateLimitingConfiguration.PasswordChangePolicy)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordBody body)
+    {
+        var subject = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        if (!Guid.TryParse(subject, out var userId))
+        {
+            _logger.LogWarning("Password change rejected: access token without a valid subject");
+            return Unauthorized(new { error = "Invalid access token" });
+        }
+
+        // O sid identifica a sessao atual, que a troca preserva. Token sem sid valido nao preserva nenhuma.
+        Guid? sessionId = Guid.TryParse(User.FindFirstValue(JwtTokenGenerator.SessionIdClaimType), out var parsedSessionId)
+            ? parsedSessionId
+            : null;
+
+        try
+        {
+            var response = await _changePasswordUseCase.ExecuteAsync(
+                new ChangePasswordRequest(userId, sessionId, body.CurrentPassword, body.NewPassword));
+
+            _logger.LogInformation("Password changed for user {UserId}", response.UserId);
+
+            return NoContent();
+        }
+        catch (InvalidAccessTokenException e)
+        {
+            _logger.LogWarning(e, "Password change rejected: user {UserId} no longer exists", userId);
+            return Unauthorized(new { error = e.Message });
+        }
+        catch (InvalidCredentialsException e)
+        {
+            _logger.LogWarning(e, "Password change rejected for user {UserId}: {Reason}", userId, e.Message);
+            return Unauthorized(new { error = e.Message });
+        }
+        catch (DomainException e)
+        {
+            _logger.LogWarning(e, "Password change rejected for user {UserId}: {Reason}", userId, e.Message);
             return BadRequest(new { error = e.Message });
         }
     }

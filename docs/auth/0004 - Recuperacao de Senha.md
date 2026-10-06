@@ -120,6 +120,7 @@ Usa o middleware nativo do ASP.NET Core (`AddRateLimiter` / `UseRateLimiter`), s
 | `password-reset-request` | `POST /api/users/password-reset/request` | 5 a cada 15 min |
 | `password-reset-confirm` | `POST /api/users/password-reset/confirm` | 10 a cada 15 min |
 | `user-register` | `POST /api/users` | 5 a cada 15 min (ver `docs/auth/0001 - Confirmacao de Cadastro.md`) |
+| `password-change` | `PUT /api/users/me/password` | 5 a cada 15 min (ver `docs/auth/0009 - Troca de Senha.md`) |
 
 - A redefinição é mais folgada porque o usuário pode errar a política de senha algumas vezes com o mesmo link.
 - Cada política tem seu próprio contador: chamadas de solicitação não consomem o limite da redefinição.

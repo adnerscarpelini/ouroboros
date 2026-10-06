@@ -24,6 +24,7 @@ public sealed class AuthApiFixture : IAsyncLifetime
         "email-confirm",
         "user-register",
         "user-delete",
+        "password-change",
         "password-reset-request",
         "password-reset-confirm",
     ];

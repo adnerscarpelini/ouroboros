@@ -138,7 +138,10 @@ Quem marcar a ultima caixa confere as duas condicoes e arquiva, **sempre nesta o
    ```
    grep -o 'Path="[^"]*"' Ouroboros.slnx | sed 's/Path="//;s/"$//' | while read -r p; do [ -e "$p" ] || echo "FALTA: $p"; done
    ```
-4. Avise o usuario que, com a solution aberta no Visual Studio, ele pode precisar recarrega-la (o VS oferece "Reload"). O `.slnx` em disco ja esta certo; a tela e que pode estar com o estado antigo.
+4. Avise o usuario, **antes de mexer em arquivos e de novo no fim**, sobre o Visual Studio:
+   - Com a solution aberta, o VS guarda o `.slnx` em memoria e **regrava o arquivo por cima** das suas edicoes ao salvar, tirando as entradas cujos arquivos nao existem naquele momento. Foi assim que um arquivamento ja perdeu as entradas de `evidence/` de todas as specs e voltou a spec pra pasta antiga. Se a edicao do `.slnx` e a movimentacao de arquivos nao forem feitas de uma vez, peca pro usuario **fechar a solution antes**.
+   - No fim, se a solution continuou aberta, ele precisa clicar em **Reload** no aviso de que o `.slnx` mudou fora do editor. Nunca manter a versao do VS. O `.slnx` em disco ja esta certo; a tela e que pode estar com o estado antigo.
+   - Se um `.slnx` aparecer alterado sem que voce tenha editado, ou com entradas a menos, nao commite: compare com `git diff` e refaca as entradas.
 
 O codigo e o nome da pasta nao mudam ao arquivar. Nunca mova uma spec com caixa aberta nem desarquive sem pedido do usuario; se uma spec arquivada precisar de ajuste, abra uma spec nova que a referencie pelo codigo. Nunca use `git checkout`/`git restore` em `specs/` pra "arrumar" arquivos faltando sem olhar antes o que o Git considera apagado: isso pode recriar a pasta antiga de uma spec ja arquivada.
 

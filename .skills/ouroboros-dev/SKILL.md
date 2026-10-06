@@ -115,6 +115,8 @@ Tudo que for criado no monorepo — projeto novo, arquivo solto na raiz ou arqui
   ```
   grep -o 'Path="[^"]*"' Ouroboros.slnx | sed 's/Path="//;s/"$//' | while read -r p; do [ -e "$p" ] || echo "FALTA: $p"; done
   ```
+- **Visual Studio aberto sobrescreve o `.slnx`.** O VS mantem a solution em memoria e regrava o arquivo ao salvar, removendo as entradas cujos arquivos nao existiam naquele momento. Antes de uma mudanca que mexe em varios arquivos vinculados (mover specs, renomear pastas), avise o usuario pra fechar a solution; no fim, se ela ficou aberta, ele deve clicar em **Reload** (nunca manter a versao do VS). Um `.slnx` que mudou sem voce editar, ou perdeu entradas, nao deve ser commitado sem comparar com `git diff`.
+- Edite o `.slnx` preservando os finais de linha CRLF: `sed -i` nesta maquina converte o arquivo todo pra LF e gera um diff de arquivo inteiro. Se usar `sed -i`, rode `sed -i 's/$/\r/'` no fim e confira com `head -c 30 Ouroboros.slnx | od -c` (precisa aparecer `\r  \n`).
 - Como o `.slnx` e XML puro, essas edicoes sao diretas no arquivo (nao precisa abrir o VS pra isso):
 
   ```xml

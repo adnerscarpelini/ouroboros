@@ -46,7 +46,7 @@ public class RefreshAccessTokenInteractorTests
             return Task.FromResult(false);
         }
 
-        public Task<int> CountActiveAdminsAsync()
+        public Task<int> CountActiveAdminsForUpdateAsync()
         {
             return Task.FromResult(0);
         }

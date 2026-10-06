@@ -76,8 +76,54 @@ public sealed class RepositorySqlTests : IAsyncLifetime
 
         await DeleteLogicallyAsync(deleted.ExternalId);
 
-        Assert.Equal(1, await CreateUserRepository().CountActiveAdminsAsync());
+        Assert.Equal(1, await CreateUserRepository().CountActiveAdminsForUpdateAsync());
         Assert.NotEqual(UserRole.Admin, (await CreateUserRepository().GetByExternalIdAsync(common.ExternalId))!.Role);
+    }
+
+    // Spec 2026092505: a contagem de Admins ativos trava as linhas ate o fim da transacao.
+
+    [Fact]
+    public async Task ShouldCountOnlyActiveAndNotDeletedAdminsWhenCountingForUpdate()
+    {
+        var active = await _api.CreateUserAsync("lock.count.active");
+        var deleted = await _api.CreateUserAsync("lock.count.deleted");
+        await _api.CreateUserAsync("lock.count.common");
+        await _api.SetRoleAsync(active.ExternalId, UserRole.Admin);
+        await _api.SetRoleAsync(deleted.ExternalId, UserRole.Admin);
+        await DeleteLogicallyAsync(deleted.ExternalId);
+
+        await using var session = _fixture.CreateSession();
+        var count = await new SqlUnitOfWork(session).ExecuteAsync(() =>
+            new DapperUserRepository(session, NullLogger<DapperUserRepository>.Instance).CountActiveAdminsForUpdateAsync());
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task ShouldMakeASecondCountWaitUntilTheFirstTransactionEnds()
+    {
+        var first = await _api.CreateUserAsync("lock.wait.one");
+        var second = await _api.CreateUserAsync("lock.wait.two");
+        await _api.SetRoleAsync(first.ExternalId, UserRole.Admin);
+        await _api.SetRoleAsync(second.ExternalId, UserRole.Admin);
+
+        await using var holder = _fixture.CreateSession();
+        Task<int>? waiting = null;
+
+        await new SqlUnitOfWork(holder).ExecuteAsync(async () =>
+        {
+            var held = await new DapperUserRepository(holder, NullLogger<DapperUserRepository>.Instance).CountActiveAdminsForUpdateAsync();
+            Assert.Equal(2, held);
+
+            // Outra conexao, em autocommit: precisa esperar o lock da transacao acima.
+            waiting = CreateUserRepository().CountActiveAdminsForUpdateAsync();
+
+            await Task.Delay(750);
+
+            Assert.False(waiting.IsCompleted, "A segunda contagem nao esperou o lock da primeira transacao.");
+        });
+
+        Assert.Equal(2, await waiting!.WaitAsync(TimeSpan.FromSeconds(10)));
     }
 
     // Spec 2026092504: o desbloqueio vale mesmo com a conta bloqueada.

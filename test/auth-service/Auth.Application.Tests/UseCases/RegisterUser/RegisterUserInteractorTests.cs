@@ -86,7 +86,7 @@ public class RegisterUserInteractorTests
             return Task.FromResult(exists);
         }
 
-        public Task<int> CountActiveAdminsAsync()
+        public Task<int> CountActiveAdminsForUpdateAsync()
         {
             return Task.FromResult(0);
         }

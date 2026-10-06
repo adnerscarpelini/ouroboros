@@ -38,10 +38,21 @@ Uma sessão aberta não basta: toda exclusão pede a senha atual de quem está f
 
 ## O que acontece na exclusão
 
+Os passos 1 a 3 rodam numa **única transação**: ou acontecem todos, ou nenhum.
+
 1. `deleted_at` recebe o instante atual, `active` vira `false` e `updated_at` é atualizado.
 2. Todos os refresh tokens ativos da conta são revogados.
 3. Os tokens pendentes de confirmação de e-mail e de recuperação de senha são invalidados (expiração antecipada).
 4. Fica um log `Information` no Seq com o `externalId` da conta excluída e o de quem excluiu. E-mail e senha nunca vão pro log.
+
+## Atomicidade e último Admin
+
+- **Tudo ou nada.** A exclusão lógica, a revogação das sessões e a invalidação dos dois tipos de token rodam dentro de uma `IUnitOfWork` (ver `docs/project/0001 - Arquitetura.md`). Se qualquer passo falhar, a conta continua ativa, com as sessões e os tokens intactos, e a resposta é `500`. A mesma chamada funciona numa nova tentativa.
+- **Antes da transação:** a autorização, a reautenticação e a busca do alvo. Negar acesso, errar a senha ou apontar uma conta inexistente nunca abre transação.
+- **Falha de senha fora da transação.** A falha é gravada em autocommit, então conta para o bloqueio de conta (ver `docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md`) e não é desfeita por nenhum rollback.
+- **Alvo relido dentro da transação.** Como o update regrava a linha toda, o alvo é lido de novo na transação. Uma exclusão ou troca de senha confirmada entre a primeira leitura e a escrita não é sobrescrita. Se o alvo sumiu nesse meio tempo, a resposta é `404`.
+- **Último Admin sob concorrência.** Quando o alvo é um Admin ativo, a contagem de Admins ativos roda com `WITH (UPDLOCK, HOLDLOCK)` dentro da transação (`CountActiveAdminsForUpdateAsync`). Os locks duram até o commit ou rollback. Dois Admins que se excluem ao mesmo tempo ficam em fila: o primeiro conclui, o segundo já enxerga um Admin só e recebe `400 The last active admin cannot be deleted`. Quando o alvo não é Admin, nenhum lock é tomado.
+- **Custo do lock.** Sem índice sobre o perfil, a contagem lê a tabela de usuários, então o lock de faixa também segura cadastros e logins por alguns milissegundos enquanto um Admin está sendo excluído. É raro e curto. Se a tabela crescer, um índice filtrado nos Admins ativos estreita o lock.
 
 ## Conta excluída se comporta como inexistente
 
@@ -89,7 +100,8 @@ Política `user-delete`: 5 tentativas por IP a cada 15 min, janela fixa. O endpo
 
 - **Access token continua válido até expirar.** Ele é stateless. O refresh token é revogado, então a conta não ganha uma sessão nova, e os endpoints que carregam o usuário do banco já o tratam como inexistente.
 - **Dados pessoais guardados sem prazo.** Nome e e-mail ficam na conta excluída. Se a LGPD exigir, a anonimização vira uma spec nova.
-- **Exclusão simultânea dos dois últimos `Admin`s.** A regra do último `Admin` conta e depois grava. Se os dois se excluírem ao mesmo tempo, os dois podem passar.
+- **Dois Admins excluindo a mesma conta ao mesmo tempo.** Podem os dois receber `204`: o estado final é o mesmo e é idempotente, mas o segundo não vê o `404`. Fechar isso exigiria ler o alvo com lock de linha, o que não foi feito.
+- **Troca de senha no meio da exclusão.** Entre a releitura do alvo na transação e o update existe uma janela de milissegundos em que uma redefinição de senha confirmada poderia ser sobrescrita. Não tem teste.
 
 ## Onde está no código
 
@@ -97,5 +109,6 @@ Política `user-delete`: 5 tentativas por IP a cada 15 min, janela fixa. O endpo
 - Caso de uso: `Auth.Application/UseCases/DeleteUser/`.
 - Endpoint: `UserController.Delete` em `Auth.Api/Controllers/`. Body: `Auth.Api/Models/DeleteUserBody.cs`.
 - Rate limiting: `Auth.Api/Configuration/RateLimitingConfiguration.cs`.
-- Persistência: filtros e os métodos `ExistsDeletedByLoginAsync` e `CountActiveAdminsAsync` em `DapperUserRepository`.
+- Persistência: filtros e os métodos `ExistsDeletedByLoginAsync` e `CountActiveAdminsForUpdateAsync` (com `UPDLOCK, HOLDLOCK`) em `DapperUserRepository`.
+- Transação: `SqlUnitOfWork` em `Auth.Infrastructure/Persistence/`, usada por `DeleteUserInteractor`.
 - Migration: `V20260923220000__AddDeletedAtToUsers.sql`.

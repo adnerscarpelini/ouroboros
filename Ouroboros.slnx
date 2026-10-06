@@ -49,12 +49,13 @@
     <File Path="specs/archived/2026092504-Auth-Redefinicao-atomica-de-senha/evidence/README.md" />
     <File Path="specs/archived/2026092504-Auth-Redefinicao-atomica-de-senha/evidence/dotnet-test.txt" />
   </Folder>
-  <Folder Name="/specs/2026092505-Auth-Exclusao-atomica-de-conta/">
-    <File Path="specs/2026092505-Auth-Exclusao-atomica-de-conta/spec.md" />
-    <File Path="specs/2026092505-Auth-Exclusao-atomica-de-conta/tasks.md" />
+  <Folder Name="/specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/">
+    <File Path="specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/spec.md" />
+    <File Path="specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092505-Auth-Exclusao-atomica-de-conta/evidence/">
-    <File Path="specs/2026092505-Auth-Exclusao-atomica-de-conta/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/evidence/">
+    <File Path="specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/evidence/README.md" />
+    <File Path="specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/">
     <File Path="specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/spec.md" />

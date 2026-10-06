@@ -52,7 +52,10 @@ public interface IUserRepository
     Task<bool> ExistsDeletedByLoginAsync(string login);
 
     /// <summary>
-    /// Conta os Admins ativos e nao excluidos.
+    /// Conta os Admins ativos e nao excluidos e <b>trava</b> essas linhas ate o fim da transacao corrente
+    /// (<c>UPDLOCK, HOLDLOCK</c>). Chamar so dentro de <see cref="IUnitOfWork"/>: assim duas operacoes que
+    /// reduzem o numero de Admins (excluir um deles) ficam em fila e a segunda ja enxerga a contagem reduzida.
+    /// Fora de uma transacao o lock e solto na hora e nao protege nada.
     /// </summary>
-    Task<int> CountActiveAdminsAsync();
+    Task<int> CountActiveAdminsForUpdateAsync();
 }

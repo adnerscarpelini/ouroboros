@@ -388,11 +388,13 @@ public sealed class DapperUserRepository : IUserRepository
         return await _session.ExecuteScalarAsync<bool>(sql, new { Login = login });
     }
 
-    public async Task<int> CountActiveAdminsAsync()
+    public async Task<int> CountActiveAdminsForUpdateAsync()
     {
+        // UPDLOCK + HOLDLOCK: os locks (inclusive de faixa, contra um novo Admin ativo aparecer no meio) duram ate o
+        // commit ou rollback da transacao. Duas transacoes que chegam aqui juntas ficam em fila, na mesma ordem de leitura.
         const string sql = """
             SELECT COUNT(*)
-            FROM auth.users AS users
+            FROM auth.users AS users WITH (UPDLOCK, HOLDLOCK)
             WHERE
                 users.role = @Role
                 AND users.active = 1

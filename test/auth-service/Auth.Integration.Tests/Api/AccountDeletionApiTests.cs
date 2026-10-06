@@ -1,6 +1,7 @@
 namespace Ouroboros.Auth.Integration.Tests.Api;
 
 using System.Net;
+using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Integration.Tests.Infrastructure;
 using Xunit;
@@ -130,6 +131,81 @@ public sealed class AccountDeletionApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Accepted, sameEmail.StatusCode);
         Assert.Equal(1, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.users WHERE login = 'delete.reuse.new';"));
         Assert.Equal(HttpStatusCode.BadRequest, sameLogin.StatusCode);
+    }
+
+    // Spec 2026092505
+
+    [Theory]
+    [InlineData(FaultTiming.Before)]
+    [InlineData(FaultTiming.After)]
+    public async Task ShouldKeepAccountSessionsAndTokensWhenSessionRevocationFails(FaultTiming timing)
+    {
+        var user = await _api.CreateUserAsync($"delete.rollback.{timing}");
+        var session = await _api.LoginAsync($"delete.rollback.{timing}");
+        await _api.AddTokenAsync(user.ExternalId, TokenType.PasswordReset);
+
+        using var factory = _fixture.CreateFactoryFailingOn<IRefreshTokenRepository>(
+            nameof(IRefreshTokenRepository.RevokeAllActiveByUserAsync),
+            timing);
+        using var failing = new TestApi(_fixture, factory.CreateClient());
+
+        var response = await failing.SendAsync(
+            HttpMethod.Delete,
+            $"/api/users/{user.ExternalId}",
+            new { password = TestApi.Password },
+            session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Null(await DeletedAtAsync(user.ExternalId));
+        Assert.True(await _api.QueryAsync<bool>("SELECT active FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+        Assert.Equal(1, await _api.CountActiveRefreshTokensAsync(user.ExternalId));
+        Assert.Equal(1, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.tokens WHERE used_at IS NULL AND expires_at > SYSDATETIMEOFFSET();"));
+        Assert.Equal(HttpStatusCode.OK, (await _api.PostAsync("/api/auth/refresh", new { refreshToken = session.RefreshToken })).StatusCode);
+
+        // A conta continua inteira e a exclusao funciona numa nova tentativa, sem a falha.
+        var retry = await Delete(user.ExternalId, TestApi.Password, session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, retry.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldCountWrongPasswordTowardLockoutEvenThoughDeletionFails()
+    {
+        var user = await _api.CreateUserAsync("delete.count.failure");
+        var session = await _api.LoginAsync("delete.count.failure");
+
+        var response = await Delete(user.ExternalId, "Wrong-Password-123", session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(1, await _api.QueryAsync<int>("SELECT access_failed_count FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+    }
+
+    [Fact]
+    public async Task ShouldLetOnlyOneOfTwoAdminsDeleteTheOtherWhenTheyActAtTheSameTime()
+    {
+        for (var round = 0; round < 8; round++)
+        {
+            await _fixture.ResetDatabaseAsync();
+
+            var first = await _api.CreateUserAsync("race.admin.one");
+            var second = await _api.CreateUserAsync("race.admin.two");
+            await _api.SetRoleAsync(first.ExternalId, UserRole.Admin);
+            await _api.SetRoleAsync(second.ExternalId, UserRole.Admin);
+            var firstSession = await _api.LoginAsync("race.admin.one");
+            var secondSession = await _api.LoginAsync("race.admin.two");
+
+            var responses = await Task.WhenAll(
+                Delete(second.ExternalId, TestApi.Password, firstSession.AccessToken),
+                Delete(first.ExternalId, TestApi.Password, secondSession.AccessToken));
+
+            var statuses = responses.Select(response => response.StatusCode).Order().ToArray();
+
+            Assert.Equal([HttpStatusCode.NoContent, HttpStatusCode.BadRequest], statuses);
+            Assert.Equal(1, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.users WHERE role = 'Admin' AND active = 1 AND deleted_at IS NULL;"));
+
+            var rejected = responses.Single(response => response.StatusCode == HttpStatusCode.BadRequest);
+            Assert.Equal("The last active admin cannot be deleted", await TestApi.ReadErrorAsync(rejected));
+        }
     }
 
     private Task<HttpResponseMessage> Delete(Guid externalId, string password, string? bearer) =>

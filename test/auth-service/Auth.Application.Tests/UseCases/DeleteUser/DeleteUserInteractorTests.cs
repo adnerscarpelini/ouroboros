@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.DeleteUser;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
@@ -52,9 +53,21 @@ public class DeleteUserInteractorTests
             return Task.CompletedTask;
         }
 
+        // Simula a exclusao do alvo entre a primeira leitura e a releitura dentro da transacao.
+        public Guid? VanishOnSecondRead { get; set; }
+
+        private readonly Dictionary<Guid, int> _reads = new();
+
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
             LookupCount++;
+            _reads[externalId] = _reads.GetValueOrDefault(externalId) + 1;
+
+            if (VanishOnSecondRead == externalId && _reads[externalId] > 1)
+            {
+                return Task.FromResult<User?>(null);
+            }
+
             var user = Items.FirstOrDefault(item => item.DeletedAt is null && item.ExternalId == externalId);
             return Task.FromResult(user);
         }
@@ -97,8 +110,11 @@ public class DeleteUserInteractorTests
             return Task.FromResult(exists);
         }
 
-        public Task<int> CountActiveAdminsAsync()
+        public int AdminCountCalls { get; private set; }
+
+        public Task<int> CountActiveAdminsForUpdateAsync()
         {
+            AdminCountCalls++;
             var count = Items.Count(item => item.Role == UserRole.Admin && item.Active && item.DeletedAt is null);
             return Task.FromResult(count);
         }
@@ -139,8 +155,15 @@ public class DeleteUserInteractorTests
             return Task.FromResult(true);
         }
 
+        public bool FailOnRevokeAll { get; set; }
+
         public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
         {
+            if (FailOnRevokeAll)
+            {
+                throw new InvalidOperationException("Forced revocation failure.");
+            }
+
             var activeTokens = Items.Where(item => item.UserExternalId == userExternalId && item.IsActive(revokedAt));
 
             foreach (var activeToken in activeTokens)
@@ -202,13 +225,16 @@ public class DeleteUserInteractorTests
 
         public FakeTokenRepository TokenRepository { get; } = new();
 
+        public FakeUnitOfWork UnitOfWork { get; } = new();
+
         public DeleteUserInteractor CreateInteractor()
         {
             return new DeleteUserInteractor(
                 UserRepository,
                 new FakePasswordHasher(),
                 RefreshTokenRepository,
-                TokenRepository);
+                TokenRepository,
+                UnitOfWork);
         }
 
         public User AddUser(
@@ -430,5 +456,102 @@ public class DeleteUserInteractorTests
         await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId)));
 
         Assert.Empty(context.UserRepository.Updated);
+    }
+
+    // Spec 2026092505
+
+    [Fact]
+    public async Task ShouldDeleteEverythingInsideTheSameUnitOfWork()
+    {
+        var context = new Context();
+        var user = context.AddUser("jdoe", UserRole.User);
+
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId));
+
+        Assert.Equal(1, context.UnitOfWork.Commits);
+        Assert.Equal(0, context.UnitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldNotOpenUnitOfWorkWhenPasswordIsWrong()
+    {
+        var context = new Context();
+        var user = context.AddUser("jdoe", UserRole.User);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", "wrong", user.ExternalId)));
+
+        Assert.Equal(0, context.UnitOfWork.Commits);
+        Assert.Equal(0, context.UnitOfWork.Rollbacks);
+        Assert.Equal(1, user.AccessFailedCount);
+    }
+
+    [Fact]
+    public async Task ShouldNotOpenUnitOfWorkWhenAccessIsDenied()
+    {
+        var context = new Context();
+        var user = context.AddUser("jdoe", UserRole.User);
+        var other = context.AddUser("other", UserRole.User);
+
+        await Assert.ThrowsAsync<AccessDeniedException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, other.ExternalId)));
+
+        Assert.Equal(0, context.UnitOfWork.Commits);
+        Assert.Equal(0, context.UnitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenSessionRevocationFails()
+    {
+        var context = new Context();
+        var user = context.AddUser("jdoe", UserRole.User);
+        context.RefreshTokenRepository.FailOnRevokeAll = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId)));
+
+        Assert.Equal(0, context.UnitOfWork.Commits);
+        Assert.Equal(1, context.UnitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenDeletingLastActiveAdmin()
+    {
+        var context = new Context();
+        var admin = context.AddUser("admin", UserRole.Admin);
+
+        await Assert.ThrowsAsync<DomainException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, admin.ExternalId)));
+
+        Assert.Equal(1, context.UnitOfWork.Rollbacks);
+        Assert.Equal(0, context.UnitOfWork.Commits);
+    }
+
+    [Fact]
+    public async Task ShouldLockAdminCountOnlyWhenTargetIsActiveAdmin()
+    {
+        var context = new Context();
+        var admin = context.AddUser("admin", UserRole.Admin);
+        var other = context.AddUser("other-admin", UserRole.Admin);
+        var common = context.AddUser("common", UserRole.User);
+
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, common.ExternalId));
+
+        Assert.Equal(0, context.UserRepository.AdminCountCalls);
+
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, other.ExternalId));
+
+        Assert.Equal(1, context.UserRepository.AdminCountCalls);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWithNotFoundWhenTargetIsDeletedAfterFirstRead()
+    {
+        var context = new Context();
+        var admin = context.AddUser("admin", UserRole.Admin);
+        var target = context.AddUser("jdoe", UserRole.User);
+        context.UserRepository.VanishOnSecondRead = target.ExternalId;
+
+        await Assert.ThrowsAsync<UserNotFoundException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, target.ExternalId)));
+
+        Assert.Empty(context.UserRepository.Updated);
+        Assert.Empty(context.TokenRepository.Invalidated);
+        Assert.Equal(1, context.UnitOfWork.Rollbacks);
     }
 }

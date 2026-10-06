@@ -10,17 +10,20 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
     private readonly IPasswordHasher _passwordHasher;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenRepository _tokenRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
     public DeleteUserInteractor(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IRefreshTokenRepository refreshTokenRepository,
-        ITokenRepository tokenRepository)
+        ITokenRepository tokenRepository,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _refreshTokenRepository = refreshTokenRepository;
         _tokenRepository = tokenRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<DeleteUserResponse> ExecuteAsync(DeleteUserRequest request)
@@ -38,6 +41,7 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
         var requester = await _userRepository.GetByExternalIdAsync(request.RequesterId);
 
         // Reautenticacao: uma sessao aberta (ou um access token roubado) sozinha nao basta pra excluir uma conta.
+        // A falha de senha e gravada em autocommit, fora da transacao da exclusao, pra contar pro bloqueio de conta.
         var now = DateTimeOffset.UtcNow;
         var canVerifyRealHash = requester is not null && !requester.IsLockedOut(now);
         var hash = canVerifyRealHash ? requester!.PasswordHash : _passwordHasher.DummyHash;
@@ -58,15 +62,39 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
             throw new InvalidCredentialsException();
         }
 
-        var user = isSelf ? requester : await _userRepository.GetByExternalIdAsync(request.ExternalId);
+        var target = isSelf ? requester : await _userRepository.GetByExternalIdAsync(request.ExternalId);
+
+        if (target is null)
+        {
+            throw new UserNotFoundException();
+        }
+
+        // Exclusao logica, fim das sessoes e invalidacao dos tokens pendentes valem juntos ou nao valem.
+        return await _unitOfWork.ExecuteAsync(() => DeleteAsync(target.ExternalId, target.Role == UserRole.Admin && target.Active, now));
+    }
+
+    private async Task<DeleteUserResponse> DeleteAsync(
+        Guid targetExternalId,
+        bool targetIsActiveAdmin,
+        DateTimeOffset now)
+    {
+        // Sem ao menos um Admin ativo ninguem mais consegue administrar o sistema. A contagem trava as linhas dos
+        // Admins ate o fim da transacao: duas exclusoes simultaneas de Admins ficam em fila, e a segunda ja ve a
+        // contagem reduzida. O lock vem antes da releitura do alvo, que precisa enxergar o que a primeira confirmou.
+        var activeAdmins = targetIsActiveAdmin
+            ? await _userRepository.CountActiveAdminsForUpdateAsync()
+            : 0;
+
+        // O alvo e lido de novo dentro da transacao: o UpdateAsync regrava a linha toda com o que foi lido, e uma
+        // exclusao ou troca de senha confirmada nesse meio tempo nao pode ser desfeita.
+        var user = await _userRepository.GetByExternalIdAsync(targetExternalId);
 
         if (user is null)
         {
             throw new UserNotFoundException();
         }
 
-        // Sem ao menos um Admin ativo ninguem mais consegue administrar o sistema.
-        if (user.Role == UserRole.Admin && user.Active && await _userRepository.CountActiveAdminsAsync() <= 1)
+        if (targetIsActiveAdmin && user.Role == UserRole.Admin && user.Active && activeAdmins <= 1)
         {
             throw new DomainException("The last active admin cannot be deleted");
         }

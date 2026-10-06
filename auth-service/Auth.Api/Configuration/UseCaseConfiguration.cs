@@ -30,8 +30,13 @@ public static class UseCaseConfiguration
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
+        services.AddSingleton(provider =>
+            SigningKeyStore.Load(provider.GetRequiredService<IOptions<JwtSettings>>().Value.SigningKeys));
         services.AddSingleton<IJwtTokenGenerator>(provider =>
-            new JwtTokenGenerator(provider.GetRequiredService<IOptions<JwtSettings>>().Value));
+            new JwtTokenGenerator(
+                provider.GetRequiredService<IOptions<JwtSettings>>().Value,
+                provider.GetRequiredService<SigningKeyStore>()));
         services.AddSingleton(provider =>
             new RefreshTokenSettings(TimeSpan.FromDays(provider.GetRequiredService<IOptions<JwtSettings>>().Value.RefreshTokenExpirationDays)));
 

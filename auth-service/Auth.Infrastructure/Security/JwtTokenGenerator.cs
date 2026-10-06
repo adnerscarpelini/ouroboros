@@ -1,7 +1,6 @@
 namespace Ouroboros.Auth.Infrastructure.Security;
 
 using System.Security.Claims;
-using System.Text;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Ouroboros.Auth.Application.Gateways;
@@ -16,15 +15,15 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
     public const string SessionIdClaimType = "sid";
 
     private readonly JwtSettings _settings;
-    private readonly SigningCredentials _signingCredentials;
+    private readonly SigningKeyStore _signingKeys;
     private readonly JsonWebTokenHandler _tokenHandler = new();
 
-    public JwtTokenGenerator(JwtSettings settings)
+    public JwtTokenGenerator(
+        JwtSettings settings,
+        SigningKeyStore signingKeys)
     {
         _settings = settings;
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SigningKey));
-        _signingCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        _signingKeys = signingKeys;
     }
 
     public AccessToken Generate(
@@ -44,7 +43,9 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
             IssuedAt = issuedAt,
             NotBefore = issuedAt,
             Expires = expiresAt,
-            SigningCredentials = _signingCredentials,
+
+            // RS256 com o kid da chave Active no header (o handler le o KeyId da chave).
+            SigningCredentials = _signingKeys.ActiveCredentials,
             Subject = new ClaimsIdentity(
             [
                 new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),

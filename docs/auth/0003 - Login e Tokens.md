@@ -157,7 +157,7 @@ Um token é considerado **ativo** quando `revoked_at IS NULL` e `expires_at` ain
 
 ## Access token (JWT)
 
-- Algoritmo `HS256`, assinado com `Jwt:SigningKey`.
+- Algoritmo `RS256`, assinado com a chave RSA `Active` de `Jwt:SigningKeys`, com o `kid` no header (ver `docs/auth/0002 - Configuracao JWT.md`).
 - Validade: `Jwt:AccessTokenExpirationMinutes` (padrão 15 min).
 - Claims:
 
@@ -178,8 +178,8 @@ Os parâmetros estão em `docs/auth/0002 - Configuracao JWT.md`.
 
 Rotas com `[Authorize]` exigem o header `Authorization: Bearer <accessToken>`. A API valida o token com o mesmo `JwtSettings` usado na emissão:
 
-- assinatura com `Jwt:SigningKey`, aceitando **só** `HS256` (bloqueia troca de algoritmo, ex.: `none`);
-- `iss` igual a `Jwt:Issuer` e `aud` igual a `Jwt:Audience`;
+- assinatura com o conjunto local de chaves públicas (`Active` e `Published`), aceitando **só** `RS256` (bloqueia troca de algoritmo, ex.: `none` ou HS256 com a chave pública);
+- `iss` igual a `Jwt:Issuer` (a URL pública do auth-service) e `aud` igual a `Jwt:Audience`;
 - `exp` obrigatório, com tolerância de relógio de **30 segundos** (o padrão do ASP.NET é 5 min, longo demais para um token de 15 min);
 - claims com os nomes curtos do JWT (`sub`, `role`...), sem mapear para os URIs do `ClaimTypes`. O perfil é lido do claim `role`.
 

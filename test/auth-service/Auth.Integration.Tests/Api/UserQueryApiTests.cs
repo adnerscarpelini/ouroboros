@@ -46,7 +46,9 @@ public sealed class UserQueryApiTests : IAsyncLifetime
     public async Task ShouldReturnUnauthorizedWhenTokenIsSignedWithAnotherKey()
     {
         var user = await _api.CreateUserAsync("query.forged");
-        var forged = CreateJwt(user, "another-signing-key-with-32-bytes-or-more!!", DateTime.UtcNow.AddMinutes(10));
+        // Mesmo kid da chave Active, mas assinado com outra chave RSA: a assinatura nao confere.
+        var anotherKey = new SigningCredentials(new RsaSecurityKey(System.Security.Cryptography.RSA.Create(2048)) { KeyId = TestSigningKeys.ActiveKid }, SecurityAlgorithms.RsaSha256);
+        var forged = CreateJwt(user, anotherKey, DateTime.UtcNow.AddMinutes(10));
 
         var response = await _api.GetAsync($"/api/users/{user.ExternalId}", forged);
 
@@ -57,7 +59,7 @@ public sealed class UserQueryApiTests : IAsyncLifetime
     public async Task ShouldReturnUnauthorizedWhenTokenIsExpired()
     {
         var user = await _api.CreateUserAsync("query.expired");
-        var expired = CreateJwt(user, AuthApiFactory.SigningKey, DateTime.UtcNow.AddMinutes(-10));
+        var expired = CreateJwt(user, TestSigningKeys.ActiveCredentials, DateTime.UtcNow.AddMinutes(-10));
 
         var response = await _api.GetAsync($"/api/users/{user.ExternalId}", expired);
 
@@ -69,7 +71,7 @@ public sealed class UserQueryApiTests : IAsyncLifetime
     {
         var user = await _api.CreateUserAsync("query.none");
         var header = Base64Url("""{"alg":"none","typ":"JWT"}""");
-        var payload = Base64Url($$"""{"sub":"{{user.ExternalId}}","iss":"ouroboros-auth","aud":"ouroboros","exp":{{DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds()}}}""");
+        var payload = Base64Url($$"""{"sub":"{{user.ExternalId}}","iss":"http://localhost:8082","aud":"ouroboros","exp":{{DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds()}}}""");
 
         var response = await _api.GetAsync($"/api/users/{user.ExternalId}", $"{header}.{payload}.");
 
@@ -224,18 +226,16 @@ public sealed class UserQueryApiTests : IAsyncLifetime
         Assert.Equal("Invalid access token", await TestApi.ReadErrorAsync(bySearch));
     }
 
-    private static string CreateJwt(User user, string signingKey, DateTime expires)
+    private static string CreateJwt(User user, SigningCredentials credentials, DateTime expires)
     {
         var descriptor = new SecurityTokenDescriptor
         {
-            Issuer = "ouroboros-auth",
-            Audience = "ouroboros",
+            Issuer = TestSigningKeys.Issuer,
+            Audience = TestSigningKeys.Audience,
             Claims = new Dictionary<string, object> { [JwtRegisteredClaimNames.Sub] = user.ExternalId.ToString() },
             NotBefore = expires.AddMinutes(-20),
             Expires = expires,
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
-                SecurityAlgorithms.HmacSha256),
+            SigningCredentials = credentials,
         };
 
         return new JsonWebTokenHandler().CreateToken(descriptor);

@@ -65,3 +65,8 @@ desktop.ini
 # Links locais para as skills compartilhadas em .skills/
 /.claude/
 /.agents/
+
+# Chaves privadas e segredos locais (nunca versionados)
+secrets/
+*.pem
+*.key

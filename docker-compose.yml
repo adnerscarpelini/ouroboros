@@ -80,7 +80,12 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: Server=sqlserver,1433;Database=${AUTH_DB_NAME};User Id=${AUTH_DB_USER};Password=${AUTH_DB_PASSWORD};Encrypt=True;TrustServerCertificate=True
       Seq__ServerUrl: http://seq:5341
-      Jwt__SigningKey: ${AUTH_JWT_SIGNING_KEY}
+      Jwt__SigningKeys__0__Kid: ${AUTH_JWT_KEY_ID}
+      Jwt__SigningKeys__0__PrivateKeyPath: /run/keys/jwt-signing-key.pem
+      Jwt__SigningKeys__0__Status: Active
+    volumes:
+      # Chave privada RSA de assinatura (RS256), fora do git. Em producao, um Docker secret montado no mesmo caminho.
+      - ${AUTH_JWT_PRIVATE_KEY_FILE}:/run/keys/jwt-signing-key.pem:ro
     ports:
       - "8082:8082"
     depends_on:

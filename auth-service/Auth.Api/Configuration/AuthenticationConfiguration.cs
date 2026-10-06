@@ -1,6 +1,5 @@
 namespace Ouroboros.Auth.Api.Configuration;
 
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -18,9 +17,10 @@ public static class AuthenticationConfiguration
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer();
 
-        // Configurado a partir do JwtSettings ja validado no startup, o mesmo usado pra emitir o token.
+        // Configurado a partir do JwtSettings ja validado no startup, o mesmo usado pra emitir o token. O auth-service
+        // valida os proprios tokens com o conjunto local de chaves publicas, sem chamada HTTP a si mesmo.
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<JwtSettings>>((options, jwtSettings) =>
+            .Configure<IOptions<JwtSettings>, SigningKeyStore>((options, jwtSettings, signingKeys) =>
             {
                 var settings = jwtSettings.Value;
 
@@ -36,9 +36,12 @@ public static class AuthenticationConfiguration
                     RequireExpirationTime = true,
                     ClockSkew = ClockSkew,
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SigningKey)),
-                    // Aceita so o algoritmo usado na emissao, contra ataques de troca de algoritmo (ex.: "none").
-                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+
+                    // Chaves Active e Published: durante a rotacao, tokens da chave antiga continuam validos.
+                    IssuerSigningKeys = signingKeys.PublicKeys,
+
+                    // Aceita so RS256, contra ataques de troca de algoritmo (ex.: "none", ou HS256 com a chave publica).
+                    ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
                     NameClaimType = JwtRegisteredClaimNames.Sub,
                     RoleClaimType = JwtTokenGenerator.RoleClaimType,
                 };

@@ -14,23 +14,39 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     // O TestServer nao tem conexao TCP: o teste escolhe o IP de origem por este header.
     public const string RemoteIpHeader = "X-Test-Remote-Ip";
 
-    // Chave so de teste: deixa o teste forjar tokens (expirado, outra chave) pra exercitar o middleware JWT.
-    public const string SigningKey = "integration-tests-signing-key-with-32-bytes-or-more";
-
     private readonly string _connectionString;
+    private readonly IReadOnlyList<(string Kid, string PrivateKeyPath, string Status)> _signingKeys;
 
     public FakeBreachedPasswordChecker BreachedPasswordChecker { get; } = new();
 
-    public AuthApiFactory(string connectionString)
+    // signingKeys: por padrao as duas chaves de teste (a Active assina, a Published so valida). Os testes de rotacao e de
+    // validacao do startup passam as suas.
+    public AuthApiFactory(
+        string connectionString,
+        IReadOnlyList<(string Kid, string PrivateKeyPath, string Status)>? signingKeys = null)
     {
         _connectionString = connectionString;
+        _signingKeys =
+            signingKeys
+            ??
+            [
+                (TestSigningKeys.ActiveKid, TestSigningKeys.PemPath(TestSigningKeys.ActiveKid), "Active"),
+                (TestSigningKeys.PublishedKid, TestSigningKeys.PemPath(TestSigningKeys.PublishedKid), "Published"),
+            ];
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // UseSetting pra valer ja no startup, onde o Program le a connection string.
         builder.UseSetting("ConnectionStrings:Default", _connectionString);
-        builder.UseSetting("Jwt:SigningKey", SigningKey);
+        TestSigningKeys.EnsureFilesExist();
+
+        for (var index = 0; index < _signingKeys.Count; index++)
+        {
+            builder.UseSetting($"Jwt:SigningKeys:{index}:Kid", _signingKeys[index].Kid);
+            builder.UseSetting($"Jwt:SigningKeys:{index}:PrivateKeyPath", _signingKeys[index].PrivateKeyPath);
+            builder.UseSetting($"Jwt:SigningKeys:{index}:Status", _signingKeys[index].Status);
+        }
         builder.UseSetting("Seq:ServerUrl", string.Empty);
 
         // A limpeza de tokens expirados fica desligada: so os testes dela (TokenCleanupTests) a ligam.

@@ -147,12 +147,13 @@
     <File Path="specs/archived/2026092517-Auth-Troca-de-senha-autenticada/evidence/README.md" />
     <File Path="specs/archived/2026092517-Auth-Troca-de-senha-autenticada/evidence/dotnet-test.txt" />
   </Folder>
-  <Folder Name="/specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/">
-    <File Path="specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/spec.md" />
-    <File Path="specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/tasks.md" />
+  <Folder Name="/specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/">
+    <File Path="specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/spec.md" />
+    <File Path="specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/">
-    <File Path="specs/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/">
+    <File Path="specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/README.md" />
+    <File Path="specs/archived/2026092518-Auth-Assinatura-assimetrica-e-JWKS/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/">
     <File Path="specs/2026092519-Auth-Auditoria-de-eventos-de-seguranca/spec.md" />

@@ -387,6 +387,47 @@
       ]
     },
     {
+      "name": "Well-Known",
+      "item": [
+        {
+          "name": "JWKS",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/.well-known/jwks.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ".well-known",
+                "jwks.json"
+              ]
+            },
+            "description": "Chaves publicas de assinatura (Active e Published), em formato JWK (RFC 7517), so com parametros publicos. Anonimo, fora do limite de requisicoes, com `Cache-Control: public, max-age=3600`. Os outros servicos validam os tokens RS256 com estas chaves, escolhendo pelo `kid` do header.\n\n- `200` conjunto de chaves"
+          }
+        },
+        {
+          "name": "OpenID Configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/.well-known/openid-configuration",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ".well-known",
+                "openid-configuration"
+              ]
+            },
+            "description": "Documento de descoberta minimo (`issuer` e `jwks_uri`), o suficiente para o JwtBearer de um consumidor funcionar so com a `Authority`. O auth-service nao e um provedor OpenID Connect completo. Anonimo, com `Cache-Control: public, max-age=3600`.\n\n- `200` documento de descoberta"
+          }
+        }
+      ]
+    },
+    {
       "name": "Health",
       "item": [
         {

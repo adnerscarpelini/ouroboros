@@ -31,8 +31,8 @@ dotnet test test/auth-service/Auth.Integration.Tests --filter "FullyQualifiedNam
 ## Como funciona
 
 - **Um container por execução.** `AuthApiFixture` sobe um SQL Server descartável (Testcontainers) e aplica as migrations pelo `MigrationRunner`, antes de subir a API (a API não roda migrations no startup). O container some no fim.
-- **API em memória.** `AuthApiFactory` (`WebApplicationFactory<Program>`) sobe a API real, sem porta de rede. Connection string, chave JWT e limites de rate limit são injetados com `UseSetting`, para valerem já no startup, onde o `Program` roda as migrations.
-- **Segredos só de teste.** A chave JWT (`AuthApiFactory.SigningKey`) e a senha dos usuários de teste são fixas e não valem em lugar nenhum. Nada aponta para banco compartilhado.
+- **API em memória.** `AuthApiFactory` (`WebApplicationFactory<Program>`) sobe a API real, sem porta de rede. Connection string, chaves JWT e limites de rate limit são injetados com `UseSetting`, para valerem já no startup.
+- **Segredos só de teste.** As chaves RSA do JWT (`TestSigningKeys`, geradas a cada execução e gravadas em PEM numa pasta temporária, como a API as lê em produção) e a senha dos usuários de teste não valem em lugar nenhum. A chave `Active` assina e a `Published` só valida. O teste usa a privada para forjar tokens (expirado, outra chave, outro emissor). Nada aponta para banco compartilhado.
 - **Banco zerado entre testes.** Cada classe chama `ResetDatabaseAsync` em `InitializeAsync`. As classes compartilham o container pela collection `AuthApi`, então não rodam em paralelo.
 - **Limite por IP.** O `TestServer` não tem conexão TCP. O IP de origem vem do header `X-Test-Remote-Ip`, e `TestApi` usa um IP novo por chamada para o rate limit não atrapalhar os outros testes. Os limites de teste são baixos (`AuthApiFixture.LowPermitLimit`, 3).
 

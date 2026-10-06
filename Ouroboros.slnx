@@ -57,12 +57,13 @@
     <File Path="specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/evidence/README.md" />
     <File Path="specs/archived/2026092505-Auth-Exclusao-atomica-de-conta/evidence/dotnet-test.txt" />
   </Folder>
-  <Folder Name="/specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/">
-    <File Path="specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/spec.md" />
-    <File Path="specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/tasks.md" />
+  <Folder Name="/specs/archived/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/">
+    <File Path="specs/archived/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/spec.md" />
+    <File Path="specs/archived/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/evidence/">
-    <File Path="specs/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/evidence/">
+    <File Path="specs/archived/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/evidence/README.md" />
+    <File Path="specs/archived/2026092506-Auth-Sessoes-simultaneas-e-emissao-atomica-no-login/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/">
     <File Path="specs/2026092507-Auth-Rotacao-atomica-e-deteccao-de-reuso-de-refresh-token/spec.md" />

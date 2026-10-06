@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.Login;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Application.Settings;
 using Ouroboros.Auth.Domain.Entities;
@@ -30,6 +31,23 @@ public class LoginInteractorTests
         public List<(Guid ExternalId, string CurrentHash, string NewHash)> Rehashes { get; } = new();
 
         public bool RehashSucceeds { get; set; } = true;
+
+        public Task<bool> TryRegisterLoginAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            var user = Items.Single(item => item.ExternalId == externalId);
+
+            if (RegisterLoginFails || user.IsLockedOut(now))
+            {
+                return Task.FromResult(false);
+            }
+
+            user.RegisterLogin(now);
+            return Task.FromResult(true);
+        }
+
+        public bool RegisterLoginFails { get; set; }
 
         public Task ClearLockoutAsync(
             Guid externalId,
@@ -166,12 +184,16 @@ public class LoginInteractorTests
     {
         public static readonly DateTimeOffset ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
 
+        public Guid? LastSessionId { get; private set; }
+
         public AccessToken Generate(
             Guid userId,
             string login,
             string email,
-            UserRole role)
+            UserRole role,
+            Guid sessionId)
         {
+            LastSessionId = sessionId;
             return new AccessToken($"jwt:{userId}:{login}:{email}:{role}", ExpiresAt);
         }
     }
@@ -225,15 +247,18 @@ public class LoginInteractorTests
     private static LoginInteractor CreateInteractor(
         FakeUserRepository userRepository,
         FakeRefreshTokenRepository refreshTokenRepository,
-        FakePasswordHasher? passwordHasher = null)
+        FakePasswordHasher? passwordHasher = null,
+        FakeUnitOfWork? unitOfWork = null,
+        FakeJwtTokenGenerator? jwtTokenGenerator = null)
     {
         return new LoginInteractor(
             userRepository,
             refreshTokenRepository,
             passwordHasher ?? new FakePasswordHasher(),
-            new FakeJwtTokenGenerator(),
+            jwtTokenGenerator ?? new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
-            RefreshTokenSettings);
+            RefreshTokenSettings,
+            unitOfWork ?? new FakeUnitOfWork());
     }
 
     [Fact]
@@ -274,25 +299,110 @@ public class LoginInteractorTests
     }
 
     [Fact]
-    public async Task ShouldRevokePreviousActiveRefreshTokensWhenUserLogsInAgain()
+    public async Task ShouldKeepPreviousSessionsActiveWhenUserLogsInAgain()
     {
         var userRepository = new FakeUserRepository();
         var refreshTokenRepository = new FakeRefreshTokenRepository();
         var user = CreateUser(active: true);
-        var otherUser = User.Create("other", "Other User", "other@example.com", "hashed:Str0ng-Passphrase-1");
         userRepository.Items.Add(user);
         var previousToken = RefreshToken.Create(user.ExternalId, "hashed:previous", DateTimeOffset.UtcNow.AddDays(1));
-        var otherUserToken = RefreshToken.Create(otherUser.ExternalId, "hashed:other", DateTimeOffset.UtcNow.AddDays(1));
         refreshTokenRepository.Items.Add(previousToken);
-        refreshTokenRepository.Items.Add(otherUserToken);
         var interactor = CreateInteractor(userRepository, refreshTokenRepository);
 
         await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
 
         var newToken = refreshTokenRepository.Items.Single(item => item.TokenHash == "hashed:raw-refresh-token");
-        Assert.NotNull(previousToken.RevokedAt);
+        Assert.Null(previousToken.RevokedAt);
         Assert.Null(newToken.RevokedAt);
-        Assert.Null(otherUserToken.RevokedAt);
+        Assert.NotEqual(previousToken.SessionId, newToken.SessionId);
+    }
+
+    [Fact]
+    public async Task ShouldIssueAccessTokenWithTheSessionIdOfTheNewRefreshToken()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var jwtTokenGenerator = new FakeJwtTokenGenerator();
+        userRepository.Items.Add(CreateUser(active: true));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, jwtTokenGenerator: jwtTokenGenerator);
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
+
+        var refreshToken = Assert.Single(refreshTokenRepository.Items);
+        Assert.NotEqual(Guid.Empty, refreshToken.SessionId);
+        Assert.Equal(refreshToken.SessionId, jwtTokenGenerator.LastSessionId);
+    }
+
+    [Fact]
+    public async Task ShouldRecordLastLoginAtWhenLoginSucceeds()
+    {
+        var userRepository = new FakeUserRepository();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository());
+        var before = DateTimeOffset.UtcNow;
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
+
+        Assert.NotNull(user.LastLoginAt);
+        Assert.True(user.LastLoginAt >= before);
+    }
+
+    [Fact]
+    public async Task ShouldNotRecordLastLoginAtWhenLoginIsRejected()
+    {
+        var userRepository = new FakeUserRepository();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository());
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Wrong!123")));
+
+        Assert.Null(user.LastLoginAt);
+    }
+
+    [Fact]
+    public async Task ShouldRunAllWritesInsideTheSameUnitOfWork()
+    {
+        var unitOfWork = new FakeUnitOfWork();
+        var userRepository = new FakeUserRepository();
+        userRepository.Items.Add(CreateUser(active: true));
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), unitOfWork: unitOfWork);
+
+        await interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1"));
+
+        Assert.Equal(1, unitOfWork.Commits);
+        Assert.Equal(0, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackAndCreateNoRefreshTokenWhenAccountIsLockedBetweenReadAndWrite()
+    {
+        var unitOfWork = new FakeUnitOfWork();
+        var userRepository = new FakeUserRepository { RegisterLoginFails = true };
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        userRepository.Items.Add(CreateUser(active: true));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, unitOfWork: unitOfWork);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
+
+        Assert.Empty(refreshTokenRepository.Items);
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(1, unitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldNotOpenUnitOfWorkWhenUserIsInactive()
+    {
+        var unitOfWork = new FakeUnitOfWork();
+        var userRepository = new FakeUserRepository();
+        userRepository.Items.Add(CreateUser(active: false));
+        var interactor = CreateInteractor(userRepository, new FakeRefreshTokenRepository(), unitOfWork: unitOfWork);
+
+        await Assert.ThrowsAsync<DomainException>(() => interactor.ExecuteAsync(new LoginRequest("jdoe", "Str0ng-Passphrase-1")));
+
+        Assert.Equal(0, unitOfWork.Commits);
+        Assert.Equal(0, unitOfWork.Rollbacks);
     }
 
     [Fact]

@@ -21,6 +21,36 @@ public class RefreshTokenTests
     }
 
     [Fact]
+    public void ShouldStartANewSessionWhenNoSessionIsGiven()
+    {
+        var first = RefreshToken.Create(Guid.NewGuid(), "hash-1", DateTimeOffset.UtcNow.AddDays(7));
+        var second = RefreshToken.Create(Guid.NewGuid(), "hash-2", DateTimeOffset.UtcNow.AddDays(7));
+
+        Assert.NotEqual(Guid.Empty, first.SessionId);
+        Assert.NotEqual(first.SessionId, second.SessionId);
+    }
+
+    [Fact]
+    public void ShouldKeepTheGivenSessionWhenCreatingTheSuccessor()
+    {
+        var sessionId = Guid.NewGuid();
+
+        var refreshToken = RefreshToken.Create(Guid.NewGuid(), "hash", DateTimeOffset.UtcNow.AddDays(7), sessionId);
+
+        Assert.Equal(sessionId, refreshToken.SessionId);
+    }
+
+    [Fact]
+    public void ShouldKeepTheSessionWhenRehydrating()
+    {
+        var sessionId = Guid.NewGuid();
+
+        var refreshToken = RefreshToken.Rehydrate(1, Guid.NewGuid(), DateTimeOffset.UtcNow, null, Guid.NewGuid(), sessionId, "hash", DateTimeOffset.UtcNow.AddDays(1), null);
+
+        Assert.Equal(sessionId, refreshToken.SessionId);
+    }
+
+    [Fact]
     public void ShouldThrowDomainExceptionWhenUserIsEmpty()
     {
         Assert.Throws<DomainException>(() => RefreshToken.Create(Guid.Empty, "token-hash", DateTimeOffset.UtcNow.AddDays(7)));

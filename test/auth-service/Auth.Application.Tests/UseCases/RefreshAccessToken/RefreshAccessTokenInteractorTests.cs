@@ -24,6 +24,13 @@ public class RefreshAccessTokenInteractorTests
             throw new NotSupportedException();
         }
 
+        public Task<bool> TryRegisterLoginAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task ClearLockoutAsync(
             Guid externalId,
             DateTimeOffset now)
@@ -134,12 +141,16 @@ public class RefreshAccessTokenInteractorTests
     {
         public static readonly DateTimeOffset ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
 
+        public Guid? LastSessionId { get; private set; }
+
         public AccessToken Generate(
             Guid userId,
             string login,
             string email,
-            UserRole role)
+            UserRole role,
+            Guid sessionId)
         {
+            LastSessionId = sessionId;
             return new AccessToken($"jwt:{userId}:{login}:{email}:{role}", ExpiresAt);
         }
     }
@@ -190,6 +201,8 @@ public class RefreshAccessTokenInteractorTests
             null);
     }
 
+    private static readonly Guid SessionId = Guid.NewGuid();
+
     private static RefreshToken CreateStoredToken(
         Guid userExternalId,
         DateTimeOffset expiresAt,
@@ -201,6 +214,7 @@ public class RefreshAccessTokenInteractorTests
             DateTimeOffset.UtcNow.AddDays(-8),
             null,
             userExternalId,
+            SessionId,
             "hashed:current-refresh-token",
             expiresAt,
             revokedAt);
@@ -208,12 +222,13 @@ public class RefreshAccessTokenInteractorTests
 
     private static RefreshAccessTokenInteractor CreateInteractor(
         FakeUserRepository userRepository,
-        FakeRefreshTokenRepository refreshTokenRepository)
+        FakeRefreshTokenRepository refreshTokenRepository,
+        FakeJwtTokenGenerator? jwtTokenGenerator = null)
     {
         return new RefreshAccessTokenInteractor(
             userRepository,
             refreshTokenRepository,
-            new FakeJwtTokenGenerator(),
+            jwtTokenGenerator ?? new FakeJwtTokenGenerator(),
             new FakeTokenGenerator(),
             RefreshTokenSettings);
     }
@@ -243,6 +258,37 @@ public class RefreshAccessTokenInteractorTests
         Assert.Equal("hashed:new-refresh-token", refreshTokenRepository.Added[0].TokenHash);
         Assert.Equal(response.RefreshTokenExpiresAt, refreshTokenRepository.Added[0].ExpiresAt);
         Assert.Null(refreshTokenRepository.Added[0].RevokedAt);
+    }
+
+    [Fact]
+    public async Task ShouldInheritSessionIdInTheSuccessorTokenWhenRefreshTokenIsRotated()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository);
+
+        await interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token"));
+
+        Assert.Equal(SessionId, Assert.Single(refreshTokenRepository.Added).SessionId);
+    }
+
+    [Fact]
+    public async Task ShouldKeepSessionIdClaimInTheNewAccessTokenWhenRefreshTokenIsRotated()
+    {
+        var userRepository = new FakeUserRepository();
+        var refreshTokenRepository = new FakeRefreshTokenRepository();
+        var jwtTokenGenerator = new FakeJwtTokenGenerator();
+        var user = CreateUser(active: true);
+        userRepository.Items.Add(user);
+        refreshTokenRepository.Items.Add(CreateStoredToken(user.ExternalId, DateTimeOffset.UtcNow.AddDays(1), null));
+        var interactor = CreateInteractor(userRepository, refreshTokenRepository, jwtTokenGenerator);
+
+        await interactor.ExecuteAsync(new RefreshAccessTokenRequest("current-refresh-token"));
+
+        Assert.Equal(SessionId, jwtTokenGenerator.LastSessionId);
     }
 
     [Fact]

@@ -313,7 +313,36 @@
                 "logout"
               ]
             },
-            "description": "Revoga o refresh token. Idempotente: token ja revogado ou expirado tambem devolve 204.\n\n- `204` logout feito\n- `401` refresh token nao informado ou invalido"
+            "description": "Encerra a sessao do refresh token enviado, sem afetar as outras sessoes do usuario. Idempotente: token ja revogado ou expirado tambem devolve 204.\n\n- `204` logout feito\n- `401` refresh token nao informado ou invalido"
+          }
+        },
+        {
+          "name": "Logout All",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "cole-o-access-token-aqui",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout-all"
+              ]
+            },
+            "description": "Encerra todas as sessoes (refresh tokens ativos) do usuario do access token. Os access tokens ja emitidos valem ate expirar (no maximo 15 min).\n\n- `204` sessoes encerradas\n- `401` sem token, token invalido ou expirado"
           }
         }
       ]

@@ -55,6 +55,13 @@ public class LogoutInteractorTests
             throw new NotSupportedException();
         }
 
+        public Task<bool> TryRegisterLoginAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task ClearLockoutAsync(
             Guid externalId,
             DateTimeOffset now)
@@ -126,7 +133,8 @@ public class LogoutInteractorTests
             Guid userId,
             string login,
             string email,
-            UserRole role)
+            UserRole role,
+            Guid sessionId)
         {
             return new AccessToken("jwt", DateTimeOffset.UtcNow.AddMinutes(15));
         }
@@ -145,6 +153,8 @@ public class LogoutInteractorTests
         }
     }
 
+    private static readonly Guid SessionId = Guid.NewGuid();
+
     private static RefreshToken CreateStoredToken(
         Guid userExternalId,
         DateTimeOffset expiresAt,
@@ -156,6 +166,7 @@ public class LogoutInteractorTests
             DateTimeOffset.UtcNow.AddDays(-8),
             null,
             userExternalId,
+            SessionId,
             "hashed:current-refresh-token",
             expiresAt,
             revokedAt);

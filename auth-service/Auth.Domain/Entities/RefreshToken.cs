@@ -6,6 +6,9 @@ public sealed class RefreshToken : Entity
 {
     public Guid UserExternalId { get; private set; }
 
+    // Sessao = familia de refresh tokens: o login cria uma, e cada rotacao herda a mesma (spec 2026092506).
+    public Guid SessionId { get; private set; }
+
     public string TokenHash { get; private set; } = null!;
 
     public DateTimeOffset ExpiresAt { get; private set; }
@@ -19,11 +22,13 @@ public sealed class RefreshToken : Entity
     public static RefreshToken Create(
         Guid userExternalId,
         string tokenHash,
-        DateTimeOffset expiresAt)
+        DateTimeOffset expiresAt,
+        Guid? sessionId = null)
     {
         var refreshToken = new RefreshToken
         {
             UserExternalId = ValidateUserExternalId(userExternalId),
+            SessionId = sessionId ?? Guid.NewGuid(),
             TokenHash = ValidateTokenHash(tokenHash),
             RevokedAt = null,
         };
@@ -39,6 +44,7 @@ public sealed class RefreshToken : Entity
         DateTimeOffset createdAt,
         DateTimeOffset? updatedAt,
         Guid userExternalId,
+        Guid sessionId,
         string tokenHash,
         DateTimeOffset expiresAt,
         DateTimeOffset? revokedAt)
@@ -46,6 +52,7 @@ public sealed class RefreshToken : Entity
         var refreshToken = new RefreshToken
         {
             UserExternalId = userExternalId,
+            SessionId = sessionId,
             TokenHash = tokenHash,
             ExpiresAt = expiresAt,
             RevokedAt = revokedAt,

@@ -146,6 +146,12 @@ public sealed class TestApi : IDisposable
         return await connection.ExecuteAsync(sql, parameters);
     }
 
+    public async Task<List<T>> QueryListAsync<T>(string sql, object? parameters = null)
+    {
+        await using var connection = new SqlConnection(_fixture.ConnectionString);
+        return (await connection.QueryAsync<T>(sql, parameters)).ToList();
+    }
+
     public async Task<int> CountUsersAsync() => await QueryAsync<int>("SELECT COUNT(*) FROM auth.users;");
 
     public async Task<int> CountTokensAsync(Guid userExternalId, TokenType type)

@@ -23,6 +23,13 @@ public class RequestPasswordResetInteractorTests
             throw new NotSupportedException();
         }
 
+        public Task<bool> TryRegisterLoginAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task ClearLockoutAsync(
             Guid externalId,
             DateTimeOffset now)

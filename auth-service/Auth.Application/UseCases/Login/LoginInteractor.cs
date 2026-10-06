@@ -16,6 +16,7 @@ public sealed class LoginInteractor : ILoginUseCase
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly ITokenGenerator _tokenGenerator;
     private readonly RefreshTokenSettings _refreshTokenSettings;
+    private readonly IUnitOfWork _unitOfWork;
 
     public LoginInteractor(
         IUserRepository userRepository,
@@ -23,7 +24,8 @@ public sealed class LoginInteractor : ILoginUseCase
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwtTokenGenerator,
         ITokenGenerator tokenGenerator,
-        RefreshTokenSettings refreshTokenSettings)
+        RefreshTokenSettings refreshTokenSettings,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
@@ -31,6 +33,7 @@ public sealed class LoginInteractor : ILoginUseCase
         _jwtTokenGenerator = jwtTokenGenerator;
         _tokenGenerator = tokenGenerator;
         _refreshTokenSettings = refreshTokenSettings;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<LoginResponse> ExecuteAsync(LoginRequest request)
@@ -53,43 +56,35 @@ public sealed class LoginInteractor : ILoginUseCase
             throw new InvalidCredentialsException();
         }
 
-        if (!await _userRepository.TryResetFailedAccessAsync(user!.ExternalId, now))
-        {
-            throw new InvalidCredentialsException();
-        }
-
-        if (!user.Active)
+        if (!user!.Active)
         {
             throw new DomainException("User is not active");
         }
 
-        // Hash gerado com custo menor que o atual e refeito agora, que a senha em texto puro esta em maos. O UPDATE so
-        // age se o hash ainda for o lido: uma troca de senha em paralelo vence.
-        if (_passwordHasher.NeedsRehash(user.PasswordHash))
-        {
-            await _userRepository.TryRehashPasswordAsync(
-                user.ExternalId,
-                user.PasswordHash,
-                _passwordHasher.Hash(request.Password!));
-        }
+        // Varias sessoes simultaneas (spec 2026092506): o login nao revoga as anteriores, cada dispositivo tem a sua.
+        var sessionId = Guid.NewGuid();
+        var rawRefreshToken = _tokenGenerator.Generate();
+        var refreshToken = RefreshToken.Create(
+            user.ExternalId,
+            _tokenGenerator.Hash(rawRefreshToken),
+            now.Add(_refreshTokenSettings.Lifetime),
+            sessionId);
 
-        // Reautenticacao encerra as sessoes anteriores: so o par emitido agora continua valido.
-        // Estou fazendo assim porque atualmente eu não criei uma rotina automatica de revogacao de refresh tokens,
-        await _refreshTokenRepository.RevokeAllActiveByUserAsync(user.ExternalId, DateTimeOffset.UtcNow);
+        // Hash gerado com custo menor que o atual e refeito agora, que a senha em texto puro esta em maos. Calculado fora
+        // da transacao (e lento de proposito). O UPDATE so age se o hash ainda for o lido: uma troca de senha em paralelo vence.
+        var rehashedPassword = _passwordHasher.NeedsRehash(user.PasswordHash)
+            ? _passwordHasher.Hash(request.Password!)
+            : null;
+
+        // Registro do login, re-hash e refresh token valem juntos ou nao valem. Os tokens so saem depois do commit.
+        await _unitOfWork.ExecuteAsync(() => IssueSessionAsync(user, refreshToken, rehashedPassword, now));
 
         var accessToken = _jwtTokenGenerator.Generate(
             user.ExternalId,
             user.Login,
             user.Email,
-            user.Role);
-
-        var rawRefreshToken = _tokenGenerator.Generate();
-        var refreshToken = RefreshToken.Create(
-            user.ExternalId,
-            _tokenGenerator.Hash(rawRefreshToken),
-            DateTimeOffset.UtcNow.Add(_refreshTokenSettings.Lifetime));
-
-        await _refreshTokenRepository.AddAsync(refreshToken);
+            user.Role,
+            sessionId);
 
         return new LoginResponse(
             BearerTokenType,
@@ -97,5 +92,26 @@ public sealed class LoginInteractor : ILoginUseCase
             accessToken.ExpiresAt,
             rawRefreshToken,
             refreshToken.ExpiresAt);
+    }
+
+    private async Task IssueSessionAsync(
+        User user,
+        RefreshToken refreshToken,
+        string? rehashedPassword,
+        DateTimeOffset now)
+    {
+        // Zera o contador de falhas e grava last_login_at. Se a conta foi bloqueada entre a leitura e aqui, recusa
+        // com o mesmo erro generico.
+        if (!await _userRepository.TryRegisterLoginAsync(user.ExternalId, now))
+        {
+            throw new InvalidCredentialsException();
+        }
+
+        if (rehashedPassword is not null)
+        {
+            await _userRepository.TryRehashPasswordAsync(user.ExternalId, user.PasswordHash, rehashedPassword);
+        }
+
+        await _refreshTokenRepository.AddAsync(refreshToken);
     }
 }

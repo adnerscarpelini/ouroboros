@@ -147,6 +147,15 @@ public sealed class User : Entity
         return true;
     }
 
+    // Em producao a escrita roda atomica no UPDATE de DapperUserRepository.TryRegisterLoginAsync.
+    // Qualquer mudanca aqui precisa ser replicada la. O valor de LastLoginAt nao entra em nenhuma resposta.
+    public void RegisterLogin(DateTimeOffset now)
+    {
+        LastLoginAt = now;
+        ResetFailedAccess();
+        MarkAsUpdated();
+    }
+
     public void ResetFailedAccess()
     {
         AccessFailedCount = 0;

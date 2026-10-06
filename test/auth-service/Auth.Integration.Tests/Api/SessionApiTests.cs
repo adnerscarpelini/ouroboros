@@ -63,16 +63,18 @@ public sealed class SessionApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ShouldEndPreviousSessionWhenUserLogsInAgain()
+    public async Task ShouldKeepBothSessionsValidWhenUserLogsInTwice()
     {
         var user = await _api.CreateUserAsync("login.twice");
 
         var first = await _api.LoginAsync("login.twice");
         var second = await _api.LoginAsync("login.twice");
         var refreshWithFirst = await _api.PostAsync("/api/auth/refresh", new { refreshToken = first.RefreshToken });
+        var refreshWithSecond = await _api.PostAsync("/api/auth/refresh", new { refreshToken = second.RefreshToken });
 
-        Assert.Equal(HttpStatusCode.Unauthorized, refreshWithFirst.StatusCode);
-        Assert.Equal(1, await _api.CountActiveRefreshTokensAsync(user.ExternalId));
+        Assert.Equal(HttpStatusCode.OK, refreshWithFirst.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, refreshWithSecond.StatusCode);
+        Assert.Equal(2, await _api.CountActiveRefreshTokensAsync(user.ExternalId));
         Assert.NotEqual(first.RefreshToken, second.RefreshToken);
     }
 

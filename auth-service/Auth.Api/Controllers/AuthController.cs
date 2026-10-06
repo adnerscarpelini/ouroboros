@@ -1,10 +1,14 @@
 namespace Ouroboros.Auth.Api.Controllers;
 
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Ouroboros.Auth.Api.Configuration;
 using Ouroboros.Auth.Application.UseCases.Login;
 using Ouroboros.Auth.Application.UseCases.Logout;
+using Ouroboros.Auth.Application.UseCases.LogoutAll;
 using Ouroboros.Auth.Application.UseCases.RefreshAccessToken;
 using Ouroboros.Auth.Domain.Exceptions;
 
@@ -15,17 +19,20 @@ public sealed class AuthController : ControllerBase
     private readonly ILoginUseCase _loginUseCase;
     private readonly IRefreshAccessTokenUseCase _refreshAccessTokenUseCase;
     private readonly ILogoutUseCase _logoutUseCase;
+    private readonly ILogoutAllUseCase _logoutAllUseCase;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         ILoginUseCase loginUseCase,
         IRefreshAccessTokenUseCase refreshAccessTokenUseCase,
         ILogoutUseCase logoutUseCase,
+        ILogoutAllUseCase logoutAllUseCase,
         ILogger<AuthController> logger)
     {
         _loginUseCase = loginUseCase;
         _refreshAccessTokenUseCase = refreshAccessTokenUseCase;
         _logoutUseCase = logoutUseCase;
+        _logoutAllUseCase = logoutAllUseCase;
         _logger = logger;
     }
 
@@ -90,5 +97,24 @@ public sealed class AuthController : ControllerBase
             _logger.LogWarning(e, "Logout rejected: {Reason}", e.Message);
             return Unauthorized(new { error = e.Message });
         }
+    }
+
+    [HttpPost("logout-all")]
+    [Authorize]
+    public async Task<IActionResult> LogoutAll()
+    {
+        var subject = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        if (!Guid.TryParse(subject, out var userId))
+        {
+            _logger.LogWarning("Logout of all sessions rejected: access token without a valid subject");
+            return Unauthorized(new { error = "Invalid access token" });
+        }
+
+        await _logoutAllUseCase.ExecuteAsync(new LogoutAllRequest(userId));
+
+        _logger.LogInformation("All sessions ended for user {UserId}", userId);
+
+        return NoContent();
     }
 }

@@ -32,6 +32,14 @@ public interface IUserRepository
         DateTimeOffset now);
 
     /// <summary>
+    /// Login bem-sucedido: grava <c>last_login_at</c> e zera a contagem de falhas, num so UPDATE, e so se a conta nao
+    /// estiver bloqueada. Devolve <c>false</c> se estiver (bloqueio imposto entre a leitura e a escrita) ou excluida.
+    /// </summary>
+    Task<bool> TryRegisterLoginAsync(
+        Guid externalId,
+        DateTimeOffset now);
+
+    /// <summary>
     /// Zera a contagem de falhas e o bloqueio da conta, mesmo que ela esteja bloqueada.
     /// Diferente de <see cref="TryResetFailedAccessAsync"/>, que so age fora do bloqueio, serve a quem
     /// acabou de provar que controla o e-mail da conta (redefinicao de senha).

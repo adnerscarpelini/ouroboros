@@ -345,6 +345,27 @@ public sealed class DapperUserRepository : IUserRepository
         return await _session.ExecuteAsync(sql, new { ExternalId = externalId, Now = now }) == 1;
     }
 
+    public async Task<bool> TryRegisterLoginAsync(
+        Guid externalId,
+        DateTimeOffset now)
+    {
+        // Mesma escrita de User.RegisterLogin, feita no UPDATE. Qualquer mudanca aqui precisa ser replicada na entidade.
+        const string sql = """
+            UPDATE auth.users
+            SET
+                access_failed_count = 0,
+                lockout_end = NULL,
+                last_login_at = @Now,
+                updated_at = @Now
+            WHERE
+                external_id = @ExternalId
+                AND deleted_at IS NULL
+                AND (lockout_end IS NULL OR lockout_end <= @Now);
+            """;
+
+        return await _session.ExecuteAsync(sql, new { ExternalId = externalId, Now = now }) == 1;
+    }
+
     public async Task ClearLockoutAsync(
         Guid externalId,
         DateTimeOffset now)

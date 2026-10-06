@@ -69,13 +69,15 @@ public sealed class RefreshAccessTokenInteractor : IRefreshAccessTokenUseCase
             user.ExternalId,
             user.Login,
             user.Email,
-            user.Role);
+            user.Role,
+            currentToken.SessionId);
 
         var rawRefreshToken = _tokenGenerator.Generate();
         var newToken = RefreshToken.Create(
             user.ExternalId,
             _tokenGenerator.Hash(rawRefreshToken),
-            DateTimeOffset.UtcNow.Add(_refreshTokenSettings.Lifetime));
+            DateTimeOffset.UtcNow.Add(_refreshTokenSettings.Lifetime),
+            currentToken.SessionId);
 
         await _refreshTokenRepository.AddAsync(newToken);
 

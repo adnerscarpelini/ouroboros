@@ -23,6 +23,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 created_at,
                 updated_at,
                 user_id,
+                session_id,
                 token_hash,
                 expires_at,
                 revoked_at
@@ -32,6 +33,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 @CreatedAt,
                 @UpdatedAt,
                 users.id,
+                @SessionId,
                 @TokenHash,
                 @ExpiresAt,
                 @RevokedAt
@@ -46,6 +48,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 refreshToken.ExternalId,
                 refreshToken.CreatedAt,
                 refreshToken.UpdatedAt,
+                refreshToken.SessionId,
                 refreshToken.TokenHash,
                 refreshToken.ExpiresAt,
                 refreshToken.RevokedAt,
@@ -67,6 +70,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
                 refreshTokens.created_at,
                 refreshTokens.updated_at,
                 users.external_id AS user_external_id,
+                refreshTokens.session_id,
                 refreshTokens.token_hash,
                 refreshTokens.expires_at,
                 refreshTokens.revoked_at
@@ -92,6 +96,7 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
             row.CreatedAt,
             row.UpdatedAt,
             row.UserExternalId,
+            row.SessionId,
             row.TokenHash,
             row.ExpiresAt,
             row.RevokedAt);
@@ -159,6 +164,8 @@ public sealed class DapperRefreshTokenRepository : IRefreshTokenRepository
         public DateTimeOffset? UpdatedAt { get; init; }
 
         public Guid UserExternalId { get; init; }
+
+        public Guid SessionId { get; init; }
 
         public string TokenHash { get; init; } = null!;
 

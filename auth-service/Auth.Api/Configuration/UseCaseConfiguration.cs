@@ -8,6 +8,7 @@ using Ouroboros.Auth.Application.UseCases.DeleteUser;
 using Ouroboros.Auth.Application.UseCases.GetUser;
 using Ouroboros.Auth.Application.UseCases.Login;
 using Ouroboros.Auth.Application.UseCases.Logout;
+using Ouroboros.Auth.Application.UseCases.LogoutAll;
 using Ouroboros.Auth.Application.UseCases.RefreshAccessToken;
 using Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Application.UseCases.RequestPasswordReset;
@@ -50,6 +51,7 @@ public static class UseCaseConfiguration
         services.AddScoped<ILoginUseCase, LoginInteractor>();
         services.AddScoped<IRefreshAccessTokenUseCase, RefreshAccessTokenInteractor>();
         services.AddScoped<ILogoutUseCase, LogoutInteractor>();
+        services.AddScoped<ILogoutAllUseCase, LogoutAllInteractor>();
         services.AddScoped<IRequestPasswordResetUseCase, RequestPasswordResetInteractor>();
         services.AddScoped<IResetPasswordUseCase, ResetPasswordInteractor>();
         services.AddScoped<IGetUserUseCase, GetUserInteractor>();

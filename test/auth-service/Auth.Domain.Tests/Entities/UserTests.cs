@@ -156,4 +156,26 @@ public class UserTests
         Assert.Throws<DomainException>(() => user.Delete());
         Assert.Equal(deletedAt, user.DeletedAt);
     }
+
+    [Fact]
+    public void ShouldRecordLastLoginAndClearFailuresWhenLoginIsRegistered()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hash");
+        var now = DateTimeOffset.UtcNow;
+        user.RecordFailedAccess(now);
+
+        user.RegisterLogin(now);
+
+        Assert.Equal(now, user.LastLoginAt);
+        Assert.Equal(0, user.AccessFailedCount);
+        Assert.Null(user.LockoutEnd);
+    }
+
+    [Fact]
+    public void ShouldHaveNoLastLoginWhenUserIsCreated()
+    {
+        var user = User.Create("jdoe", "John Doe", "jdoe@example.com", "hash");
+
+        Assert.Null(user.LastLoginAt);
+    }
 }

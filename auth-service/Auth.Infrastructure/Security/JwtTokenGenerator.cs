@@ -12,6 +12,9 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
     // Nome curto de claim usado por OIDC/Keycloak/Entra ID; quem valida o token configura RoleClaimType = "role".
     public const string RoleClaimType = "role";
 
+    // Claim de sessao do OpenID Connect: o servico sabe qual e a sessao atual (ex.: trocar a senha preserva a de quem trocou).
+    public const string SessionIdClaimType = "sid";
+
     private readonly JwtSettings _settings;
     private readonly SigningCredentials _signingCredentials;
     private readonly JsonWebTokenHandler _tokenHandler = new();
@@ -28,7 +31,8 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
         Guid userId,
         string login,
         string email,
-        UserRole role)
+        UserRole role,
+        Guid sessionId)
     {
         var issuedAt = DateTime.UtcNow;
         var expiresAt = issuedAt.AddMinutes(_settings.AccessTokenExpirationMinutes);
@@ -47,6 +51,7 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
                 new Claim(JwtRegisteredClaimNames.UniqueName, login),
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(RoleClaimType, role.ToString()),
+                new Claim(SessionIdClaimType, sessionId.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             ]),
         };

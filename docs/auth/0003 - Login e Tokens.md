@@ -5,8 +5,8 @@
 - **Access token** (JWT): de vida curta, stateless, vai em toda requisição autenticada.
 - **Refresh token**: opaco e de vida longa. É persistido para poder ser consultado e revogado.
 - O login emite o primeiro par de tokens. Depois, o refresh troca o refresh token por um par novo, sem pedir a senha de novo.
-- O logout revoga o refresh token e encerra a sessão.
-- **Uma sessão ativa por usuário:** um novo login revoga as sessões anteriores (ver [Revogação](#revogação)).
+- O logout encerra a sessão do refresh token enviado. O `logout-all` encerra todas as sessões do usuário.
+- **Várias sessões simultâneas:** cada login cria uma sessão nova e **não** derruba as anteriores. Cada dispositivo tem a sua (ver [Sessões](#sessões)).
 
 Uso do access token:
 
@@ -19,8 +19,8 @@ Authorization: Bearer <accessToken>
 1. O cliente envia login e senha para `POST /api/auth/login`.
 2. O `auth-service` busca o usuário pelo login e confere a senha com o hash PBKDF2 gravado (600.000 iterações, com normalização NFKC). Se o hash gravado tiver custo menor que o atual, ele é refeito depois do login bem-sucedido (ver `docs/auth/0004 - Recuperacao de Senha.md`, seção "Armazenamento").
 3. O login só é aceito para usuário **ativo**, ou seja, com o cadastro já confirmado por e-mail (ver `docs/auth/0001 - Confirmacao de Cadastro.md`).
-4. Todos os refresh tokens ainda ativos do usuário são revogados. Um login em outro dispositivo derruba a sessão anterior.
-5. A resposta traz o par de tokens novo.
+4. Numa só transação (`IUnitOfWork`, ver `docs/project/0001 - Arquitetura.md`), o serviço grava o refresh token da sessão nova, registra `last_login_at` e zera o contador de falhas. Uma falha em qualquer escrita desfaz tudo: nenhum refresh token fica criado e o contador continua como estava.
+5. Só depois do commit a resposta traz o par de tokens novo. As sessões anteriores continuam valendo.
 
 ```
 POST /api/auth/login
@@ -46,7 +46,9 @@ Erros:
 
 Login inexistente e senha errada devolvem **a mesma resposta** de propósito, para não revelar quais logins existem. O usuário inativo só é informado depois que a senha confere. Conta excluída é tratada como login inexistente, e o refresh de uma conta excluída devolve `401 Invalid refresh token` (ver `docs/auth/0007 - Exclusao de Conta.md`).
 
-Login rejeitado **não** revoga as sessões existentes. Só um login bem-sucedido faz isso.
+Login rejeitado ou bem-sucedido **não** revoga as sessões existentes.
+
+O `last_login_at` do usuário passa a ser gravado em todo login bem-sucedido (`User.RegisterLogin`). O valor não aparece em nenhuma resposta.
 
 Cinco falhas de senha seguidas bloqueiam a conta por 15 minutos. O login usa um hash fictício quando a conta não existe ou está bloqueada e responde `401` nos três casos. Um acerto zera o contador. Veja `docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md` para os limites e a configuração de proxies.
 
@@ -88,10 +90,17 @@ No caso de usuário inativo, o token **não** é consumido.
 - **Fora de escopo por enquanto:** o reuso só é rejeitado. Os outros tokens emitidos a partir do mesmo login (a mesma "família") continuam valendo. Revogar a família inteira no reuso é uma evolução futura possível.
 - Revogar o token antigo e gravar o novo são duas escritas, sem transação. Se a segunda falhar, o cliente precisa fazer login de novo, mas nenhum token fica reutilizável.
 
+## Sessões
+
+- **Sessão = família de refresh tokens.** A coluna `session_id` (`uniqueidentifier`) de `auth.refresh_tokens` agrupa os tokens de um mesmo login. O login cria um `session_id` novo, e cada refresh herda o da sessão.
+- O access token leva o `session_id` no claim `sid` (OpenID Connect). Com ele o serviço sabe qual é a sessão atual de quem chama.
+- **Sem limite de sessões ativas por usuário.** O login tem limite por IP, o refresh token expira em 7 dias e o crescimento já é contido. Se aparecer abuso real, o limite vira spec própria.
+- O `session_id` não aparece em nenhuma resposta além do claim `sid`.
+
 ## Logout
 
 1. O cliente envia o refresh token atual para `POST /api/auth/logout`.
-2. Se o token estiver ativo, ele é revogado.
+2. Se o token estiver ativo, ele é revogado. Como só um refresh token de cada sessão está ativo por vez (a rotação revoga o anterior), isso encerra a sessão. **As outras sessões do usuário não são afetadas.**
 3. O cliente descarta os dois tokens.
 
 ```
@@ -105,6 +114,15 @@ POST /api/auth/logout
 - Token vazio → `401 Refresh token is required`. Token que não existe → `401 Invalid refresh token`.
 - Não exige o access token: quem tem o refresh token pode encerrar a sessão dele.
 
+### Logout de todas as sessões
+
+`POST /api/auth/logout-all`, com `[Authorize]` (header `Authorization: Bearer <accessToken>`) e sem corpo.
+
+- Revoga, num único `UPDATE`, todos os refresh tokens ativos do `sub` do access token. Responde `204`.
+- É idempotente: sem sessão ativa, também responde `204`.
+- Sem token, token inválido ou expirado → `401`, sem corpo.
+- **Limitação:** os access tokens já emitidos continuam válidos até expirar (no máximo 15 min), porque o JWT é stateless. Só os refresh tokens são revogados.
+
 ## Revogação
 
 Revogar só se aplica ao **refresh token**, que é persistido. O access token (JWT) é stateless e **não é revogado individualmente**. Depois de um logout, ele continua válido até expirar (no máximo `Jwt:AccessTokenExpirationMinutes`, padrão 15 min). Por isso o access token tem vida curta.
@@ -113,8 +131,8 @@ Um refresh token deixa de valer de quatro formas:
 
 | Forma | Quando | Efeito |
 |---|---|---|
-| **Logout** | `POST /api/auth/logout` | Revoga o token enviado (`revoked_at` preenchido). |
-| **Reautenticação** | Login bem-sucedido do mesmo usuário | Revoga, num único `UPDATE`, todos os tokens ativos daquele usuário antes de emitir o novo. |
+| **Logout** | `POST /api/auth/logout` | Revoga o token enviado (`revoked_at` preenchido), encerrando a sessão dele. |
+| **Logout de todas as sessões** | `POST /api/auth/logout-all` | Revoga, num único `UPDATE`, todos os tokens ativos do usuário. |
 | **Redefinição de senha** | `POST /api/users/password-reset/confirm` concluído | Revoga todos os tokens ativos do usuário, igual à reautenticação (ver `docs/auth/0004 - Recuperacao de Senha.md`). |
 | **Expiração** | `expires_at` passou | Nada é gravado: o refresh rejeita com `Refresh token has expired`. Não existe job de limpeza. |
 
@@ -134,6 +152,7 @@ Um token é considerado **ativo** quando `revoked_at IS NULL` e `expires_at` ain
 | `unique_name` | login |
 | `email` | e-mail |
 | `role` | perfil do usuário (`User` ou `Admin`, ver `docs/auth/0005 - Perfis de Acesso.md`) |
+| `sid` | id da sessão (`session_id` da família de refresh tokens), mantido nas rotações |
 | `jti` | id único do token |
 | `iss` / `aud` | `Jwt:Issuer` / `Jwt:Audience` |
 | `iat` / `nbf` / `exp` | emissão / início da validade / expiração |
@@ -156,7 +175,8 @@ Token ausente, adulterado, expirado ou de outro emissor → `401`, sem corpo.
 - 32 bytes aleatórios em base64url, gerados pelo mesmo `Sha256TokenGenerator` da confirmação de cadastro.
 - Validade: `Jwt:RefreshTokenExpirationDays` (padrão 7 dias).
 - Gravado em `auth.refresh_tokens`, **só o hash SHA-256**. O valor em texto puro existe apenas na resposta do login/refresh.
-- `revoked_at` é `null` enquanto o token está ativo e é preenchido quando ele é revogado (refresh, logout, reautenticação ou redefinição de senha).
+- `revoked_at` é `null` enquanto o token está ativo e é preenchido quando ele é revogado (refresh, logout, logout de todas as sessões ou redefinição de senha).
+- `session_id` identifica a sessão. A migration `V20260929100000__AddSessionIdToRefreshTokens.sql` deu a cada token já existente a sua própria sessão (`NEWID()` por linha), depois tornou a coluna `NOT NULL` e criou o índice `(user_id, session_id)`.
 
 ## Logs
 
@@ -164,11 +184,12 @@ Todo login, refresh ou logout rejeitado é logado em `Warning` no Seq, com o mot
 
 ## Onde está no código
 
-- Casos de uso: `Auth.Application/UseCases/Login/`, `Auth.Application/UseCases/RefreshAccessToken/` e `Auth.Application/UseCases/Logout/`.
+- Casos de uso: `Auth.Application/UseCases/Login/`, `Auth.Application/UseCases/RefreshAccessToken/`, `Auth.Application/UseCases/Logout/` e `Auth.Application/UseCases/LogoutAll/`.
 - Endpoints: `Auth.Api/Controllers/AuthController.cs`.
 - Regra de revogação: `RefreshToken.Revoke` e `RefreshToken.IsActive` em `Auth.Domain/Entities/`.
 - Revogação concorrente: `DapperRefreshTokenRepository.TryRevokeAsync`.
-- Revogação em lote no login: `DapperRefreshTokenRepository.RevokeAllActiveByUserAsync`.
+- Revogação em lote (logout-all e redefinição de senha): `DapperRefreshTokenRepository.RevokeAllActiveByUserAsync`.
+- Registro do login: `User.RegisterLogin` e `DapperUserRepository.TryRegisterLoginAsync`.
 - Emissão do JWT: `Auth.Infrastructure/Security/JwtTokenGenerator.cs`.
 - Validação do JWT: `Auth.Api/Configuration/AuthenticationConfiguration.cs`.
 - Conferência de senha: `Pbkdf2PasswordHasher.Verify`, com comparação em tempo constante.

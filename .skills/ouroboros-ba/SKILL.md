@@ -129,7 +129,18 @@ Uma spec so vai para `specs/archived/` quando **todas** estas condicoes forem ve
 1. Todas as caixas do `tasks.md` estao marcadas.
 2. O `evidence/README.md` esta preenchido pela `ouroboros-tester`.
 
-Quem marcar a ultima caixa confere as duas condicoes e move a pasta inteira com `git mv specs/{pasta} specs/archived/{pasta}` (preserva o historico) e atualiza os caminhos no `Ouroboros.slnx` (ver "Vinculacao a solution"). O codigo e o nome da pasta nao mudam ao arquivar. Nunca mova uma spec com caixa aberta nem desarquive sem pedido do usuario; se uma spec arquivada precisar de ajuste, abra uma spec nova que a referencie pelo codigo.
+Quem marcar a ultima caixa confere as duas condicoes e arquiva, **sempre nesta ordem e sem parar no meio**, porque o Visual Studio aberto reage a cada mudanca em disco e uma pasta movida com o `.slnx` ainda antigo deixa spec.md, tasks.md e evidence/ com o icone de arquivo quebrado:
+
+1. Edite o `Ouroboros.slnx`: troque o prefixo `specs/{pasta}` por `specs/archived/{pasta}` nos `Name` e `Path` das duas pastas virtuais da spec (ver "Vinculacao a solution"). Leve junto, pra pasta `evidence/` virtual, qualquer artefato extra que o Tester tenha deixado la.
+2. Mova a pasta inteira com `git mv specs/{pasta} specs/archived/{pasta}` (preserva o historico).
+3. **Confira os vinculos** com o comando abaixo. Ele precisa terminar sem nenhuma linha `FALTA:`. Se aparecer alguma, o arquivamento nao terminou.
+
+   ```
+   grep -o 'Path="[^"]*"' Ouroboros.slnx | sed 's/Path="//;s/"$//' | while read -r p; do [ -e "$p" ] || echo "FALTA: $p"; done
+   ```
+4. Avise o usuario que, com a solution aberta no Visual Studio, ele pode precisar recarrega-la (o VS oferece "Reload"). O `.slnx` em disco ja esta certo; a tela e que pode estar com o estado antigo.
+
+O codigo e o nome da pasta nao mudam ao arquivar. Nunca mova uma spec com caixa aberta nem desarquive sem pedido do usuario; se uma spec arquivada precisar de ajuste, abra uma spec nova que a referencie pelo codigo. Nunca use `git checkout`/`git restore` em `specs/` pra "arrumar" arquivos faltando sem olhar antes o que o Git considera apagado: isso pode recriar a pasta antiga de uma spec ja arquivada.
 
 ## Vinculacao a solution
 
@@ -146,7 +157,7 @@ Toda pasta de spec segue a regra de vinculacao ao `Ouroboros.slnx` que a `ourobo
 ```
 
 - **Ao criar a spec:** adicione as duas pastas virtuais no mesmo passo.
-- **Ao arquivar:** troque o prefixo `specs/{pasta}` por `specs/archived/{pasta}` nos `Name` e `Path` das duas pastas, no mesmo passo do `git mv`.
+- **Ao arquivar:** troque o prefixo `specs/{pasta}` por `specs/archived/{pasta}` nos `Name` e `Path` das duas pastas **antes** do `git mv`, e rode a conferencia de vinculos da secao "Arquivamento" no fim.
 - Todo arquivo novo dentro de `evidence/` (artefatos do Tester) entra na pasta virtual `evidence/` da spec.
 
 ## Regras que nunca podem ser quebradas

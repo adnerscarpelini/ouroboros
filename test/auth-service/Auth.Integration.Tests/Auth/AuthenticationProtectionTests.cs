@@ -36,6 +36,9 @@ public sealed class AuthenticationProtectionTests : IAsyncLifetime
     [InlineData("/api/auth/login", """{ "login": "nobody", "password": "wrong" }""")]
     [InlineData("/api/auth/refresh", """{ "refreshToken": "invalid-token" }""")]
     [InlineData("/api/users/confirm-email", """{ "token": "invalid-token" }""")]
+    [InlineData("/api/users", """{ "login": "x", "fullName": "X", "email": "invalid", "password": "short" }""")]
+    [InlineData("/api/users/password-reset/request", """{ "loginOrEmail": "nobody" }""")]
+    [InlineData("/api/users/password-reset/confirm", """{ "token": "invalid-token", "newPassword": "short" }""")]
     public async Task ShouldReturnTooManyRequestsWhenIpExceedsPolicyLimit(string path, string body)
     {
         var ip = AuthApiFixture.NextIp();
@@ -50,6 +53,29 @@ public sealed class AuthenticationProtectionTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
     }
+
+    [Fact]
+    public async Task ShouldReturnTooManyRequestsWhenIpExceedsDeleteLimit()
+    {
+        // O DELETE exige token valido: sem ele a autorizacao responde 401 antes de o limite ser avaliado.
+        var api = new TestApi(_fixture, _client);
+        var user = await api.CreateUserAsync("delete.limit");
+        var session = await api.LoginAsync("delete.limit");
+        var ip = AuthApiFixture.NextIp();
+
+        for (var attempt = 0; attempt < AuthApiFixture.LowPermitLimit; attempt++)
+        {
+            var response = await DeleteAsync(api, user, session, ip);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, response.StatusCode);
+        }
+
+        var rejected = await DeleteAsync(api, user, session, ip);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+    }
+
+    private static Task<HttpResponseMessage> DeleteAsync(TestApi api, User user, LoginTokens session, string ip) =>
+        api.SendAsync(HttpMethod.Delete, $"/api/users/{user.ExternalId}", new { password = "Wrong-Password-123" }, session.AccessToken, ip);
 
     [Fact]
     public async Task ShouldLimitByForwardedIpWhenRequestComesFromTrustedProxy()

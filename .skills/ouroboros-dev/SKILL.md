@@ -110,6 +110,11 @@ Tudo que for criado no monorepo — projeto novo, arquivo solto na raiz ou arqui
 - **Todo `.csproj` novo** entra na solution assim que e criado, com `dotnet sln Ouroboros.slnx add <caminho>/<Projeto>.csproj` (isso ja aparece no checklist de novo microsservico abaixo — a regra aqui e generica, vale pra qualquer projeto novo, nao so na criacao de um microsservico inteiro).
 - **Todo arquivo solto na raiz do monorepo** que nao pertenca a um projeto (`README.md`, `docker-compose.yml`, `.env.example`, `.gitignore`, imagens, etc.) entra na pasta virtual `Solution Items` — a mesma pasta que o Visual Studio cria quando voce arrasta um arquivo pro no da solution no Solution Explorer.
 - **Toda pasta que nao e um projeto mas guarda arquivos versionados** (ex.: `docs/`, com a documentacao escrita pela `ouroboros-tech-writer`; as pastas de `specs/` seguem o formato descrito na [ouroboros-ba](../ouroboros-ba/SKILL.md#vinculacao-a-solution), e os caminhos mudam no arquivamento) ganha sua propria pasta virtual no `.slnx`, com o mesmo nome da pasta fisica, listando os arquivos que ela contem. Isso mantem o Solution Explorer espelhando a estrutura real do repositorio em vez de empilhar tudo dentro de `Solution Items`.
+- **Todo caminho listado no `.slnx` precisa existir em disco.** Um `Path` que aponta pra arquivo movido ou apagado aparece quebrado no Visual Studio. Sempre que mover, renomear ou apagar arquivo vinculado, atualize o `.slnx` antes ou junto da mudanca e rode esta conferencia (nenhuma linha `FALTA:` pode sobrar):
+
+  ```
+  grep -o 'Path="[^"]*"' Ouroboros.slnx | sed 's/Path="//;s/"$//' | while read -r p; do [ -e "$p" ] || echo "FALTA: $p"; done
+  ```
 - Como o `.slnx` e XML puro, essas edicoes sao diretas no arquivo (nao precisa abrir o VS pra isso):
 
   ```xml

@@ -3,10 +3,7 @@ namespace Ouroboros.Auth.Integration.Tests.Auth;
 using System.Net;
 using System.Net.Http.Json;
 using Dapper;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
@@ -93,13 +90,7 @@ public sealed class ConcurrentRegistrationTests : IAsyncLifetime
     {
         var abandoned = await AddUserAsync("abandoned", "abandoned@example.com");
 
-        using var failingFactory = _fixture.Factory.WithWebHostBuilder(builder =>
-            builder.ConfigureTestServices(services =>
-            {
-                services.RemoveAll<ITokenRepository>();
-                services.AddScoped<ITokenRepository>(provider =>
-                    new TokenInsertFailsRepository(new DapperTokenRepository(provider.GetRequiredService<DbSession>())));
-            }));
+        using var failingFactory = _fixture.CreateFactoryFailingOn<ITokenRepository>(nameof(ITokenRepository.AddAsync));
         using var client = failingFactory.CreateClient();
 
         var response = await RegisterAsync(client, "abandoned", "new.owner@example.com");
@@ -146,30 +137,5 @@ public sealed class ConcurrentRegistrationTests : IAsyncLifetime
         return await connection.ExecuteScalarAsync<Guid>(
             "SELECT external_id FROM auth.users WHERE login = @Login;",
             new { Login = login });
-    }
-
-    // Falha controlada: tudo passa pro repositorio real, menos o insert do token.
-    private sealed class TokenInsertFailsRepository : ITokenRepository
-    {
-        private readonly ITokenRepository _inner;
-
-        public TokenInsertFailsRepository(ITokenRepository inner)
-        {
-            _inner = inner;
-        }
-
-        public Task AddAsync(Token token) => throw new InvalidOperationException("Forced token insert failure.");
-
-        public Task<Token?> GetByHashAsync(string tokenHash, TokenType type) => _inner.GetByHashAsync(tokenHash, type);
-
-        public Task<bool> ExistsPendingByUserAsync(Guid userExternalId, TokenType type, DateTimeOffset now) =>
-            _inner.ExistsPendingByUserAsync(userExternalId, type, now);
-
-        public Task UpdateAsync(Token token) => _inner.UpdateAsync(token);
-
-        public Task<bool> TryMarkAsUsedAsync(Token token) => _inner.TryMarkAsUsedAsync(token);
-
-        public Task InvalidatePendingByUserAsync(Guid userExternalId, TokenType type, DateTimeOffset invalidatedAt) =>
-            _inner.InvalidatePendingByUserAsync(userExternalId, type, invalidatedAt);
     }
 }

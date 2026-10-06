@@ -12,6 +12,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     // O TestServer nao tem conexao TCP: o teste escolhe o IP de origem por este header.
     public const string RemoteIpHeader = "X-Test-Remote-Ip";
 
+    // Chave so de teste: deixa o teste forjar tokens (expirado, outra chave) pra exercitar o middleware JWT.
+    public const string SigningKey = "integration-tests-signing-key-with-32-bytes-or-more";
+
     private readonly string _connectionString;
 
     public AuthApiFactory(string connectionString)
@@ -23,11 +26,11 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     {
         // UseSetting pra valer ja no startup, onde o Program le a connection string e roda as migrations.
         builder.UseSetting("ConnectionStrings:Default", _connectionString);
-        builder.UseSetting("Jwt:SigningKey", "integration-tests-signing-key-with-32-bytes-or-more");
+        builder.UseSetting("Jwt:SigningKey", SigningKey);
         builder.UseSetting("Seq:ServerUrl", string.Empty);
         builder.UseSetting("ForwardedHeaders:KnownProxies:0", AuthApiFixture.TrustedProxyIp);
 
-        foreach (var policy in new[] { "auth-login", "auth-refresh", "email-confirm" })
+        foreach (var policy in AuthApiFixture.RateLimitedPolicies)
         {
             builder.UseSetting($"RateLimiting:{policy}:PermitLimit", AuthApiFixture.LowPermitLimit.ToString());
         }

@@ -2,6 +2,8 @@ namespace Ouroboros.Auth.Integration.Tests.Infrastructure;
 
 using System.Net;
 using Dapper;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.SqlClient;
 using Ouroboros.Auth.Infrastructure.Persistence;
 using Testcontainers.MsSql;
@@ -14,6 +16,17 @@ public sealed class AuthApiFixture : IAsyncLifetime
 
     // Limites baixos pra estourar o 429 com poucas requisicoes.
     public const int LowPermitLimit = 3;
+
+    public static readonly string[] RateLimitedPolicies =
+    [
+        "auth-login",
+        "auth-refresh",
+        "email-confirm",
+        "user-register",
+        "user-delete",
+        "password-reset-request",
+        "password-reset-confirm",
+    ];
 
     private static int _nextIp;
 
@@ -41,6 +54,17 @@ public sealed class AuthApiFixture : IAsyncLifetime
     }
 
     public HttpClient CreateClient() => Factory.CreateClient();
+
+    // API em que o N-esimo uso de um metodo do gateway falha. Quem chama descarta a factory.
+    public WebApplicationFactory<Program> CreateFactoryFailingOn<TGateway>(
+        string method,
+        FaultTiming timing = FaultTiming.Before,
+        int onCall = 1)
+        where TGateway : class
+    {
+        return Factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.FailOn<TGateway>(method, timing, onCall)));
+    }
 
     // Sessao propria pra o teste preparar e conferir dados direto no banco, fora da API.
     public DbSession CreateSession() => new(new SqlConnectionFactory(ConnectionString));

@@ -80,6 +80,40 @@ public sealed class RepositorySqlTests : IAsyncLifetime
         Assert.NotEqual(UserRole.Admin, (await CreateUserRepository().GetByExternalIdAsync(common.ExternalId))!.Role);
     }
 
+    // Spec 2026092504: o desbloqueio vale mesmo com a conta bloqueada.
+
+    [Fact]
+    public async Task ShouldClearLockoutEvenWhenAccountIsLocked()
+    {
+        var user = await _api.CreateUserAsync("clear.locked");
+        await _api.ExecuteAsync(
+            "UPDATE auth.users SET access_failed_count = 4, lockout_end = DATEADD(MINUTE, 10, SYSDATETIMEOFFSET()) WHERE external_id = @Id;",
+            new { Id = user.ExternalId });
+
+        // O reset condicional nao age durante o bloqueio.
+        Assert.False(await CreateUserRepository().TryResetFailedAccessAsync(user.ExternalId, DateTimeOffset.UtcNow));
+
+        await CreateUserRepository().ClearLockoutAsync(user.ExternalId, DateTimeOffset.UtcNow);
+
+        var stored = (await CreateUserRepository().GetByExternalIdAsync(user.ExternalId))!;
+
+        Assert.Equal(0, stored.AccessFailedCount);
+        Assert.Null(stored.LockoutEnd);
+    }
+
+    [Fact]
+    public async Task ShouldNotTouchDeletedUserWhenClearingLockout()
+    {
+        var user = await _api.CreateUserAsync("clear.deleted");
+        await _api.ExecuteAsync(
+            "UPDATE auth.users SET access_failed_count = 4, deleted_at = SYSDATETIMEOFFSET(), active = 0 WHERE external_id = @Id;",
+            new { Id = user.ExternalId });
+
+        await CreateUserRepository().ClearLockoutAsync(user.ExternalId, DateTimeOffset.UtcNow);
+
+        Assert.Equal(4, await _api.QueryAsync<int>("SELECT access_failed_count FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+    }
+
     // Indices unicos
 
     [Fact]

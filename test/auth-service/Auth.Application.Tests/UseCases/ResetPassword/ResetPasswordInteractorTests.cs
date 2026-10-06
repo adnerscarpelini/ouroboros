@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Application.UseCases.ResetPassword;
 
+using Ouroboros.Auth.Application.Fakes;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
@@ -18,6 +19,13 @@ public class ResetPasswordInteractorTests
             DateTimeOffset now)
         {
             throw new NotSupportedException();
+        }
+        public Task ClearLockoutAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            LockoutCleared.Add(externalId);
+            return Task.CompletedTask;
         }
         public Task<bool> TryResetFailedAccessAsync(
             Guid externalId,
@@ -50,8 +58,22 @@ public class ResetPasswordInteractorTests
             return Task.FromResult(0);
         }
 
+        public List<Guid> LockoutCleared { get; } = new();
+
+        // Simula a exclusao da conta entre a primeira leitura e a releitura dentro da transacao.
+        public bool DeletedAfterFirstRead { get; set; }
+
+        private int _reads;
+
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
+            _reads++;
+
+            if (DeletedAfterFirstRead && _reads > 1)
+            {
+                return Task.FromResult<User?>(null);
+            }
+
             var user = Items.FirstOrDefault(item => item.ExternalId == externalId);
             return Task.FromResult(user);
         }
@@ -156,8 +178,15 @@ public class ResetPasswordInteractorTests
             return Task.FromResult(true);
         }
 
+        public bool FailOnRevokeAll { get; set; }
+
         public Task RevokeAllActiveByUserAsync(Guid userExternalId, DateTimeOffset revokedAt)
         {
+            if (FailOnRevokeAll)
+            {
+                throw new InvalidOperationException("Forced revocation failure.");
+            }
+
             var activeTokens = Items.Where(item => item.UserExternalId == userExternalId && item.IsActive(revokedAt));
 
             foreach (var activeToken in activeTokens)
@@ -203,6 +232,8 @@ public class ResetPasswordInteractorTests
         public FakeTokenRepository TokenRepository { get; } = new();
 
         public FakeRefreshTokenRepository RefreshTokenRepository { get; } = new();
+
+        public FakeUnitOfWork UnitOfWork { get; } = new();
 
         public User User { get; }
 
@@ -269,12 +300,14 @@ public class ResetPasswordInteractorTests
                 UserRepository,
                 RefreshTokenRepository,
                 new FakePasswordHasher(),
-                new FakeTokenGenerator());
+                new FakeTokenGenerator(),
+                UnitOfWork);
         }
 
         public void AssertNothingChanged()
         {
             Assert.Empty(UserRepository.Updated);
+            Assert.Empty(UserRepository.LockoutCleared);
             Assert.Empty(TokenRepository.MarkedAsUsed);
             Assert.Equal($"hashed:{CurrentPassword}", User.PasswordHash);
             Assert.All(RefreshTokenRepository.Items, item => Assert.Null(item.RevokedAt));
@@ -459,5 +492,92 @@ public class ResetPasswordInteractorTests
             scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", "weak")));
 
         Assert.True(token.IsPending(DateTimeOffset.UtcNow));
+    }
+
+    // Spec 2026092504
+
+    [Fact]
+    public async Task ShouldClearLockoutWhenPasswordIsChanged()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+
+        await scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword));
+
+        Assert.Equal(scenario.User.ExternalId, Assert.Single(scenario.UserRepository.LockoutCleared));
+    }
+
+    [Fact]
+    public async Task ShouldRunAllWritesInsideTheSameUnitOfWork()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+        scenario.AddActiveRefreshToken();
+
+        await scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword));
+
+        Assert.Equal(1, scenario.UnitOfWork.Commits);
+        Assert.Equal(0, scenario.UnitOfWork.Rollbacks);
+    }
+
+    [Theory]
+    [InlineData("weak")]
+    [InlineData(CurrentPassword)]
+    public async Task ShouldNotOpenUnitOfWorkWhenNewPasswordIsRejected(string rejectedPassword)
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", rejectedPassword)));
+
+        Assert.Equal(0, scenario.UnitOfWork.Commits);
+        Assert.Equal(0, scenario.UnitOfWork.Rollbacks);
+        scenario.AssertNothingChanged();
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWhenSessionRevocationFails()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+        scenario.AddActiveRefreshToken();
+        scenario.RefreshTokenRepository.FailOnRevokeAll = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword)));
+
+        Assert.Equal(0, scenario.UnitOfWork.Commits);
+        Assert.Equal(1, scenario.UnitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackWithGenericMessageWhenAccountWasDeletedAfterTokenWasRead()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+        scenario.UserRepository.DeletedAfterFirstRead = true;
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword)));
+
+        Assert.Equal(InvalidTokenMessage, exception.Message);
+        Assert.Empty(scenario.UserRepository.Updated);
+        Assert.Empty(scenario.UserRepository.LockoutCleared);
+        Assert.Equal(1, scenario.UnitOfWork.Rollbacks);
+    }
+
+    [Fact]
+    public async Task ShouldRollBackAndKeepLockoutWhenTokenIsUsedConcurrently()
+    {
+        var scenario = new Scenario();
+        scenario.AddPendingToken();
+        scenario.TokenRepository.ConcurrentUse = true;
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            scenario.CreateInteractor().ExecuteAsync(new ResetPasswordRequest("raw-token", NewPassword)));
+
+        Assert.Equal(1, scenario.UnitOfWork.Rollbacks);
+        Assert.Empty(scenario.UserRepository.LockoutCleared);
     }
 }

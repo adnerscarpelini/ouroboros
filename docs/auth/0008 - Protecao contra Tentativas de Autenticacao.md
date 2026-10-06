@@ -22,6 +22,7 @@ As chaves são `RateLimiting:{nome-da-politica}:PermitLimit` e `RateLimiting:{no
 
 - Cinco falhas consecutivas de senha bloqueiam a conta por 15 minutos e zeram o contador.
 - Uma senha correta zera o contador. O bloqueio expira automaticamente.
+- Concluir uma redefinição de senha também zera o contador e **remove o bloqueio na hora**, mesmo com a conta bloqueada (ver `docs/auth/0004 - Recuperacao de Senha.md`). Quem prova que controla o e-mail não fica esperando os 15 minutos.
 - A regra vale no login e na senha exigida para excluir uma conta. As futuras reautenticações para troca de senha e perfil deverão usar o mesmo registro de falhas.
 - Login inexistente, senha errada e conta bloqueada respondem `401 Invalid login or password`.
 - Cada tentativa de login executa uma verificação de hash. Para conta inexistente ou bloqueada, usa um hash fictício; a senha real de conta bloqueada não é verificada.

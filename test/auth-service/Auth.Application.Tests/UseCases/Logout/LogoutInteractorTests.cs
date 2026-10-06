@@ -47,6 +47,12 @@ public class LogoutInteractorTests
         {
             throw new NotSupportedException();
         }
+        public Task ClearLockoutAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
         public Task<bool> TryResetFailedAccessAsync(
             Guid externalId,
             DateTimeOffset now)

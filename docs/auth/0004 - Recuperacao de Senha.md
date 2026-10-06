@@ -5,7 +5,7 @@
 ## Visão geral
 
 1. **Solicitação:** o usuário informa login ou e-mail. Um token é gerado e enviado (hoje: logado).
-2. **Redefinição:** o usuário envia o token e a nova senha. A senha é trocada e todas as sessões são encerradas.
+2. **Redefinição:** o usuário envia o token e a nova senha. A senha é trocada, a conta é desbloqueada e todas as sessões são encerradas, tudo na mesma transação.
 3. O usuário faz login de novo com a senha nova. **Não existe login automático** após a redefinição.
 
 A senha atual continua valendo até a etapa 2 ser concluída.
@@ -40,7 +40,7 @@ POST /api/users/password-reset/request
 2. O token é buscado pelo hash, **só entre tokens do tipo `PasswordReset`**, e precisa estar pendente (não expirado e não usado).
 3. O usuário dono do token precisa estar ativo.
 4. A nova senha passa pela política de senha (ver abaixo) e não pode ser igual à atual.
-5. O token é marcado como usado, a senha é trocada (`password_hash` e `password_changed_at`) e **todos os refresh tokens ativos do usuário são revogados**.
+5. Numa **única transação**, o token é marcado como usado, a senha é trocada (`password_hash` e `password_changed_at`), **o bloqueio da conta é zerado** e **todos os refresh tokens ativos do usuário são revogados**.
 
 ```
 POST /api/users/password-reset/confirm
@@ -60,8 +60,14 @@ Erros (todos `400 {"error": "..."}`, exceto o `429`):
 | Limite de requisições excedido | `429`, corpo vazio |
 
 - **Erro de senha não consome o token.** O usuário pode corrigir a senha e tentar de novo com o mesmo link, enquanto ele não expirar.
-- **Requisições simultâneas com o mesmo token:** só uma troca a senha, as outras recebem o erro genérico. O uso é gravado com `UPDATE ... WHERE used_at IS NULL`, então só uma requisição consegue marcar o token (mesmo mecanismo do refresh token em `docs/auth/0003 - Login e Tokens.md`).
-- Marcar o token, trocar a senha e revogar as sessões são escritas separadas, sem transação. Se uma escrita depois da marcação falhar, o token fica consumido e o usuário precisa pedir um link novo. Nenhum token fica reutilizável.
+- **Requisições simultâneas com o mesmo token:** só uma troca a senha, as outras recebem o erro genérico. O uso é gravado com `UPDATE ... WHERE used_at IS NULL AND expires_at > @agora`, então só uma requisição consegue marcar o token, e um token vencido ou invalidado nunca é consumido (mesmo método da confirmação de cadastro, ver `docs/auth/0001 - Confirmacao de Cadastro.md`).
+
+## Atomicidade
+
+- **Tudo ou nada.** O consumo do token, a troca do hash, o desbloqueio e a revogação das sessões rodam dentro de uma `IUnitOfWork` (ver `docs/project/0001 - Arquitetura.md`). Se qualquer escrita falhar, nada é gravado: o token continua pendente, a senha antiga continua valendo e as sessões continuam ativas. O mesmo link pode ser usado de novo.
+- **Validações antes do consumo.** Token pendente, usuário ativo, política de senha e senha diferente da atual são conferidos antes de abrir a transação. Por isso senha rejeitada não consome o link, e o hash da senha nova (lento de propósito) é calculado fora da transação, para ela ficar aberta só pelo tempo das escritas.
+- **Usuário relido dentro da transação.** Depois de consumir o token, o usuário é lido de novo. Assim, uma exclusão de conta confirmada nesse meio tempo é respeitada: nada é gravado e a resposta é o erro genérico.
+- **Resposta ao cliente.** Falha inesperada no meio devolve `500` e desfaz tudo. Só depois do commit o endpoint responde `204`.
 
 ## Política de senha
 
@@ -84,6 +90,7 @@ Baseadas no OWASP Forgot Password Cheat Sheet.
 - **Token forte, uso único, expiração curta.** 32 bytes aleatórios, gravados só como hash SHA-256, válidos por 1h (a confirmação de cadastro vale 24h). Um token de confirmação de e-mail não serve para redefinir senha.
 - **Senha nova diferente da atual**, conferida com `IPasswordHasher.Verify` contra o hash gravado.
 - **Sessões encerradas.** A troca revoga todos os refresh tokens ativos. Se alguém tinha acesso à conta com a senha antiga, perde a sessão. Os access tokens já emitidos continuam válidos até expirar (no máximo 15 min, ver `docs/auth/0003 - Login e Tokens.md`).
+- **A redefinição desbloqueia a conta.** Quem conclui o reset provou que controla o e-mail. A contagem de falhas e o bloqueio por tentativas (ver `docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md`) são zerados, para o dono legítimo não ficar preso depois de um ataque de força bruta. Um reset rejeitado (token inválido, senha fraca) não desbloqueia nada.
 - **Sem login automático** após a redefinição.
 - **Limite de requisições** nos dois endpoints (ver abaixo).
 
@@ -148,6 +155,8 @@ O log do token é sensível: qualquer pessoa com acesso ao Seq consegue redefini
 - Invalidação dos tokens pendentes: `DapperTokenRepository.InvalidatePendingByUserAsync`.
 - Uso concorrente do token: `DapperTokenRepository.TryMarkAsUsedAsync`.
 - Revogação das sessões: `DapperRefreshTokenRepository.RevokeAllActiveByUserAsync`.
+- Desbloqueio da conta: `DapperUserRepository.ClearLockoutAsync`. Diferente do `TryResetFailedAccessAsync` (que só age fora do bloqueio e serve ao login), ele zera a contagem e o bloqueio mesmo com a conta bloqueada.
+- Transação: `SqlUnitOfWork` em `Auth.Infrastructure/Persistence/`, usada por `ResetPasswordInteractor`.
 
 ## Quando existir envio de e-mail
 

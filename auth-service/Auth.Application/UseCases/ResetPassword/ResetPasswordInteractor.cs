@@ -15,19 +15,22 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenGenerator _tokenGenerator;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ResetPasswordInteractor(
         ITokenRepository tokenRepository,
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
-        ITokenGenerator tokenGenerator)
+        ITokenGenerator tokenGenerator,
+        IUnitOfWork unitOfWork)
     {
         _tokenRepository = tokenRepository;
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _passwordHasher = passwordHasher;
         _tokenGenerator = tokenGenerator;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<ResetPasswordResponse> ExecuteAsync(ResetPasswordRequest request)
@@ -65,18 +68,42 @@ public sealed class ResetPasswordInteractor : IResetPasswordUseCase
             throw new DomainException("New password must be different from the current password");
         }
 
+        // O hash e lento de proposito: calculado antes pra a transacao ficar aberta so pelo tempo das escritas.
+        var newPasswordHash = _passwordHasher.Hash(request.NewPassword);
+
+        // Consumo do token, troca da senha, desbloqueio e fim das sessoes valem juntos ou nao valem.
+        return await _unitOfWork.ExecuteAsync(() => ResetAsync(token, newPasswordHash, now));
+    }
+
+    private async Task<ResetPasswordResponse> ResetAsync(
+        Token token,
+        string newPasswordHash,
+        DateTimeOffset now)
+    {
         token.MarkAsUsed(now);
 
-        var marked = await _tokenRepository.TryMarkAsUsedAsync(token);
-
-        if (!marked)
+        // Duas redefinicoes simultaneas chegam aqui juntas: so uma afeta a linha.
+        if (!await _tokenRepository.TryMarkAsUsedAsync(token))
         {
             throw new DomainException(InvalidTokenMessage);
         }
 
-        user.ChangePassword(_passwordHasher.Hash(request.NewPassword));
+        // O usuario e lido de novo depois de consumir o token, ja dentro da transacao: o UpdateAsync regrava a linha
+        // toda com o que foi lido, e uma exclusao confirmada nesse meio tempo nao pode ser desfeita.
+        var user = await _userRepository.GetByExternalIdAsync(token.UserExternalId);
+
+        if (user is null || !user.Active)
+        {
+            throw new DomainException(InvalidTokenMessage);
+        }
+
+        user.ChangePassword(newPasswordHash);
 
         await _userRepository.UpdateAsync(user);
+
+        // Quem conclui a redefinicao provou que controla o e-mail: o dono legitimo nao fica preso num bloqueio
+        // causado por tentativas de forca bruta.
+        await _userRepository.ClearLockoutAsync(user.ExternalId, now);
 
         // Encerra todas as sessoes, inclusive as de quem eventualmente tinha a senha antiga.
         await _refreshTokenRepository.RevokeAllActiveByUserAsync(user.ExternalId, now);

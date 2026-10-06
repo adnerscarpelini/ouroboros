@@ -20,6 +20,12 @@ public class DeleteUserInteractorTests
             return Task.FromResult(user.RecordFailedAccess(now));
         }
 
+        public Task ClearLockoutAsync(
+            Guid externalId,
+            DateTimeOffset now)
+        {
+            throw new NotSupportedException();
+        }
         public Task<bool> TryResetFailedAccessAsync(
             Guid externalId,
             DateTimeOffset now)

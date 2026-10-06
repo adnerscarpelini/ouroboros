@@ -341,6 +341,24 @@ public sealed class DapperUserRepository : IUserRepository
         return await _session.ExecuteAsync(sql, new { ExternalId = externalId, Now = now }) == 1;
     }
 
+    public async Task ClearLockoutAsync(
+        Guid externalId,
+        DateTimeOffset now)
+    {
+        const string sql = """
+            UPDATE auth.users
+            SET
+                access_failed_count = 0,
+                lockout_end = NULL,
+                updated_at = @Now
+            WHERE
+                external_id = @ExternalId
+                AND deleted_at IS NULL;
+            """;
+
+        await _session.ExecuteAsync(sql, new { ExternalId = externalId, Now = now });
+    }
+
     public async Task RemoveAsync(Guid externalId)
     {
         // Tokens e refresh tokens do usuario saem junto via ON DELETE CASCADE.

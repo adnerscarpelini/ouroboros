@@ -32,6 +32,15 @@ public interface IUserRepository
         DateTimeOffset now);
 
     /// <summary>
+    /// Zera a contagem de falhas e o bloqueio da conta, mesmo que ela esteja bloqueada.
+    /// Diferente de <see cref="TryResetFailedAccessAsync"/>, que so age fora do bloqueio, serve a quem
+    /// acabou de provar que controla o e-mail da conta (redefinicao de senha).
+    /// </summary>
+    Task ClearLockoutAsync(
+        Guid externalId,
+        DateTimeOffset now);
+
+    /// <summary>
     /// Remove o usuario e, em cascata, os tokens e refresh tokens dele.
     /// Usado so pra descartar cadastro abandonado (nunca confirmado). Nunca remove conta excluida.
     /// </summary>

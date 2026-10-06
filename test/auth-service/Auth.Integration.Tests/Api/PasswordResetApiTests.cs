@@ -1,6 +1,7 @@
 namespace Ouroboros.Auth.Integration.Tests.Api;
 
 using System.Net;
+using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Integration.Tests.Infrastructure;
 using Xunit;
@@ -133,6 +134,94 @@ public sealed class PasswordResetApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    // Spec 2026092504
+
+    [Fact]
+    public async Task ShouldChangePasswordOnceWhenSameTokenIsConfirmedConcurrently()
+    {
+        for (var round = 0; round < 8; round++)
+        {
+            var login = $"race.reset.{round}";
+            var user = await _api.CreateUserAsync(login);
+            var token = await _api.AddTokenAsync(user.ExternalId, TokenType.PasswordReset);
+
+            var responses = await Task.WhenAll(Confirm(token, NewPassword), Confirm(token, NewPassword));
+
+            var statuses = responses.Select(response => response.StatusCode).Order().ToArray();
+
+            Assert.Equal([HttpStatusCode.NoContent, HttpStatusCode.BadRequest], statuses);
+            Assert.Equal(HttpStatusCode.OK, (await _api.PostAsync("/api/auth/login", new { login, password = NewPassword })).StatusCode);
+        }
+    }
+
+    [Theory]
+    [InlineData(FaultTiming.Before)]
+    [InlineData(FaultTiming.After)]
+    public async Task ShouldKeepTokenPasswordAndSessionsWhenSessionRevocationFails(FaultTiming timing)
+    {
+        var user = await _api.CreateUserAsync($"reset.rollback.{timing}");
+        var session = await _api.LoginAsync($"reset.rollback.{timing}");
+        var token = await _api.AddTokenAsync(user.ExternalId, TokenType.PasswordReset);
+        var hashBefore = await PasswordHashAsync(user.ExternalId);
+
+        using var factory = _fixture.CreateFactoryFailingOn<IRefreshTokenRepository>(
+            nameof(IRefreshTokenRepository.RevokeAllActiveByUserAsync),
+            timing);
+        using var failing = new TestApi(_fixture, factory.CreateClient());
+
+        var response = await failing.PostAsync("/api/users/password-reset/confirm", new { token, newPassword = NewPassword });
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(hashBefore, await PasswordHashAsync(user.ExternalId));
+        Assert.Equal(0, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.tokens WHERE used_at IS NOT NULL;"));
+        Assert.Equal(1, await _api.CountActiveRefreshTokensAsync(user.ExternalId));
+        Assert.Equal(HttpStatusCode.OK, (await _api.PostAsync("/api/auth/refresh", new { refreshToken = session.RefreshToken })).StatusCode);
+
+        // O mesmo link continua valendo numa nova tentativa, sem a falha.
+        var retry = await Confirm(token, NewPassword);
+
+        Assert.Equal(HttpStatusCode.NoContent, retry.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldUnlockAccountWhenPasswordIsReset()
+    {
+        var user = await _api.CreateUserAsync("reset.locked");
+        await _api.ExecuteAsync(
+            "UPDATE auth.users SET access_failed_count = 3, lockout_end = DATEADD(MINUTE, 10, SYSDATETIMEOFFSET()) WHERE external_id = @Id;",
+            new { Id = user.ExternalId });
+        var token = await _api.AddTokenAsync(user.ExternalId, TokenType.PasswordReset);
+
+        var lockedLogin = await _api.PostAsync("/api/auth/login", new { login = "reset.locked", password = TestApi.Password });
+        var reset = await Confirm(token, NewPassword);
+        var unlockedLogin = await _api.PostAsync("/api/auth/login", new { login = "reset.locked", password = NewPassword });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, lockedLogin.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, unlockedLogin.StatusCode);
+        Assert.Equal(0, await _api.QueryAsync<int>("SELECT access_failed_count FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+        Assert.Null(await _api.QueryAsync<DateTimeOffset?>("SELECT lockout_end FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+    }
+
+    [Fact]
+    public async Task ShouldKeepLockoutWhenResetIsRejected()
+    {
+        var user = await _api.CreateUserAsync("reset.locked.rejected");
+        await _api.ExecuteAsync(
+            "UPDATE auth.users SET access_failed_count = 3, lockout_end = DATEADD(MINUTE, 10, SYSDATETIMEOFFSET()) WHERE external_id = @Id;",
+            new { Id = user.ExternalId });
+        var token = await _api.AddTokenAsync(user.ExternalId, TokenType.PasswordReset);
+
+        var response = await Confirm(token, "short");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(3, await _api.QueryAsync<int>("SELECT access_failed_count FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+        Assert.NotNull(await _api.QueryAsync<DateTimeOffset?>("SELECT lockout_end FROM auth.users WHERE external_id = @Id;", new { Id = user.ExternalId }));
+    }
+
+    private Task<string> PasswordHashAsync(Guid externalId) =>
+        _api.QueryAsync<string>("SELECT password_hash FROM auth.users WHERE external_id = @Id;", new { Id = externalId })!;
 
     private Task<HttpResponseMessage> RequestReset(string loginOrEmail) =>
         _api.PostAsync("/api/users/password-reset/request", new { loginOrEmail });

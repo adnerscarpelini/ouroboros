@@ -1,0 +1,3 @@
+Aprovado!  – Com falha:     0, Aprovado:    50, Ignorado:     0, Total:    50, Duração: 77 ms - Auth.Domain.Tests.dll (net10.0)
+Aprovado!  – Com falha:     0, Aprovado:   130, Ignorado:     0, Total:   130, Duração: 112 ms - Auth.Application.Tests.dll (net10.0)
+Aprovado!  – Com falha:     0, Aprovado:   107, Ignorado:     0, Total:   107, Duração: 15 s - Auth.Integration.Tests.dll (net10.0)

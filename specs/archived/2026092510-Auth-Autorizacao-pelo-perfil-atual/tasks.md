@@ -1,0 +1,7 @@
+# 2026092510 - Autorizacao pelo perfil atual — Tarefas
+
+- [x] **Dev** — `GetUserInteractor`: carregar o solicitante pelo `RequesterId`, decidir "é Admin?" e "é o próprio usuário?" pelos dados dele no banco e responder `401` se ele não existir; remover `RequesterLogin`, `RequesterEmail` e `RequesterRole` do `GetUserRequest`
+- [x] **Dev** — `DeleteUserInteractor`: usar o `Role` do solicitante já carregado em vez do claim; remover `RequesterRole` do `DeleteUserRequest`; ajustar o `UserController`
+- [x] **Dev** — Trocar o `UPDLOCK, HOLDLOCK` da contagem de Admins (2026092505) por `sp_getapplock` com dono `Transaction`, recusando a chamada fora de uma `IUnitOfWork` (decisão 7)
+- [x] **Tester** — Unitários: token com `role=Admin` e solicitante `User` no banco → negado na consulta e na exclusão de conta alheia; solicitante excluído → `401`; negação sem consultar o alvo. Integração: Admin rebaixado no banco perde o privilégio na hora com o token antigo; usuário promovido ganha na hora; solicitante excluído com token válido → `401`; a corrida entre dois Admins nunca devolve dois `204` nem `500`, e a segunda contagem espera o lock da primeira transação
+- [x] **Tech Writer** — Atualizar `docs/auth/0005 - Perfis de Acesso.md`, `0006 - Consulta de Usuario.md` e `0007 - Exclusao de Conta.md`: privilégio decidido pelo banco e limitação em outros serviços; em `0007`, trocar a descrição do lock do último Admin (`sp_getapplock`) e o motivo

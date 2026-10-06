@@ -47,6 +47,8 @@ public class DeleteUserInteractorTests
 
         public int LookupCount { get; private set; }
 
+        public List<Guid> LookedUpExternalIds { get; } = new();
+
         public Task AddAsync(User user)
         {
             Items.Add(user);
@@ -61,6 +63,7 @@ public class DeleteUserInteractorTests
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
             LookupCount++;
+            LookedUpExternalIds.Add(externalId);
             _reads[externalId] = _reads.GetValueOrDefault(externalId) + 1;
 
             if (VanishOnSecondRead == externalId && _reads[externalId] > 1)
@@ -270,7 +273,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var user = context.AddUser("jdoe", UserRole.User);
 
-        var response = await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId));
+        var response = await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId));
 
         Assert.Equal(user.ExternalId, response.UserId);
         Assert.NotNull(user.DeletedAt);
@@ -286,7 +289,7 @@ public class DeleteUserInteractorTests
         var refreshToken = RefreshToken.Create(user.ExternalId, "hashed:refresh", DateTimeOffset.UtcNow.AddDays(7));
         context.RefreshTokenRepository.Items.Add(refreshToken);
 
-        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId));
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId));
 
         Assert.NotNull(refreshToken.RevokedAt);
     }
@@ -297,7 +300,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var user = context.AddUser("jdoe", UserRole.User);
 
-        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId));
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId));
 
         Assert.Contains((user.ExternalId, TokenType.EmailConfirmation), context.TokenRepository.Invalidated);
         Assert.Contains((user.ExternalId, TokenType.PasswordReset), context.TokenRepository.Invalidated);
@@ -309,7 +312,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var user = context.AddUser("jdoe", UserRole.User);
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", "Wr0ng!pass", user.ExternalId)));
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "Wr0ng!pass", user.ExternalId)));
 
         Assert.Null(user.DeletedAt);
         Assert.Empty(context.UserRepository.Updated);
@@ -323,33 +326,36 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var user = context.AddUser("jdoe", UserRole.User);
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", string.Empty, user.ExternalId)));
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, string.Empty, user.ExternalId)));
 
         Assert.Null(user.DeletedAt);
         Assert.Empty(context.UserRepository.Updated);
     }
 
     [Fact]
-    public async Task ShouldDenyWithoutQueryingRepositoryWhenUserDeletesAnotherAccount()
+    public async Task ShouldDenyWithoutQueryingTargetWhenUserDeletesAnotherAccount()
     {
         var context = new Context();
         var requester = context.AddUser("jdoe", UserRole.User);
         var other = context.AddUser("other", UserRole.User);
 
-        await Assert.ThrowsAsync<AccessDeniedException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(requester.ExternalId, "User", Password, other.ExternalId)));
+        await Assert.ThrowsAsync<AccessDeniedException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(requester.ExternalId, Password, other.ExternalId)));
 
-        Assert.Equal(0, context.UserRepository.LookupCount);
+        // So o solicitante e lido, pra decidir pelo perfil dele no banco. O alvo nunca e consultado antes de negar.
+        Assert.Equal([requester.ExternalId], context.UserRepository.LookedUpExternalIds);
+        Assert.Equal(1, context.UserRepository.LookupCount);
         Assert.Null(other.DeletedAt);
     }
 
     [Fact]
-    public async Task ShouldDenyWhenRoleIsNotExactlyAdmin()
+    public async Task ShouldDecideByTheRoleStoredInTheDatabase()
     {
+        // O token nao entra mais na decisao: um Admin rebaixado no banco e tratado como User na hora.
         var context = new Context();
-        var requester = context.AddUser("jdoe", UserRole.Admin);
+        var requester = context.AddUser("demoted", UserRole.User);
         var other = context.AddUser("other", UserRole.User);
 
-        await Assert.ThrowsAsync<AccessDeniedException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(requester.ExternalId, "admin", Password, other.ExternalId)));
+        await Assert.ThrowsAsync<AccessDeniedException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(requester.ExternalId, Password, other.ExternalId)));
 
         Assert.Null(other.DeletedAt);
     }
@@ -361,7 +367,7 @@ public class DeleteUserInteractorTests
         var admin = context.AddUser("admin", UserRole.Admin, "Adm1n!pass");
         var user = context.AddUser("jdoe", UserRole.User);
 
-        var response = await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", "Adm1n!pass", user.ExternalId));
+        var response = await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Adm1n!pass", user.ExternalId));
 
         Assert.Equal(user.ExternalId, response.UserId);
         Assert.NotNull(user.DeletedAt);
@@ -376,7 +382,7 @@ public class DeleteUserInteractorTests
         var admin = context.AddUser("admin", UserRole.Admin);
         var otherAdmin = context.AddUser("former-admin", UserRole.Admin);
 
-        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, otherAdmin.ExternalId));
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, otherAdmin.ExternalId));
 
         Assert.NotNull(otherAdmin.DeletedAt);
         Assert.Null(admin.DeletedAt);
@@ -389,7 +395,7 @@ public class DeleteUserInteractorTests
         var admin = context.AddUser("admin", UserRole.Admin, "Adm1n!pass");
         var user = context.AddUser("jdoe", UserRole.User, "Us3r!pass");
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", "Us3r!pass", user.ExternalId)));
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Us3r!pass", user.ExternalId)));
 
         Assert.Null(user.DeletedAt);
         Assert.Empty(context.UserRepository.Updated);
@@ -401,7 +407,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var admin = context.AddUser("admin", UserRole.Admin);
 
-        var exception = await Assert.ThrowsAsync<DomainException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, admin.ExternalId)));
+        var exception = await Assert.ThrowsAsync<DomainException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, admin.ExternalId)));
 
         Assert.Equal("The last active admin cannot be deleted", exception.Message);
         Assert.Null(admin.DeletedAt);
@@ -417,7 +423,7 @@ public class DeleteUserInteractorTests
         var admin = context.AddUser("admin", UserRole.Admin);
         context.AddUser("other-admin", UserRole.Admin);
 
-        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, admin.ExternalId));
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, admin.ExternalId));
 
         Assert.NotNull(admin.DeletedAt);
     }
@@ -428,7 +434,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var admin = context.AddUser("admin", UserRole.Admin);
 
-        await Assert.ThrowsAsync<UserNotFoundException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, Guid.NewGuid())));
+        await Assert.ThrowsAsync<UserNotFoundException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, Guid.NewGuid())));
 
         Assert.Empty(context.UserRepository.Updated);
     }
@@ -441,21 +447,37 @@ public class DeleteUserInteractorTests
         var deleted = context.AddUser("jdoe", UserRole.User);
         deleted.Delete();
 
-        await Assert.ThrowsAsync<UserNotFoundException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, deleted.ExternalId)));
+        await Assert.ThrowsAsync<UserNotFoundException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, deleted.ExternalId)));
 
         Assert.Empty(context.UserRepository.Updated);
     }
 
     [Fact]
-    public async Task ShouldThrowInvalidCredentialsExceptionWhenRequesterIsAlreadyDeleted()
+    public async Task ShouldThrowInvalidAccessTokenExceptionWhenRequesterIsAlreadyDeleted()
     {
         var context = new Context();
         var user = context.AddUser("jdoe", UserRole.User);
         user.Delete();
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId)));
+        var exception = await Assert.ThrowsAsync<InvalidAccessTokenException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId)));
 
+        Assert.Equal("Invalid access token", exception.Message);
         Assert.Empty(context.UserRepository.Updated);
+        Assert.Equal(0, context.UnitOfWork.Commits);
+    }
+
+    [Fact]
+    public async Task ShouldThrowInvalidAccessTokenExceptionWhenRequesterDoesNotExist()
+    {
+        var context = new Context();
+        var target = context.AddUser("jdoe", UserRole.User);
+
+        await Assert.ThrowsAsync<InvalidAccessTokenException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(Guid.NewGuid(), Password, target.ExternalId)));
+
+        // Nem o alvo e consultado nem a falta do solicitante vira tentativa de senha.
+        Assert.Equal(1, context.UserRepository.LookupCount);
+        Assert.Equal(0, target.AccessFailedCount);
+        Assert.Null(target.DeletedAt);
     }
 
     // Spec 2026092505
@@ -466,7 +488,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var user = context.AddUser("jdoe", UserRole.User);
 
-        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId));
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId));
 
         Assert.Equal(1, context.UnitOfWork.Commits);
         Assert.Equal(0, context.UnitOfWork.Rollbacks);
@@ -478,7 +500,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var user = context.AddUser("jdoe", UserRole.User);
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", "wrong", user.ExternalId)));
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "wrong", user.ExternalId)));
 
         Assert.Equal(0, context.UnitOfWork.Commits);
         Assert.Equal(0, context.UnitOfWork.Rollbacks);
@@ -492,7 +514,7 @@ public class DeleteUserInteractorTests
         var user = context.AddUser("jdoe", UserRole.User);
         var other = context.AddUser("other", UserRole.User);
 
-        await Assert.ThrowsAsync<AccessDeniedException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, other.ExternalId)));
+        await Assert.ThrowsAsync<AccessDeniedException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, other.ExternalId)));
 
         Assert.Equal(0, context.UnitOfWork.Commits);
         Assert.Equal(0, context.UnitOfWork.Rollbacks);
@@ -505,7 +527,7 @@ public class DeleteUserInteractorTests
         var user = context.AddUser("jdoe", UserRole.User);
         context.RefreshTokenRepository.FailOnRevokeAll = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, "User", Password, user.ExternalId)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(user.ExternalId, Password, user.ExternalId)));
 
         Assert.Equal(0, context.UnitOfWork.Commits);
         Assert.Equal(1, context.UnitOfWork.Rollbacks);
@@ -517,7 +539,7 @@ public class DeleteUserInteractorTests
         var context = new Context();
         var admin = context.AddUser("admin", UserRole.Admin);
 
-        await Assert.ThrowsAsync<DomainException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, admin.ExternalId)));
+        await Assert.ThrowsAsync<DomainException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, admin.ExternalId)));
 
         Assert.Equal(1, context.UnitOfWork.Rollbacks);
         Assert.Equal(0, context.UnitOfWork.Commits);
@@ -531,11 +553,11 @@ public class DeleteUserInteractorTests
         var other = context.AddUser("other-admin", UserRole.Admin);
         var common = context.AddUser("common", UserRole.User);
 
-        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, common.ExternalId));
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, common.ExternalId));
 
         Assert.Equal(0, context.UserRepository.AdminCountCalls);
 
-        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, other.ExternalId));
+        await context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, other.ExternalId));
 
         Assert.Equal(1, context.UserRepository.AdminCountCalls);
     }
@@ -548,7 +570,7 @@ public class DeleteUserInteractorTests
         var target = context.AddUser("jdoe", UserRole.User);
         context.UserRepository.VanishOnSecondRead = target.ExternalId;
 
-        await Assert.ThrowsAsync<UserNotFoundException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, "Admin", Password, target.ExternalId)));
+        await Assert.ThrowsAsync<UserNotFoundException>(() => context.CreateInteractor().ExecuteAsync(new DeleteUserRequest(admin.ExternalId, Password, target.ExternalId)));
 
         Assert.Empty(context.UserRepository.Updated);
         Assert.Empty(context.TokenRepository.Invalidated);

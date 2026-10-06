@@ -207,6 +207,64 @@ WHERE
 
 Parametros Dapper usam `@NomeDoParametro` (PascalCase, casando com a propriedade do objeto anonimo/record passado como `param`), nunca `:nomeDoParametro` (sintaxe de outras bibliotecas) nem concatenacao de string.
 
+## Hints de leitura (NOLOCK e READPAST)
+
+Regra do projeto (decidida em 06/10/2026). Vale para todo `SELECT` escrito nos repositorios, inclusive subconsultas (`EXISTS (SELECT ...)`): **toda tabela do `FROM` e de cada `JOIN` leva um hint**, escrito depois do alias.
+
+| Tipo de leitura | Hint | Quando usar |
+|---|---|---|
+| Nao critica | `WITH (NOLOCK)` | Leitura informativa: um valor defasado ou nao commitado so muda uma mensagem ou uma tela, e outra garantia (indice unico, `UPDATE` condicional) cobre o resultado. |
+| Critica | `WITH (READPAST)` | Leitura que alimenta decisao (autenticacao, autorizacao, validade de token, regra de unicidade, decisao destrutiva): precisa de linha **commitada**, sem esperar o lock de quem escreve. |
+
+Na duvida entre as duas, a leitura e critica.
+
+```sql
+SELECT TOP 1 tokens.id
+FROM
+    auth.tokens AS tokens WITH (READPAST)
+INNER JOIN
+    auth.users AS users WITH (READPAST)
+    ON users.id = tokens.user_id
+WHERE
+    tokens.token_hash = @TokenHash;
+```
+
+### O que cada hint faz de verdade
+
+Experimento de 06/10/2026: uma transacao aberta altera uma linha, e outra conexao a le.
+
+| Leitura da linha em alteracao | Resultado |
+|---|---|
+| sem hint (`READ COMMITTED`) | espera o commit ou o rollback do outro |
+| `WITH (NOLOCK)` | devolve na hora o valor **nao commitado** |
+| `WITH (READPAST)` | devolve na hora, mas **sem a linha**: ela e pulada |
+
+### Consequencias que o codigo precisa tolerar
+
+- **`READPAST` nao devolve "o valor commitado": ele pula a linha travada.** Para quem le, a linha deixa de existir enquanto outra transacao a altera (atualizacao do contador de falhas, rotacao de token, exclusao). Uma busca por chave devolve `null`. Nao conclua desse `null` nada irreversivel.
+- **Efeitos ja observados ou previstos:**
+  - login com a senha certa pode responder `401` se a conta estiver sendo atualizada naquele instante;
+  - um alvo que existe pode responder `404` (aconteceu na corrida entre duas exclusoes de Admin, `AccountDeletionApiTests`);
+  - um token lido enquanto outra requisicao o rotaciona aparece como inexistente, e nao como revogado: nessa janela a deteccao de reuso do refresh token (spec 2026092507) nao dispara;
+  - `ExistsPendingByUserAsync` pode nao ver um token pendente e tratar um cadastro como abandonado.
+- **`NOLOCK` pode ler dado que sofre rollback** e, em tabela que esta mudando, ler uma linha duas vezes ou pular outra.
+- **`READPAST` so funciona em `READ COMMITTED` e `REPEATABLE READ`** (o padrao do projeto). Em `SERIALIZABLE` ou `SNAPSHOT` o SQL Server recusa. Nao use esses isolamentos numa transacao que tenha essas leituras.
+
+### O que nao leva hint
+
+- **`UPDATE`, `DELETE` e `INSERT`**, inclusive o alvo de `UPDATE ... FROM ... JOIN`. O `NOLOCK` e recusado no alvo, e o `READPAST` perderia escritas: um `UPDATE` condicional afetaria 0 linhas com a linha travada, e o contador de falhas de senha perderia incrementos. Escrita espera o lock.
+- **O `SELECT` dentro de `INSERT ... SELECT` e dentro de `UPDATE ... FROM`.** Faz parte do comando de escrita: com `READPAST`, ele afetaria 0 linhas sem dar erro.
+- **Migrations** (imutaveis e sem concorrencia) e scripts de `docker/sqlserver/init/`.
+
+### Como a regra e garantida
+
+O teste `SqlHintConventionTests` (em `Auth.Integration.Tests`) varre o SQL de `Dapper*Repository.cs`: falha se uma tabela de `SELECT` estiver sem hint ou se um comando de escrita tiver hint. Cada repositorio traz no topo da classe um comentario resumindo a regra. A classificacao atual:
+
+- **`READPAST`:** `GetByExternalIdAsync`, `GetByEmailAsync`, `GetByLoginAsync`, `GetByLoginOrEmailAsync`, `CountActiveAdminsForUpdateAsync`, `GetByHashAsync` (tokens e refresh tokens) e `ExistsPendingByUserAsync`.
+- **`NOLOCK`:** `ExistsDeletedByLoginAsync`.
+
+Ao criar uma query nova, classifique-a antes de escrever e registre o motivo num comentario quando for `NOLOCK`.
+
 ## Particularidades do SQL Server
 
 Diferencas que ja morderam este projeto — consulte antes de escrever SQL novo:
@@ -219,10 +277,10 @@ Diferencas que ja morderam este projeto — consulte antes de escrever SQL novo:
 - **Retorno de escrita:** `UPDATE ... SET ... OUTPUT inserted.coluna WHERE ...` (o `OUTPUT` fica entre o `SET` e o `WHERE`).
 - **`UPDATE` com join:** o alvo e o alias — `UPDATE tokens SET ... FROM auth.tokens AS tokens INNER JOIN auth.users AS users ON ... WHERE ...`. Nao existe `UPDATE tabela AS alias SET ... FROM outra`.
 - **Booleanos:** `bit` nao e expressao booleana. Use `WHERE users.active = 1`, `ORDER BY CASE WHEN condicao THEN 0 ELSE 1 END` e `SELECT CASE WHEN EXISTS (...) THEN 1 ELSE 0 END` (o Dapper converte `0/1` para `bool`).
-- **Bloqueio:** para ler travando linhas dentro de transacao, use `WITH (UPDLOCK, HOLDLOCK)` na tabela. O isolamento padrao e `READ COMMITTED` com bloqueio de leitura.
+- **Bloqueio:** o isolamento padrao e `READ COMMITTED`. Para ler **uma linha por chave** travando-a dentro da transacao, use `WITH (UPDLOCK)` (ou `UPDLOCK, HOLDLOCK`). **Nao use `UPDLOCK, HOLDLOCK` numa leitura que varre a tabela** (por exemplo, contar Admins): os locks de faixa entram em ciclo com outras escritas nas mesmas linhas e geram deadlock (erro 1205; aconteceu na spec 2026092505 e foi corrigido na 2026092510). Para serializar uma regra entre transacoes, use um lock de aplicacao: `sp_getapplock` com `@LockOwner = 'Transaction'`, que nao trava linha nenhuma.
 - **Violacao de unicidade:** `SqlException` com `Number` 2601 (indice unico) ou 2627 (constraint unica/PK). O nome do indice/constraint vem no texto da mensagem — a Infrastructure traduz para excecao de dominio e o `SqlException` nao sai dela.
 - **Exclusao em cascata:** `ON DELETE CASCADE` funciona, mas o SQL Server recusa dois caminhos de cascata para a mesma tabela — desenhe as FKs com isso em mente.
-- **Lock entre replicas:** `sp_getapplock` (com `@LockOwner = 'Session'` e `@LockTimeout = 0`) faz o papel do advisory lock.
+- **Lock de aplicacao:** `sp_getapplock` faz o papel do advisory lock. Com `@LockOwner = 'Transaction'` ele so existe dentro de uma transacao e e solto no commit ou rollback (use para serializar uma regra, conferindo o retorno: `>= 0` obteve, negativo falhou). Com `@LockOwner = 'Session'` e `@LockTimeout = 0` serve para uma execucao por vez entre replicas.
 
 ## Segredos e connection string
 

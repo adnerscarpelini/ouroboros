@@ -167,6 +167,63 @@ public sealed class UserQueryApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // Spec 2026092510: o privilegio vem do banco, nao do token.
+
+    [Fact]
+    public async Task ShouldDenyDemotedAdminImmediatelyEvenWithTheOldTokenStillValid()
+    {
+        var admin = await _api.CreateUserAsync("demoted.admin");
+        await _api.SetRoleAsync(admin.ExternalId, UserRole.Admin);
+        var other = await _api.CreateUserAsync("demoted.target");
+        var session = await _api.LoginAsync("demoted.admin");
+
+        var before = await _api.GetAsync($"/api/users/{other.ExternalId}", session.AccessToken);
+
+        await _api.SetRoleAsync(admin.ExternalId, UserRole.User);
+
+        var byId = await _api.GetAsync($"/api/users/{other.ExternalId}", session.AccessToken);
+        var bySearch = await _api.PostAsync("/api/users/search", new { login = "demoted.target" }, session.AccessToken);
+        var self = await _api.GetAsync($"/api/users/{admin.ExternalId}", session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.OK, before.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, byId.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, bySearch.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, self.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldAllowPromotedUserImmediatelyEvenWithTheOldTokenStillValid()
+    {
+        var user = await _api.CreateUserAsync("promoted.user");
+        var other = await _api.CreateUserAsync("promoted.target");
+        var session = await _api.LoginAsync("promoted.user");
+
+        var before = await _api.GetAsync($"/api/users/{other.ExternalId}", session.AccessToken);
+
+        await _api.SetRoleAsync(user.ExternalId, UserRole.Admin);
+
+        var after = await _api.GetAsync($"/api/users/{other.ExternalId}", session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, before.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldReturnUnauthorizedWithGenericBodyWhenRequesterWasDeletedAndTokenIsStillValid()
+    {
+        var user = await _api.CreateUserAsync("deleted.requester");
+        var session = await _api.LoginAsync("deleted.requester");
+        await _api.ExecuteAsync("UPDATE auth.users SET deleted_at = SYSDATETIMEOFFSET(), active = 0 WHERE external_id = @Id;", new { Id = user.ExternalId });
+
+        var byId = await _api.GetAsync($"/api/users/{user.ExternalId}", session.AccessToken);
+        var bySearch = await _api.PostAsync("/api/users/search", new { login = "deleted.requester" }, session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, byId.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, bySearch.StatusCode);
+        Assert.Equal("Invalid access token", await TestApi.ReadErrorAsync(byId));
+        Assert.Equal("Invalid access token", await TestApi.ReadErrorAsync(bySearch));
+    }
+
     private static string CreateJwt(User user, string signingKey, DateTime expires)
     {
         var descriptor = new SecurityTokenDescriptor

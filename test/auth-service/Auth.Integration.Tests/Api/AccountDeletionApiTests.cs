@@ -198,14 +198,57 @@ public sealed class AccountDeletionApiTests : IAsyncLifetime
                 Delete(second.ExternalId, TestApi.Password, firstSession.AccessToken),
                 Delete(first.ExternalId, TestApi.Password, secondSession.AccessToken));
 
-            var statuses = responses.Select(response => response.StatusCode).Order().ToArray();
+            // A propriedade que importa: nunca dois 204 (que deixariam o sistema sem Admin) e nunca 500. Quem chega junto
+            // espera o lock e recebe 400. Quem chega depois do commit do outro ja foi excluido, e o token de conta
+            // excluida da 401. Pela regra de hints (leituras de decisao com READPAST), uma linha que a outra requisicao
+            // esta alterando naquele instante some para quem le: o alvo "nao existe" e a resposta e 404. Os tres desfechos
+            // dependem so do tempo de cada requisicao.
+            var succeeded = responses.Single(response => response.StatusCode == HttpStatusCode.NoContent);
+            var rejected = responses.Single(response => response != succeeded);
 
-            Assert.Equal([HttpStatusCode.NoContent, HttpStatusCode.BadRequest], statuses);
+            Assert.Contains(rejected.StatusCode, new[] { HttpStatusCode.BadRequest, HttpStatusCode.Unauthorized, HttpStatusCode.NotFound });
             Assert.Equal(1, await _api.QueryAsync<int>("SELECT COUNT(*) FROM auth.users WHERE role = 'Admin' AND active = 1 AND deleted_at IS NULL;"));
 
-            var rejected = responses.Single(response => response.StatusCode == HttpStatusCode.BadRequest);
-            Assert.Equal("The last active admin cannot be deleted", await TestApi.ReadErrorAsync(rejected));
+            if (rejected.StatusCode == HttpStatusCode.BadRequest)
+            {
+                Assert.Equal("The last active admin cannot be deleted", await TestApi.ReadErrorAsync(rejected));
+            }
         }
+    }
+
+    // Spec 2026092510: o privilegio vem do banco, nao do token.
+
+    [Fact]
+    public async Task ShouldDenyDemotedAdminImmediatelyEvenWithTheOldTokenStillValid()
+    {
+        var admin = await _api.CreateUserAsync("delete.demoted.admin");
+        await _api.SetRoleAsync(admin.ExternalId, UserRole.Admin);
+        var victim = await _api.CreateUserAsync("delete.demoted.victim");
+        var session = await _api.LoginAsync("delete.demoted.admin");
+
+        await _api.SetRoleAsync(admin.ExternalId, UserRole.User);
+
+        var response = await Delete(victim.ExternalId, TestApi.Password, session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Null(await DeletedAtAsync(victim.ExternalId));
+    }
+
+    [Fact]
+    public async Task ShouldReturnUnauthorizedWhenRequesterWasDeletedAndTokenIsStillValid()
+    {
+        var user = await _api.CreateUserAsync("delete.gone.requester");
+        var other = await _api.CreateUserAsync("delete.gone.target");
+        var session = await _api.LoginAsync("delete.gone.requester");
+        await _api.ExecuteAsync("UPDATE auth.users SET deleted_at = SYSDATETIMEOFFSET(), active = 0 WHERE external_id = @Id;", new { Id = user.ExternalId });
+
+        var self = await Delete(user.ExternalId, TestApi.Password, session.AccessToken);
+        var another = await Delete(other.ExternalId, TestApi.Password, session.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, self.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, another.StatusCode);
+        Assert.Equal("Invalid access token", await TestApi.ReadErrorAsync(another));
+        Assert.Null(await DeletedAtAsync(other.ExternalId));
     }
 
     private Task<HttpResponseMessage> Delete(Guid externalId, string password, string? bearer) =>

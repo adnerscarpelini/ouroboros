@@ -7,6 +7,8 @@ using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
 
+// Hints de leitura (skill ouroboros-dba): SELECT de decisao usa WITH (READPAST), que so devolve linha commitada e pula a
+// linha travada por outra transacao (para quem le, ela some). SELECT informativo usa WITH (NOLOCK). UPDATE e DELETE nao levam hint.
 public sealed class DapperUserRepository : IUserRepository
 {
     // Numeros de erro do SQL Server: 2601 = indice unico, 2627 = constraint unica.
@@ -15,6 +17,8 @@ public sealed class DapperUserRepository : IUserRepository
 
     private const string LoginIndexName = "users_normalized_login_key";
     private const string EmailIndexName = "users_normalized_email_key";
+
+    private const int AdminLockTimeoutMilliseconds = 10_000;
 
     private readonly DbSession _session;
     private readonly ILogger<DapperUserRepository> _logger;
@@ -133,7 +137,7 @@ public sealed class DapperUserRepository : IUserRepository
                 users.deleted_at,
                 users.access_failed_count,
                 users.lockout_end
-            FROM auth.users AS users
+            FROM auth.users AS users WITH (READPAST)
             WHERE
                 users.external_id = @ExternalId
                 AND users.deleted_at IS NULL;
@@ -164,7 +168,7 @@ public sealed class DapperUserRepository : IUserRepository
                 users.deleted_at,
                 users.access_failed_count,
                 users.lockout_end
-            FROM auth.users AS users
+            FROM auth.users AS users WITH (READPAST)
             WHERE
                 users.normalized_email = @Email
                 AND users.deleted_at IS NULL;
@@ -195,7 +199,7 @@ public sealed class DapperUserRepository : IUserRepository
                 users.deleted_at,
                 users.access_failed_count,
                 users.lockout_end
-            FROM auth.users AS users
+            FROM auth.users AS users WITH (READPAST)
             WHERE
                 users.normalized_login = @Login
                 AND users.deleted_at IS NULL;
@@ -227,7 +231,7 @@ public sealed class DapperUserRepository : IUserRepository
                 users.deleted_at,
                 users.access_failed_count,
                 users.lockout_end
-            FROM auth.users AS users
+            FROM auth.users AS users WITH (READPAST)
             WHERE
                 (users.normalized_login = @LoginOrEmail OR users.normalized_email = @LoginOrEmail)
                 AND users.deleted_at IS NULL
@@ -375,10 +379,12 @@ public sealed class DapperUserRepository : IUserRepository
 
     public async Task<bool> ExistsDeletedByLoginAsync(string login)
     {
+        // Leitura nao critica (NOLOCK): so escolhe a mensagem de erro do cadastro. A garantia de que um login de conta
+        // excluida nao e reaproveitado e o indice unico users_normalized_login_key. Regra: skill ouroboros-dba.
         const string sql = """
             SELECT CASE WHEN EXISTS (
                 SELECT 1
-                FROM auth.users AS users
+                FROM auth.users AS users WITH (NOLOCK)
                 WHERE
                     users.normalized_login = @Login
                     AND users.deleted_at IS NOT NULL
@@ -390,11 +396,37 @@ public sealed class DapperUserRepository : IUserRepository
 
     public async Task<int> CountActiveAdminsForUpdateAsync()
     {
-        // UPDLOCK + HOLDLOCK: os locks (inclusive de faixa, contra um novo Admin ativo aparecer no meio) duram ate o
-        // commit ou rollback da transacao. Duas transacoes que chegam aqui juntas ficam em fila, na mesma ordem de leitura.
+        if (!_session.InTransaction)
+        {
+            throw new InvalidOperationException("CountActiveAdminsForUpdateAsync must run inside a unit of work.");
+        }
+
+        // Lock de aplicacao com dono "Transaction": solto no commit ou rollback. Serializa quem vai reduzir o numero de
+        // Admins sem travar linhas nem faixas de indice. A versao com UPDLOCK + HOLDLOCK varria a tabela e chegou a
+        // entrar em deadlock (1205) com outras escritas nas mesmas linhas; aqui nao ha ciclo possivel, porque quem
+        // espera o lock nao segura nenhum lock de linha.
+        const string lockSql = """
+            DECLARE @result int;
+            EXEC @result = sp_getapplock
+                @Resource = N'auth.admin-count',
+                @LockMode = 'Exclusive',
+                @LockOwner = 'Transaction',
+                @LockTimeout = @TimeoutMilliseconds;
+            SELECT @result;
+            """;
+
+        // Retornos do sp_getapplock: 0 e 1 = lock obtido; negativos = timeout, cancelamento, deadlock ou erro.
+        var lockResult = await _session.ExecuteScalarAsync<int>(lockSql, new { TimeoutMilliseconds = AdminLockTimeoutMilliseconds });
+
+        if (lockResult < 0)
+        {
+            throw new InvalidOperationException($"Could not acquire the admin count lock (sp_getapplock returned {lockResult}).");
+        }
+
+        // Ja com o lock, a leitura enxerga o que a transacao anterior confirmou.
         const string sql = """
             SELECT COUNT(*)
-            FROM auth.users AS users WITH (UPDLOCK, HOLDLOCK)
+            FROM auth.users AS users WITH (READPAST)
             WHERE
                 users.role = @Role
                 AND users.active = 1

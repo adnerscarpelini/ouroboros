@@ -28,36 +28,38 @@ public sealed class DeleteUserInteractor : IDeleteUserUseCase
 
     public async Task<DeleteUserResponse> ExecuteAsync(DeleteUserRequest request)
     {
-        // Comparacao exata com o nome: qualquer outro valor (inclusive numerico) cai no caminho sem privilegio.
-        var isAdmin = request.RequesterRole == nameof(UserRole.Admin);
+        // O solicitante e lido do banco: o perfil vale o de agora, nao o do token (que vale ate 15 min). Conta inexistente
+        // ou excluida perde o acesso na hora, mesmo com o token ainda dentro do prazo.
+        var requester = await _userRepository.GetByExternalIdAsync(request.RequesterId)
+            ?? throw new InvalidAccessTokenException();
+
+        var isAdmin = requester.Role == UserRole.Admin;
         var isSelf = request.ExternalId == request.RequesterId;
 
-        // Autorizacao antes de consultar o banco: negar sem buscar nao revela se a conta pedida existe.
+        // Autorizacao antes de consultar o alvo: le-se o solicitante, nunca o alvo, pra negar sem revelar se a conta existe.
         if (!isAdmin && !isSelf)
         {
             throw new AccessDeniedException();
         }
 
-        var requester = await _userRepository.GetByExternalIdAsync(request.RequesterId);
-
         // Reautenticacao: uma sessao aberta (ou um access token roubado) sozinha nao basta pra excluir uma conta.
         // A falha de senha e gravada em autocommit, fora da transacao da exclusao, pra contar pro bloqueio de conta.
         var now = DateTimeOffset.UtcNow;
-        var canVerifyRealHash = requester is not null && !requester.IsLockedOut(now);
-        var hash = canVerifyRealHash ? requester!.PasswordHash : _passwordHasher.DummyHash;
+        var canVerifyRealHash = !requester.IsLockedOut(now);
+        var hash = canVerifyRealHash ? requester.PasswordHash : _passwordHasher.DummyHash;
         var passwordMatches = _passwordHasher.Verify(request.RequesterPassword ?? string.Empty, hash);
 
         if (!canVerifyRealHash || !passwordMatches)
         {
             if (canVerifyRealHash)
             {
-                await _userRepository.RecordFailedAccessAsync(requester!.ExternalId, now);
+                await _userRepository.RecordFailedAccessAsync(requester.ExternalId, now);
             }
 
             throw new InvalidCredentialsException();
         }
 
-        if (!await _userRepository.TryResetFailedAccessAsync(requester!.ExternalId, now))
+        if (!await _userRepository.TryResetFailedAccessAsync(requester.ExternalId, now))
         {
             throw new InvalidCredentialsException();
         }

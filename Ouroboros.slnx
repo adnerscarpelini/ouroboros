@@ -78,12 +78,13 @@
   <Folder Name="/specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/">
     <File Path="specs/2026092509-Auth-Politica-e-armazenamento-de-senhas/evidence/README.md" />
   </Folder>
-  <Folder Name="/specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/">
-    <File Path="specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/spec.md" />
-    <File Path="specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/tasks.md" />
+  <Folder Name="/specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/">
+    <File Path="specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/spec.md" />
+    <File Path="specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/tasks.md" />
   </Folder>
-  <Folder Name="/specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/">
-    <File Path="specs/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/README.md" />
+  <Folder Name="/specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/">
+    <File Path="specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/README.md" />
+    <File Path="specs/archived/2026092510-Auth-Autorizacao-pelo-perfil-atual/evidence/dotnet-test.txt" />
   </Folder>
   <Folder Name="/specs/2026092511-Auth-Configuracao-segura-de-producao/">
     <File Path="specs/2026092511-Auth-Configuracao-segura-de-producao/spec.md" />

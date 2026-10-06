@@ -23,9 +23,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 | `Admin` | Qualquer conta, inclusive a de outro `Admin` |
 | `User` | Só a própria |
 
-- O perfil e a identidade vêm do token (`sub`, `role`), nunca do body.
-- `User` pedindo outra conta → `403`, decidido **antes** de consultar o banco, então a resposta não revela se a conta existe.
-- Qualquer valor de `role` diferente de exatamente `Admin` é tratado como sem privilégio.
+- Do token vem só o `sub`. **O perfil do solicitante é lido do banco**, não do claim `role`: um Admin rebaixado não exclui mais ninguém na próxima requisição, mesmo com o token ainda válido.
+- `User` pedindo outra conta → `403`, decidido lendo só o solicitante e **antes** de consultar o alvo, então a resposta não revela se a conta existe.
+- **Solicitante inexistente ou excluído → `401 Invalid access token`**, mesmo com o token dentro do prazo.
 - **Não é permitido excluir o último `Admin` ativo** (`400`), pra que o sistema nunca fique sem administrador.
 
 ## Reautenticação
@@ -51,8 +51,8 @@ Os passos 1 a 3 rodam numa **única transação**: ou acontecem todos, ou nenhum
 - **Antes da transação:** a autorização, a reautenticação e a busca do alvo. Negar acesso, errar a senha ou apontar uma conta inexistente nunca abre transação.
 - **Falha de senha fora da transação.** A falha é gravada em autocommit, então conta para o bloqueio de conta (ver `docs/auth/0008 - Protecao contra Tentativas de Autenticacao.md`) e não é desfeita por nenhum rollback.
 - **Alvo relido dentro da transação.** Como o update regrava a linha toda, o alvo é lido de novo na transação. Uma exclusão ou troca de senha confirmada entre a primeira leitura e a escrita não é sobrescrita. Se o alvo sumiu nesse meio tempo, a resposta é `404`.
-- **Último Admin sob concorrência.** Quando o alvo é um Admin ativo, a contagem de Admins ativos roda com `WITH (UPDLOCK, HOLDLOCK)` dentro da transação (`CountActiveAdminsForUpdateAsync`). Os locks duram até o commit ou rollback. Dois Admins que se excluem ao mesmo tempo ficam em fila: o primeiro conclui, o segundo já enxerga um Admin só e recebe `400 The last active admin cannot be deleted`. Quando o alvo não é Admin, nenhum lock é tomado.
-- **Custo do lock.** Sem índice sobre o perfil, a contagem lê a tabela de usuários, então o lock de faixa também segura cadastros e logins por alguns milissegundos enquanto um Admin está sendo excluído. É raro e curto. Se a tabela crescer, um índice filtrado nos Admins ativos estreita o lock.
+- **Último Admin sob concorrência.** Quando o alvo é um Admin ativo, a contagem de Admins ativos (`CountActiveAdminsForUpdateAsync`) toma antes um lock de aplicação exclusivo (`sp_getapplock`, dono `Transaction`, recurso `auth.admin-count`), que dura até o commit ou rollback. Dois Admins que se excluem ao mesmo tempo ficam em fila: o primeiro conclui, e o segundo ou já enxerga um Admin só e recebe `400 The last active admin cannot be deleted`, ou, se chegou depois do commit do primeiro, já foi excluído e recebe `401 Invalid access token`. Nunca saem dois `204`. Quando o alvo não é Admin, nenhum lock é tomado.
+- **Por que lock de aplicação e não `UPDLOCK, HOLDLOCK`.** A primeira versão travava as linhas dos Admins com `UPDLOCK, HOLDLOCK`. Como a leitura varre a tabela, os locks de faixa entravam em ciclo com outras escritas nas mesmas linhas, e a transação perdedora recebia deadlock (erro 1205, resposta `500`) em cerca de 1 de cada 60 rodadas do teste de concorrência. O lock de aplicação não trava linha nenhuma, então não forma ciclo. O método recusa ser chamado fora de uma transação (`InvalidOperationException`), porque o lock soltaria na hora.
 
 ## Conta excluída se comporta como inexistente
 
@@ -84,6 +84,7 @@ Todos com corpo `{"error": "..."}`, exceto o `401` de token e o `429`.
 | Situação | Status | Mensagem |
 |---|---|---|
 | Sem token, token inválido ou expirado | `401` | *(sem corpo)* |
+| Solicitante inexistente ou excluído, com token válido | `401` | `Invalid access token` |
 | Senha errada ou vazia | `401` | `Invalid login or password` |
 | `User` excluindo outra conta | `403` | `Access denied` |
 | Conta não existe ou já foi excluída | `404` | `User not found` |

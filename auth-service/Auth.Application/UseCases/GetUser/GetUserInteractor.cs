@@ -21,25 +21,26 @@ public sealed class GetUserInteractor : IGetUserUseCase
 
         ValidateSingleCriterion(request.ExternalId, login, email);
 
-        // Comparacao exata com o nome: qualquer outro valor (inclusive numerico) cai no caminho sem privilegio.
-        var isAdmin = request.RequesterRole == nameof(UserRole.Admin);
+        // O solicitante e lido do banco: o perfil e a identidade valem os de agora, nao os do token (que vale ate 15 min).
+        // Conta inexistente ou excluida perde o acesso na hora, mesmo com o token ainda dentro do prazo.
+        var requester = await _userRepository.GetByExternalIdAsync(request.RequesterId)
+            ?? throw new InvalidAccessTokenException();
 
-        // Autorizacao antes de consultar o banco: negar sem buscar nao revela se a conta pedida existe.
-        if (!isAdmin && !IsRequestingSelf(request, login, email))
+        var isAdmin = requester.Role == UserRole.Admin;
+        var isSelf = IsRequestingSelf(requester, request.ExternalId, login, email);
+
+        // Autorizacao antes de consultar o alvo: le-se o solicitante, nunca o alvo, pra negar sem revelar se a conta existe.
+        if (!isAdmin && !isSelf)
         {
             throw new AccessDeniedException();
         }
 
-        var user = await FindUserAsync(request.ExternalId, login, email);
+        // Quem consulta a si mesmo ja esta carregado.
+        var user = isSelf ? requester : await FindUserAsync(request.ExternalId, login, email);
 
         if (user is null)
         {
             throw new UserNotFoundException();
-        }
-
-        if (!isAdmin && user.ExternalId != request.RequesterId)
-        {
-            throw new AccessDeniedException();
         }
 
         return new GetUserResponse(
@@ -90,22 +91,24 @@ public sealed class GetUserInteractor : IGetUserUseCase
         }
     }
 
+    // Compara com os dados atuais do solicitante no banco, ja normalizados (spec 2026092508).
     private static bool IsRequestingSelf(
-        GetUserRequest request,
+        User requester,
+        Guid? externalId,
         string? login,
         string? email)
     {
-        if (request.ExternalId is not null)
+        if (externalId is not null)
         {
-            return request.ExternalId == request.RequesterId;
+            return externalId == requester.ExternalId;
         }
 
         if (login is not null)
         {
-            return login == Normalize(request.RequesterLogin);
+            return login == requester.NormalizedLogin;
         }
 
-        return email == Normalize(request.RequesterEmail);
+        return email == requester.NormalizedEmail;
     }
 
     private Task<User?> FindUserAsync(

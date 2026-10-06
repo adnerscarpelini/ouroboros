@@ -4,6 +4,8 @@ using Dapper;
 using Ouroboros.Auth.Application.Gateways;
 using Ouroboros.Auth.Domain.Entities;
 
+// Hints de leitura (skill ouroboros-dba): SELECT de decisao usa WITH (READPAST), que so devolve linha commitada e pula a
+// linha travada por outra transacao (para quem le, ela some). SELECT informativo usa WITH (NOLOCK). UPDATE e DELETE nao levam hint.
 public sealed class DapperTokenRepository : ITokenRepository
 {
     private readonly DbSession _session;
@@ -73,9 +75,9 @@ public sealed class DapperTokenRepository : ITokenRepository
                 tokens.expires_at,
                 tokens.used_at
             FROM
-                auth.tokens AS tokens
+                auth.tokens AS tokens WITH (READPAST)
             INNER JOIN
-                auth.users AS users
+                auth.users AS users WITH (READPAST)
                 ON users.id = tokens.user_id
             WHERE
                 tokens.token_hash = @TokenHash
@@ -116,9 +118,9 @@ public sealed class DapperTokenRepository : ITokenRepository
             SELECT CASE WHEN EXISTS (
                 SELECT 1
                 FROM
-                    auth.tokens AS tokens
+                    auth.tokens AS tokens WITH (READPAST)
                 INNER JOIN
-                    auth.users AS users
+                    auth.users AS users WITH (READPAST)
                     ON users.id = tokens.user_id
                 WHERE
                     users.external_id = @UserExternalId

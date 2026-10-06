@@ -1,5 +1,6 @@
 namespace Ouroboros.Auth.Integration.Tests.Persistence;
 
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ouroboros.Auth.Domain.Entities;
 using Ouroboros.Auth.Domain.Exceptions;
@@ -64,6 +65,7 @@ public sealed class RepositorySqlTests : IAsyncLifetime
     [Fact]
     public async Task ShouldCountOnlyActiveAndNotDeletedAdmins()
     {
+        // Spec 2026092505: a contagem com lock so roda dentro de uma unidade de trabalho.
         var active = await _api.CreateUserAsync("admin.active");
         var inactive = await _api.CreateUserAsync("admin.inactive", confirmed: false);
         var deleted = await _api.CreateUserAsync("admin.deleted");
@@ -76,11 +78,75 @@ public sealed class RepositorySqlTests : IAsyncLifetime
 
         await DeleteLogicallyAsync(deleted.ExternalId);
 
-        Assert.Equal(1, await CreateUserRepository().CountActiveAdminsForUpdateAsync());
+        await using var session = _fixture.CreateSession();
+        var count = await new SqlUnitOfWork(session).ExecuteAsync(() =>
+            new DapperUserRepository(session, NullLogger<DapperUserRepository>.Instance).CountActiveAdminsForUpdateAsync());
+
+        Assert.Equal(1, count);
         Assert.NotEqual(UserRole.Admin, (await CreateUserRepository().GetByExternalIdAsync(common.ExternalId))!.Role);
     }
 
-    // Spec 2026092505: a contagem de Admins ativos trava as linhas ate o fim da transacao.
+    // Regra de hints (skill ouroboros-dba): leitura nao espera linha travada por outra transacao.
+    // READPAST pula a linha travada (para quem le, ela some); NOLOCK le mesmo travada, inclusive dado nao commitado.
+
+    [Fact]
+    public async Task ShouldNotWaitAndShouldSkipTheRowWhenDecisionReadFindsItLockedByAnotherTransaction()
+    {
+        var locked = await _api.CreateUserAsync("readpast.locked");
+        var free = await _api.CreateUserAsync("readpast.free");
+        await using var writer = await LockUserRowAsync(locked.ExternalId);
+
+        var started = DateTimeOffset.UtcNow;
+        var lockedRead = await CreateUserRepository().GetByExternalIdAsync(locked.ExternalId);
+        var freeRead = await CreateUserRepository().GetByExternalIdAsync(free.ExternalId);
+
+        Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(3), "A leitura esperou o lock em vez de pular a linha.");
+        Assert.Null(lockedRead);
+        Assert.NotNull(freeRead);
+    }
+
+    [Fact]
+    public async Task ShouldSkipTokenRowLockedByAnotherTransactionOnLookupByHash()
+    {
+        var user = await _api.CreateUserAsync("readpast.token");
+        var raw = await _api.AddTokenAsync(user.ExternalId, TokenType.PasswordReset);
+        await using var writer = new SqlConnection(_fixture.ConnectionString);
+        await writer.OpenAsync();
+        await using var transaction = writer.BeginTransaction();
+        await Dapper.SqlMapper.ExecuteAsync(
+            writer,
+            "UPDATE auth.tokens SET updated_at = SYSDATETIMEOFFSET() WHERE token_hash = @Hash;",
+            new { Hash = _tokens.Hash(raw) },
+            transaction);
+
+        var token = await CreateTokenRepository().GetByHashAsync(_tokens.Hash(raw), TokenType.PasswordReset);
+
+        // Consequencia conhecida do READPAST: enquanto outra transacao altera o token, quem le nao o ve.
+        Assert.Null(token);
+    }
+
+    [Fact]
+    public async Task ShouldNotWaitWhenInformativeReadFindsRowLockedByAnotherTransaction()
+    {
+        var gone = await _api.CreateUserAsync("nolock.deleted");
+        await DeleteLogicallyAsync(gone.ExternalId);
+        await using var writer = await LockUserRowAsync(gone.ExternalId);
+
+        var started = DateTimeOffset.UtcNow;
+        var exists = await CreateUserRepository().ExistsDeletedByLoginAsync(gone.NormalizedLogin);
+
+        Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(3), "A leitura esperou o lock.");
+        Assert.True(exists);
+    }
+
+    // Spec 2026092505: a contagem de Admins ativos toma um lock que dura ate o fim da transacao.
+    // O lock e o sp_getapplock, nao UPDLOCK/HOLDLOCK: o deadlock da versao antiga foi corrigido na spec 2026092510.
+
+    [Fact]
+    public async Task ShouldRefuseCountForUpdateOutsideUnitOfWork()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateUserRepository().CountActiveAdminsForUpdateAsync());
+    }
 
     [Fact]
     public async Task ShouldCountOnlyActiveAndNotDeletedAdminsWhenCountingForUpdate()
@@ -115,8 +181,14 @@ public sealed class RepositorySqlTests : IAsyncLifetime
             var held = await new DapperUserRepository(holder, NullLogger<DapperUserRepository>.Instance).CountActiveAdminsForUpdateAsync();
             Assert.Equal(2, held);
 
-            // Outra conexao, em autocommit: precisa esperar o lock da transacao acima.
-            waiting = CreateUserRepository().CountActiveAdminsForUpdateAsync();
+            // Outra conexao, em outra transacao: precisa esperar o lock da transacao acima.
+            waiting = Task.Run(async () =>
+            {
+                await using var other = _fixture.CreateSession();
+
+                return await new SqlUnitOfWork(other).ExecuteAsync(() =>
+                    new DapperUserRepository(other, NullLogger<DapperUserRepository>.Instance).CountActiveAdminsForUpdateAsync());
+            });
 
             await Task.Delay(750);
 
@@ -374,6 +446,31 @@ public sealed class RepositorySqlTests : IAsyncLifetime
         await _api.ExpireTokenAsync(raw);
 
         Assert.False(await repository.ExistsPendingByUserAsync(user.ExternalId, TokenType.EmailConfirmation, now));
+    }
+
+    // Transacao aberta que mantem um lock de escrita na linha do usuario. O descarte faz o rollback e solta o lock.
+    private async Task<LockedRow> LockUserRowAsync(Guid externalId)
+    {
+        var connection = new SqlConnection(_fixture.ConnectionString);
+        await connection.OpenAsync();
+        var transaction = connection.BeginTransaction();
+
+        await Dapper.SqlMapper.ExecuteAsync(
+            connection,
+            "UPDATE auth.users SET full_name = 'locked-by-test' WHERE external_id = @Id;",
+            new { Id = externalId },
+            transaction);
+
+        return new LockedRow(connection, transaction);
+    }
+
+    private sealed class LockedRow(SqlConnection connection, SqlTransaction transaction) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            await transaction.DisposeAsync();
+            await connection.DisposeAsync();
+        }
     }
 
     private DapperUserRepository CreateUserRepository() =>

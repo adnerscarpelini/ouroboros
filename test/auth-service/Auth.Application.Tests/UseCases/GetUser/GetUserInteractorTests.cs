@@ -52,10 +52,14 @@ public class GetUserInteractorTests
             return Task.FromResult(0);
         }
 
+        public List<Guid> LookedUpExternalIds { get; } = new();
+
+        // Como o repositorio real, ignora conta excluida: pra aplicacao ela nao existe.
         public Task<User?> GetByExternalIdAsync(Guid externalId)
         {
             LookupCount++;
-            var user = Items.FirstOrDefault(item => item.ExternalId == externalId);
+            LookedUpExternalIds.Add(externalId);
+            var user = Items.FirstOrDefault(item => item.ExternalId == externalId && item.DeletedAt is null);
             return Task.FromResult(user);
         }
 
@@ -111,14 +115,10 @@ public class GetUserInteractorTests
             User requester,
             Guid? externalId = null,
             string? login = null,
-            string? email = null,
-            string? role = null)
+            string? email = null)
         {
             return new GetUserRequest(
                 requester.ExternalId,
-                requester.Login,
-                requester.Email,
-                role ?? requester.Role.ToString(),
                 externalId,
                 login,
                 email);
@@ -214,52 +214,101 @@ public class GetUserInteractorTests
     }
 
     [Fact]
-    public async Task ShouldDenyWithoutQueryingRepositoryWhenUserSearchesAnotherUserByExternalId()
+    public async Task ShouldDenyWithoutQueryingTargetWhenUserSearchesAnotherUserByExternalId()
     {
         var scenario = new Scenario();
 
         await Assert.ThrowsAsync<AccessDeniedException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, externalId: scenario.Other.ExternalId)));
-        Assert.Equal(0, scenario.UserRepository.LookupCount);
+        AssertOnlyRequesterWasRead(scenario);
     }
 
     [Fact]
-    public async Task ShouldDenyWithoutQueryingRepositoryWhenUserSearchesAnotherUserByLogin()
+    public async Task ShouldDenyWithoutQueryingTargetWhenUserSearchesAnotherUserByLogin()
     {
         var scenario = new Scenario();
 
         await Assert.ThrowsAsync<AccessDeniedException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, login: "other")));
-        Assert.Equal(0, scenario.UserRepository.LookupCount);
+        AssertOnlyRequesterWasRead(scenario);
     }
 
     [Fact]
-    public async Task ShouldDenyWithoutQueryingRepositoryWhenUserSearchesAnotherUserByEmail()
+    public async Task ShouldDenyWithoutQueryingTargetWhenUserSearchesAnotherUserByEmail()
     {
         var scenario = new Scenario();
 
         await Assert.ThrowsAsync<AccessDeniedException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, email: "other@example.com")));
-        Assert.Equal(0, scenario.UserRepository.LookupCount);
+        AssertOnlyRequesterWasRead(scenario);
     }
 
     [Fact]
-    public async Task ShouldDenyWithoutQueryingRepositoryWhenUserSearchesNonexistentUser()
+    public async Task ShouldDenyWithoutQueryingTargetWhenUserSearchesNonexistentUser()
     {
         var scenario = new Scenario();
 
         await Assert.ThrowsAsync<AccessDeniedException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, externalId: Guid.NewGuid())));
-        Assert.Equal(0, scenario.UserRepository.LookupCount);
+        AssertOnlyRequesterWasRead(scenario);
     }
 
-    [Theory]
-    [InlineData("admin")]
-    [InlineData("ADMIN")]
-    [InlineData("2")]
-    [InlineData("")]
-    public async Task ShouldDenyWhenRequesterRoleIsNotExactlyAdmin(string role)
+    [Fact]
+    public async Task ShouldDecideByTheRoleStoredInTheDatabase()
+    {
+        // O token nao entra mais na decisao: quem foi rebaixado no banco e tratado como User na hora,
+        // e quem foi promovido ja consulta como Admin.
+        var scenario = new Scenario();
+
+        await Assert.ThrowsAsync<AccessDeniedException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, externalId: scenario.Other.ExternalId)));
+        var response = await scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Admin, externalId: scenario.Other.ExternalId));
+
+        Assert.Equal(scenario.Other.ExternalId, response.ExternalId);
+    }
+
+    [Fact]
+    public async Task ShouldThrowInvalidAccessTokenExceptionWhenRequesterDoesNotExist()
+    {
+        var scenario = new Scenario();
+        var stranger = Guid.NewGuid();
+
+        var exception = await Assert.ThrowsAsync<InvalidAccessTokenException>(() => scenario.Interactor.ExecuteAsync(new GetUserRequest(stranger, scenario.Other.ExternalId, null, null)));
+
+        Assert.Equal("Invalid access token", exception.Message);
+        Assert.Equal([stranger], scenario.UserRepository.LookedUpExternalIds);
+        Assert.Equal(1, scenario.UserRepository.LookupCount);
+    }
+
+    [Fact]
+    public async Task ShouldThrowInvalidAccessTokenExceptionWhenRequesterWasDeleted()
+    {
+        var scenario = new Scenario();
+        scenario.Admin.Delete();
+
+        await Assert.ThrowsAsync<InvalidAccessTokenException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Admin, externalId: scenario.Other.ExternalId)));
+
+        Assert.Equal(1, scenario.UserRepository.LookupCount);
+    }
+
+    [Fact]
+    public async Task ShouldCompareSelfWithTheLoginAndEmailStoredInTheDatabase()
+    {
+        // O login e o e-mail do solicitante vem do banco, normalizados: o token nao pode forjar "ser o proprio usuario".
+        var scenario = new Scenario();
+
+        var byLogin = await scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, login: " JDOE "));
+        var byEmail = await scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, email: "JDoe@Example.com"));
+
+        Assert.Equal(scenario.Requester.ExternalId, byLogin.ExternalId);
+        Assert.Equal(scenario.Requester.ExternalId, byEmail.ExternalId);
+        await Assert.ThrowsAsync<AccessDeniedException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, login: "other")));
+    }
+
+    [Fact]
+    public async Task ShouldNotQueryTargetAgainWhenRequesterSearchesSelf()
     {
         var scenario = new Scenario();
 
-        await Assert.ThrowsAsync<AccessDeniedException>(() => scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, externalId: scenario.Other.ExternalId, role: role)));
-        Assert.Equal(0, scenario.UserRepository.LookupCount);
+        await scenario.Interactor.ExecuteAsync(scenario.RequestAs(scenario.Requester, login: "jdoe"));
+
+        Assert.Equal([scenario.Requester.ExternalId], scenario.UserRepository.LookedUpExternalIds);
+        Assert.Equal(1, scenario.UserRepository.LookupCount);
     }
 
     [Fact]
@@ -290,6 +339,13 @@ public class GetUserInteractorTests
 
         Assert.IsType<DomainException>(exception);
         Assert.Equal(0, scenario.UserRepository.LookupCount);
+    }
+
+    private static void AssertOnlyRequesterWasRead(Scenario scenario)
+    {
+        // So o solicitante e lido, pra decidir pelo perfil dele no banco. O alvo nunca e consultado antes de negar.
+        Assert.Equal([scenario.Requester.ExternalId], scenario.UserRepository.LookedUpExternalIds);
+        Assert.Equal(1, scenario.UserRepository.LookupCount);
     }
 
     [Fact]

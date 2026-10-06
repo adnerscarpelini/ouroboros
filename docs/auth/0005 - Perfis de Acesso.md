@@ -13,16 +13,19 @@ O nome segue o padrão de mercado: `role` no ASP.NET Core (`[Authorize(Roles = .
 
 - **Menor privilégio:** todo cadastro nasce `User`. O `POST /api/users` não aceita perfil no body, então ninguém se promove sozinho.
 - **Promoção só por SQL**, feita por quem tem acesso ao banco (ver [Promover um Admin](#promover-um-admin)). Ainda não existe endpoint de troca de perfil.
-- O perfil vai no access token como claim `role`. A autorização lê o token, sem consultar o banco a cada request.
+- O perfil vai no access token como claim `role`, para outros serviços e para decisões não sensíveis.
+- **Ações privilegiadas leem o perfil do banco, não o claim.** Consultar uma conta alheia e excluir uma conta alheia decidem "é Admin?" pelo `role` gravado em `auth.users` no momento da requisição. Isso vale para toda ação privilegiada nova.
 
 ## Mudança de perfil e o token
 
-Como o perfil está no JWT, uma mudança só vale no **próximo token emitido**:
+O claim `role` do token só muda no **próximo token emitido**, mas isso não afeta as ações privilegiadas do `auth-service`:
 
-- **Promoção:** vale no próximo login ou refresh. Os dois leem o perfil atual do banco.
-- **Rebaixamento:** o access token já emitido continua com o perfil antigo até expirar (`Jwt:AccessTokenExpirationMinutes`, padrão 15 min). Para impedir que a sessão seja renovada, revogue também os refresh tokens do usuário (abaixo).
+- **No `auth-service`, vale na hora.** Promoção e rebaixamento valem na próxima requisição de consulta ou exclusão, mesmo com o access token antigo ainda dentro do prazo, porque o perfil é lido do banco.
+- **O claim `role` do token:** a promoção aparece no próximo login ou refresh (os dois leem o perfil atual do banco). Num rebaixamento, o token já emitido continua com o claim antigo até expirar (`Jwt:AccessTokenExpirationMinutes`, padrão 15 min).
+- **Limitação em outros serviços.** Um serviço que validar o JWT sozinho e decidir pelo claim `role` continua enxergando o perfil antigo até o `exp` do token. A janela de 15 min é o padrão aceito para access tokens curtos (ver `docs/auth/0002 - Configuracao JWT.md`).
+- **Conta excluída** perde o acesso na hora nos endpoints do `auth-service` (`401 Invalid access token`), mesmo com o token ainda válido.
 
-A vida curta do access token é o que limita essa janela (ver `docs/auth/0002 - Configuracao JWT.md`).
+Para impedir que a sessão rebaixada seja renovada com o perfil antigo no claim, revogue também os refresh tokens do usuário (abaixo).
 
 ## Promover um Admin
 

@@ -19,9 +19,10 @@ Sem token, ou com token inválido/expirado → `401`. Como o token é validado e
 | `Admin` | Qualquer usuário |
 | `User` | Só a si mesmo |
 
-- O perfil e a identidade vêm do token (`sub`, `unique_name`, `email`, `role`), nunca do body.
-- `User` pedindo outro usuário → `403`. A negação acontece **antes** de consultar o banco, então a resposta é a mesma exista ou não a conta pedida. Isso impede enumeração de usuários.
-- Qualquer valor de `role` diferente de exatamente `Admin` é tratado como sem privilégio.
+- Do token vem só o `sub` (quem é o solicitante), nunca do body. **O perfil, o login e o e-mail do solicitante vêm do banco**, lidos na hora, e não dos claims `role`, `unique_name` e `email`. Um Admin rebaixado perde o acesso na próxima requisição, e um usuário promovido ganha na próxima requisição, sem esperar o token expirar.
+- **"É o próprio usuário?"** compara o critério pedido com o `externalId`, o login e o e-mail normalizados do solicitante no banco (ver `docs/auth/0009 - Politica de Identidade.md`).
+- `User` pedindo outro usuário → `403`. Lê-se o solicitante, **nunca o alvo**, antes de negar, então a resposta é a mesma exista ou não a conta pedida. Isso impede enumeração de usuários.
+- **Solicitante inexistente ou excluído → `401 Invalid access token`**, mesmo com o token dentro do prazo.
 - A regra fica no caso de uso (`GetUserInteractor`), não só no controller, e é coberta por teste.
 
 ## Endpoints
@@ -79,21 +80,22 @@ Um teste (`ShouldExposeOnlyAllowedFieldsInResponse`) falha se alguém adicionar 
 
 ## Erros
 
-Todos com corpo `{"error": "..."}`, exceto o `401`.
+Todos com corpo `{"error": "..."}`, exceto o `401` de token ausente, inválido ou expirado.
 
 | Situação | Status | Mensagem |
 |---|---|---|
 | Sem token, token inválido ou expirado | `401` | *(sem corpo)* |
+| Solicitante inexistente ou excluído, com token válido | `401` | `Invalid access token` |
 | Nenhum ou os dois campos no body do `search` | `400` | `Exactly one search criterion (externalId, login or email) is required` |
 | `User` consultando outro usuário | `403` | `Access denied` |
 | Usuário não existe ou foi excluído | `404` | `User not found` |
 
-`400`, `403` e `404` são logados em `Warning` no Seq, com o `externalId` do solicitante.
+`400`, `401` (solicitante inexistente), `403` e `404` são logados em `Warning` no Seq, com o `externalId` do solicitante.
 
 ## Onde está no código
 
 - Caso de uso: `Auth.Application/UseCases/GetUser/`.
 - Endpoints: `GetById` e `Search` em `Auth.Api/Controllers/UserController.cs`. Body do search: `Auth.Api/Models/SearchUserBody.cs`.
-- Exceções: `AccessDeniedException` e `UserNotFoundException` em `Auth.Domain/Exceptions/`.
+- Exceções: `AccessDeniedException`, `UserNotFoundException` e `InvalidAccessTokenException` em `Auth.Domain/Exceptions/`.
 - Busca por e-mail: `DapperUserRepository.GetByEmailAsync`. Os índices únicos de `login` e `email` cobrem as buscas (o de `email` é parcial, só para contas não excluídas).
 - Perfis: `docs/auth/0005 - Perfis de Acesso.md`.

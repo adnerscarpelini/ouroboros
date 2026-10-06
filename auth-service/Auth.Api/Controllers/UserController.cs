@@ -14,7 +14,6 @@ using Ouroboros.Auth.Application.UseCases.RegisterUser;
 using Ouroboros.Auth.Application.UseCases.RequestPasswordReset;
 using Ouroboros.Auth.Application.UseCases.ResetPassword;
 using Ouroboros.Auth.Domain.Exceptions;
-using Ouroboros.Auth.Infrastructure.Security;
 
 [ApiController]
 [Route("api/users")]
@@ -170,7 +169,6 @@ public sealed class UserController : ControllerBase
 
         var request = new DeleteUserRequest(
             requesterExternalId,
-            User.FindFirstValue(JwtTokenGenerator.RoleClaimType) ?? string.Empty,
             body.Password,
             externalId);
 
@@ -184,6 +182,11 @@ public sealed class UserController : ControllerBase
                 requesterExternalId);
 
             return NoContent();
+        }
+        catch (InvalidAccessTokenException e)
+        {
+            _logger.LogWarning(e, "User deletion rejected: requester {RequesterId} no longer exists", requesterExternalId);
+            return Unauthorized(new { error = e.Message });
         }
         catch (InvalidCredentialsException e)
         {
@@ -222,9 +225,6 @@ public sealed class UserController : ControllerBase
 
         var request = new GetUserRequest(
             requesterExternalId,
-            User.FindFirstValue(JwtRegisteredClaimNames.UniqueName) ?? string.Empty,
-            User.FindFirstValue(JwtRegisteredClaimNames.Email) ?? string.Empty,
-            User.FindFirstValue(JwtTokenGenerator.RoleClaimType) ?? string.Empty,
             externalId,
             login,
             email);
@@ -233,6 +233,11 @@ public sealed class UserController : ControllerBase
         {
             var response = await _getUserUseCase.ExecuteAsync(request);
             return Ok(response);
+        }
+        catch (InvalidAccessTokenException e)
+        {
+            _logger.LogWarning(e, "User lookup rejected: requester {RequesterId} no longer exists", requesterExternalId);
+            return Unauthorized(new { error = e.Message });
         }
         catch (AccessDeniedException e)
         {

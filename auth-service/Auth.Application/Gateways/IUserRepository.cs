@@ -52,10 +52,10 @@ public interface IUserRepository
     Task<bool> ExistsDeletedByLoginAsync(string login);
 
     /// <summary>
-    /// Conta os Admins ativos e nao excluidos e <b>trava</b> essas linhas ate o fim da transacao corrente
-    /// (<c>UPDLOCK, HOLDLOCK</c>). Chamar so dentro de <see cref="IUnitOfWork"/>: assim duas operacoes que
-    /// reduzem o numero de Admins (excluir um deles) ficam em fila e a segunda ja enxerga a contagem reduzida.
-    /// Fora de uma transacao o lock e solto na hora e nao protege nada.
+    /// Conta os Admins ativos e nao excluidos <b>depois de tomar um lock exclusivo</b> que dura ate o fim da transacao
+    /// corrente. Duas operacoes que reduzem o numero de Admins (excluir um deles) ficam em fila, e a segunda ja enxerga
+    /// a contagem reduzida. Exige uma <see cref="IUnitOfWork"/> em andamento: fora dela lanca
+    /// <see cref="InvalidOperationException"/>, porque o lock soltaria na hora e nao protegeria nada.
     /// </summary>
     Task<int> CountActiveAdminsForUpdateAsync();
 }

@@ -296,4 +296,25 @@
     <Project Path="test/auth-service/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
     <Project Path="test/auth-service/Auth.Integration.Tests/Auth.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/specs/2026101201-Notification-Envio-de-email-por-mensageria/">
+    <File Path="specs/2026101201-Notification-Envio-de-email-por-mensageria/spec.md" />
+    <File Path="specs/2026101201-Notification-Envio-de-email-por-mensageria/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026101201-Notification-Envio-de-email-por-mensageria/evidence/">
+    <File Path="specs/2026101201-Notification-Envio-de-email-por-mensageria/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026101202-Auth-Email-de-confirmacao-com-outbox/">
+    <File Path="specs/2026101202-Auth-Email-de-confirmacao-com-outbox/spec.md" />
+    <File Path="specs/2026101202-Auth-Email-de-confirmacao-com-outbox/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026101202-Auth-Email-de-confirmacao-com-outbox/evidence/">
+    <File Path="specs/2026101202-Auth-Email-de-confirmacao-com-outbox/evidence/README.md" />
+  </Folder>
+  <Folder Name="/specs/2026101203-Auth-Email-de-recuperacao-de-senha/">
+    <File Path="specs/2026101203-Auth-Email-de-recuperacao-de-senha/spec.md" />
+    <File Path="specs/2026101203-Auth-Email-de-recuperacao-de-senha/tasks.md" />
+  </Folder>
+  <Folder Name="/specs/2026101203-Auth-Email-de-recuperacao-de-senha/evidence/">
+    <File Path="specs/2026101203-Auth-Email-de-recuperacao-de-senha/evidence/README.md" />
+  </Folder>
 </Solution>

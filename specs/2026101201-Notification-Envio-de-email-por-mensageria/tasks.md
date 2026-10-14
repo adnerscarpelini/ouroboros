@@ -1,7 +1,7 @@
 # 2026101201 - Envio de e-mail por mensageria — Tarefas
 
-- [ ] **Dev** — Criar notification-service com Domain, Application, Infrastructure e Worker; caso de uso de envio, dois templates de texto e gateway SMTP, sem referências ao auth
-- [ ] **Dev** — Implementar consumidor RabbitMQ com contrato v1, validação, ack após aceitação SMTP, prefetch 1, timeout, retry simples, descarte de expiradas e reconexão
-- [ ] **Dev** — Criar Dockerfile do worker e adicionar notification-service, RabbitMQ e Mailpit ao compose, volume do broker, credenciais separadas e configuração de SMTP/broker no .env.example; incluir projetos na solution e build/test na CI
-- [ ] **Tester** — Verificar os dois templates no Mailpit, compatibilidade do JSON, descarte de inválidas/expiradas, retomada após falha SMTP e reinício do consumidor/broker com mensagens pendentes; garantir ausência de dados sensíveis nos logs
-- [ ] **Tech Writer** — Documentar contrato v1, configuração e operação local, duplicidade aceita e ausência de frontend; atualizar arquitetura para a entrada Worker e registrar que não há banco no notification-service
+- [ ] **Dev** — Criar notification-service com Domain, Application, Infrastructure e Worker; caso de uso de envio, dois templates de texto (o de recuperação avisando que só o código mais recente vale) e gateway SMTP, sem referências ao auth
+- [ ] **Dev** — Implementar consumidor RabbitMQ com contrato v1, validação, ack após aceitação SMTP, prefetch 1, timeout, retry só para falha transitória, descarte de falha permanente/expiradas/inválidas, reconexão e encerramento gracioso
+- [ ] **Dev** — Criar Dockerfile do worker e adicionar notification-service, RabbitMQ, `rabbitmq-init` (vhost, usuários por serviço, permissões e fila classic) e Mailpit ao compose, com volume do broker e configuração de SMTP/broker no .env.example; incluir projetos na solution e build/test na CI
+- [ ] **Tester** — Verificar os dois templates no Mailpit, compatibilidade do JSON, descarte de inválidas/expiradas/recusadas (5xx), retomada após falha transitória do SMTP e reinício do consumidor/broker com mensagens pendentes; provar que os usuários do broker não têm permissão fora do necessário; garantir ausência de dados sensíveis nos logs
+- [ ] **Tech Writer** — Documentar contrato v1, provisionamento e permissões do broker, configuração e operação local, tratamento de falhas, duplicidade aceita e ausência de frontend; atualizar arquitetura para a entrada Worker e registrar que não há banco no notification-service
